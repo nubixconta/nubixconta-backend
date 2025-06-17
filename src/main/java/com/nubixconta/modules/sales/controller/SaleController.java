@@ -1,15 +1,14 @@
-package com.nubixconta.modules.sales;
+package com.nubixconta.modules.sales.controller;
 
+import com.nubixconta.modules.sales.service.SaleService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/sales")
-public class SalesController {
+public class SaleController {
     @Autowired
-    private SalesService salesService;
+    private SaleService salesService;
 
     // TODO: los endpoint deben ir aqui
     /*
