@@ -1,12 +1,12 @@
-package com.nubixconta.modules.sales;
+package com.nubixconta.modules.sales.service;
+import com.nubixconta.modules.sales.repository.SaleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import java.util.List;
 
 @Service
-public class SalesService {
+public class SaleService {
     @Autowired
-    private SalesRepository salesRepository;
+    private SaleRepository salesRepository;
 
     // TODO: Reemplazar con lógica real cuando se definan los requerimientos
 
