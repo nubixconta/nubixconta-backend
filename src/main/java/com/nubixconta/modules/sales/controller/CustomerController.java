@@ -62,7 +62,7 @@ public class CustomerController {
             }
         });
 
-        // Sin validación adicional, solo actualiza con lo recibido
+
         return ResponseEntity.ok(customerService.save(customer));
     }
 
