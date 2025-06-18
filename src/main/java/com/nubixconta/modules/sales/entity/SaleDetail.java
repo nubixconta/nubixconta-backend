@@ -24,7 +24,7 @@ public class SaleDetail {
 
     // Relación con Product (clave foránea por código)
     @ManyToOne
-    @JoinColumn(name = "product_id", referencedColumnName = "id", nullable = false)
+    @JoinColumn(name = "product_id", referencedColumnName = "id_product", nullable = false)
     private Product product;
 
     @Column(name = "quantity")

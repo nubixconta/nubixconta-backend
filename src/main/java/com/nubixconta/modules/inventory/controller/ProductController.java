@@ -6,8 +6,12 @@ import com.nubixconta.modules.inventory.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import jakarta.validation.Valid;
+import java.util.Map;
+import java.util.Optional;
+import java.lang.reflect.Field;
+import org.springframework.util.ReflectionUtils;
 
 @RestController
 @RequestMapping("/api/v1/products")
@@ -37,16 +41,34 @@ public class ProductController {
     }
 
     @PostMapping
-    public ResponseEntity<Product> createProduct(@RequestBody Product product) {
+    public ResponseEntity<Product> createProduct(@Valid @RequestBody Product product) {
+        product.setIdProduct(null); // Garantiza que la PK no venga en el request
         return ResponseEntity.ok(productService.save(product));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable Integer id, @RequestBody Product product) {
-        if (productService.findById(id).isEmpty()) {
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<Product> updateProduct(
+            @PathVariable Integer id,
+            @RequestBody Map<String, Object> updates) {
+
+        Optional<Product> optionalProduct = productService.findById(id);
+        if (optionalProduct.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        product.setId(id);
+        Product product = optionalProduct.get();
+
+        updates.forEach((key, value) -> {
+            if (key.equalsIgnoreCase("idProduct")) {
+                return; // No permitir cambiar la PK
+            }
+            Field field = ReflectionUtils.findField(Product.class, key);
+            if (field != null) {
+                field.setAccessible(true);
+                ReflectionUtils.setField(field, product, value);
+            }
+        });
+
         return ResponseEntity.ok(productService.save(product));
     }
 
