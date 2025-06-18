@@ -1,4 +1,5 @@
-package com.nubixconta.modules.accountsreceivable;
+package com.nubixconta.modules.accountsreceivable.service;
+import com.nubixconta.modules.accountsreceivable.repository.AccountsReceivableRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

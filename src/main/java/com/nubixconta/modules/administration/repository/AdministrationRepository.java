@@ -1,4 +1,5 @@
-package com.nubixconta.modules.administration;
+package com.nubixconta.modules.administration.repository;
+import com.nubixconta.modules.administration.Administration;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AdministrationRepository extends JpaRepository<Administration, Long> {

@@ -1,4 +1,5 @@
-package com.nubixconta.modules.accountsreceivable;
+package com.nubixconta.modules.accountsreceivable.repository;
+import com.nubixconta.modules.accountsreceivable.AccountsReceivable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AccountsReceivableRepository extends JpaRepository<AccountsReceivable, Long>{
