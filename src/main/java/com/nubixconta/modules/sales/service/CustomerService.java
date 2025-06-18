@@ -5,6 +5,7 @@ import com.nubixconta.modules.sales.repository.CustomerRepository;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -14,13 +15,19 @@ public class CustomerService {
     public List<Customer> findAll() {
         return customerRepository.findAll();
     }
-    public Customer findById(Integer id) {
-        return customerRepository.findById(id).orElse(null);
+
+    public Optional<Customer> findById(Integer id) {
+        return customerRepository.findById(id);
     }
+
     public Customer save(Customer customer) {
         return customerRepository.save(customer);
     }
+
     public void delete(Integer id) {
+        if (!customerRepository.existsById(id)) {
+            throw new IllegalArgumentException("Cliente no encontrado");
+        }
         customerRepository.deleteById(id);
     }
 }

@@ -3,6 +3,8 @@ package com.nubixconta.modules.inventory.service;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
+import java.util.Optional;
+
 import com.nubixconta.modules.inventory.entity.Product;
 import com.nubixconta.modules.inventory.repository.ProductRepository;
 
@@ -14,13 +16,20 @@ public class ProductService {
     public List<Product> findAll() {
         return productRepository.findAll();
     }
-    public Product findById(String id) {
-        return productRepository.findById(id).orElse(null);
+
+    public Optional<Product> findById(Integer id) {
+        return productRepository.findById(id);
     }
+
+    public Optional<Product> findByProductCode(String code) {
+        return productRepository.findByProductCode(code);
+    }
+
+
     public Product save(Product product) {
         return productRepository.save(product);
     }
-    public void delete(String id) {
+    public void delete(Integer id) {
         productRepository.deleteById(id);
     }
 }
