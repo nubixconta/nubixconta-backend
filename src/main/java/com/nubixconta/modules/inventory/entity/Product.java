@@ -9,7 +9,10 @@ import java.time.LocalDateTime;
 @Data
 public class Product {
     @Id
-    @Column(name = "product_code", length = 10)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id; // Primary Key autoincremental
+
+    @Column(name = "product_code", length = 10, unique = true, nullable = false)
     private String productCode;
 
     @Column(name = "product_name", length = 50, nullable = false)
