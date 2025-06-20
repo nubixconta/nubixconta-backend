@@ -5,7 +5,6 @@ import com.nubixconta.modules.inventory.entity.Product;
 import lombok.Data;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "sale_detail")
