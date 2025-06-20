@@ -24,9 +24,6 @@ public class Sale {
     @JoinColumn(name = "id_nota_credit")
     private CreditNote creditNote;
 
-    @Column(name = "account_receivable_id")
-    private Integer accountReceivableId;
-
     @Column(name = "document_number", length = 20)
     private String documentNumber;
 
