@@ -8,7 +8,7 @@ import lombok.Setter;
 //estas 2 anotaciones sirven para no tener que escribir los getter y setter
 @Getter
 @Setter
-public class AccountsReceivable {
+public class AccountsReceivableService {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
