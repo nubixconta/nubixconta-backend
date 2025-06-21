@@ -1,12 +1,17 @@
 package com.nubixconta.modules.accountsreceivable;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
-@Service
+@Entity
+//@Table(name="nombreTablaEnBD")
+//estas 2 anotaciones sirven para no tener que escribir los getter y setter
+@Getter
+@Setter
 public class AccountsReceivableService {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @Autowired
-    private AccountsReceivableRepository accountsReceivableRepository;
-
-    // TODO: Agregar lógica de negocio para cuentas por cobrar
+    // TODO: Agregar campos como cliente, documento, monto, fechaVencimiento, etc.
 }
