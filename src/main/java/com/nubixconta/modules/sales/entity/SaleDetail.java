@@ -1,5 +1,6 @@
 package com.nubixconta.modules.sales.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nubixconta.modules.inventory.entity.Product;
 import lombok.Data;
 import jakarta.persistence.*;
@@ -14,12 +15,15 @@ public class SaleDetail {
     @Column(name = "sale_detail_id")
     private Integer saleDetailId;
 
+    // Relación con Sale (evita recursividad en JSON)
     @ManyToOne
     @JoinColumn(name = "sale_id", nullable = false)
+    @JsonIgnore
     private Sale sale;
 
+    // Relación con Product (clave foránea por código)
     @ManyToOne
-    @JoinColumn(name = "product_code", referencedColumnName = "product_code", nullable = false)
+    @JoinColumn(name = "product_id", referencedColumnName = "id_product", nullable = false)
     private Product product;
 
     @Column(name = "quantity")

@@ -20,11 +20,9 @@ public class Sale {
     @JoinColumn(name = "client_id", nullable = false)
     private Customer customer;
 
-    @Column(name = "id_nota_credit")
-    private Integer idNotaCredit;
-
-    @Column(name = "account_receivable_id")
-    private Integer accountReceivableId;
+    @ManyToOne
+    @JoinColumn(name = "id_nota_credit")
+    private CreditNote creditNote;
 
     @Column(name = "document_number", length = 20)
     private String documentNumber;
@@ -50,6 +48,7 @@ public class Sale {
     @Column(name = "module_type", length = 30)
     private String moduleType;
 
+    // Relación con SaleDetail
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SaleDetail> saleDetails;
 }
