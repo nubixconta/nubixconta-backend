@@ -1,5 +1,6 @@
 package com.nubixconta.modules.accountsreceivable.entity;
 
+import com.nubixconta.modules.sales.entity.Sale;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -18,13 +19,15 @@ public class AccountsReceivable {
     @Column(name = "account_receivable_id")
     private Integer id;
 
-    @NotNull(message = "La venta es obligatorio")
+    @NotNull(message = "La venta es obligatoria")
     @Column(name = "sale_id", nullable = false)
     private Integer saleId;
 
-    @NotNull(message = "El monto es obligatorio")
-    @Column(precision = 10, scale = 2)
-    private BigDecimal amount;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "sale_id", insertable = false, updatable = false)
+    private Sale sale;
+
+
 
     @NotNull(message = "El saldo es obligatorio")
     @Column(precision = 10, scale = 2)
@@ -45,5 +48,5 @@ public class AccountsReceivable {
     @OneToMany(mappedBy = "accountReceivable", cascade = CascadeType.ALL)
     private List<CollectionDetail> collectionDetails;
 
-    // Getters y setters...
+
 }
