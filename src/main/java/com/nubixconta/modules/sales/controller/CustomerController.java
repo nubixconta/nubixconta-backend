@@ -75,4 +75,21 @@ public class CustomerController {
             return ResponseEntity.notFound().build();
         }
     }
+    // 1. Búsqueda flexible SOLO activos
+    @GetMapping("/search")
+    public List<Customer> searchActiveCustomers(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String lastName,
+            @RequestParam(required = false) String dui,
+            @RequestParam(required = false) String nit
+    ) {
+        return customerService.searchActive(name, lastName, dui, nit);
+    }
+
+    // 2. Listar clientes desactivados
+    @GetMapping("/inactive")
+    public List<Customer> getInactiveCustomers() {
+        return customerService.findInactive();
+    }
+
 }
