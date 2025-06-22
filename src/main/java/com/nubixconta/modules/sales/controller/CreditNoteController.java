@@ -8,7 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -89,5 +91,24 @@ public class CreditNoteController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    // 1. Buscar notas de crédito por rango de fechas (inicio y fin son obligatorios)
+    //    y, opcionalmente, por estado: FINALIZADO, PENDIENTE, APLICADA
+    //    Ejemplo: /api/v1/credit-notes/search?start=2025-06-01&end=2025-06-30&status=FINALIZADO
+    @GetMapping("/search")
+    public List<CreditNote> searchCreditNotesByDateAndStatus(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+            @RequestParam(required = false) String status
+    ) {
+        return creditNoteService.findByDateRangeAndStatus(start, end, status);
+    }
+
+    // 2. Buscar SOLO por estado (todos los de FINALIZADO, PENDIENTE o APLICADA)
+    //    Ejemplo: /api/v1/credit-notes/by-status?status=FINALIZADO
+    @GetMapping("/by-status")
+    public List<CreditNote> getByStatus(@RequestParam String status) {
+        return creditNoteService.findByStatus(status);
     }
 }

@@ -13,7 +13,7 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
 
     public List<Customer> findAll() {
-        return customerRepository.findAll();
+        return customerRepository.findByStatusTrue();
     }
 
     public Optional<Customer> findById(Integer id) {
@@ -29,5 +29,22 @@ public class CustomerService {
             throw new IllegalArgumentException("Cliente no encontrado");
         }
         customerRepository.deleteById(id);
+    }
+    // Nuevo: Búsqueda flexible SOLO clientes activos
+    public List<Customer> searchActive(String name, String lastName, String dui, String nit) {
+        // Si todos los parámetros son null, se devuelven todos los activos.
+        return customerRepository.searchActive(
+                emptyToNull(name), emptyToNull(lastName), emptyToNull(dui), emptyToNull(nit)
+        );
+    }
+
+    // Nuevo: Obtener clientes desactivados
+    public List<Customer> findInactive() {
+        return customerRepository.findByStatusFalse();
+    }
+
+    // Ayuda para no filtrar por cadenas vacías
+    private String emptyToNull(String value) {
+        return (value != null && !value.trim().isEmpty()) ? value.trim() : null;
     }
 }
