@@ -1,5 +1,6 @@
 package com.nubixconta.modules.accountsreceivable.entity;
 
+import com.nubixconta.modules.accounting.entity.Account;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -14,12 +15,18 @@ public class CollectionEntry {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "acount_id")
+    @Column(name = "collection_entry_id")
     private Integer id;
 
     @ManyToOne
     @JoinColumn(name = "collection_detail_id", nullable = false)
     private CollectionDetail collectionDetail;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id", nullable = false)
+    private Account account;
+
+
 
     @NotNull(message = "El debe es obligatorio")
     @Column( precision = 10, scale = 2)

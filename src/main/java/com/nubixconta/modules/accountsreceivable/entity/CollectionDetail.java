@@ -1,5 +1,7 @@
 package com.nubixconta.modules.accountsreceivable.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -17,8 +19,11 @@ public class CollectionDetail {
     @Column(name = "collection_detail_id")
     private Integer id;
 
-    @ManyToOne
+
+    @NotNull(message = "La cuenta por cobrar es obligatoria")
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_receivable_id", nullable = false)
+    @JsonBackReference
     private AccountsReceivable accountReceivable;
 
     @Column(name = "account_id")
@@ -28,8 +33,8 @@ public class CollectionDetail {
     @Column(length = 30)
     private String reference;
 
-    @NotNull(message = "El metodo de pago es obligatorio")
-    @Column(name = "payment_method", length = 10)
+    @NotNull(message = "El método de pago es obligatorio")
+    @Column(name = "payment_method", length = 20)
     private String paymentMethod;
 
     @NotNull(message = "El estado del pago es obligatorio")
@@ -40,18 +45,15 @@ public class CollectionDetail {
     @Column(name = "payment_amount", precision = 10, scale = 2)
     private BigDecimal paymentAmount;
 
-    @NotNull(message = "La descripcion es obligatoria")
+    @NotNull(message = "La descripción es obligatoria")
     @Column(name = "payment_detail_description", length = 255)
     private String paymentDetailDescription;
 
-    @NotNull(message = "El modulo es obligatorio")
+    @NotNull(message = "El módulo es obligatorio")
     @Column(name = "module_type", length = 30)
     private String moduleType;
 
     @OneToMany(mappedBy = "collectionDetail", cascade = CascadeType.ALL)
     private List<CollectionEntry> collectionEntries;
-
-    // Getters y setters...
 }
-
 
