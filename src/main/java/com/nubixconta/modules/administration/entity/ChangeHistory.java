@@ -17,15 +17,16 @@ public class ChangeHistory {
     private Integer id;
 
     @ManyToOne
-    @JoinColumn(name = "client_id", nullable = false)
-    private User client;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @ManyToOne
-    @JoinColumn(name = "company_id", nullable = false)
+    @JoinColumn(name = "company_id", nullable = true)
     private Company company;
 
+
     @NotNull(message = "La fecha es obligatorio")
-    @Column
+    @Column(name="date")
     private LocalDateTime date;
 
     @NotNull(message = "Es obligatoria la accion que se realizo ")
@@ -34,8 +35,8 @@ public class ChangeHistory {
 
     @NotNull(message = "El modulo es obligatorio")
     @Column(length = 50)
-    private String module;
+    private String moduleName;
 
-    // Getters y setters...
+
 }
 

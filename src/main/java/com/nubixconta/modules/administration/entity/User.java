@@ -1,5 +1,6 @@
 package com.nubixconta.modules.administration.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -7,13 +8,13 @@ import lombok.Data;
 import java.util.List;
 
 @Entity
-@Table(name = "user")
+@Table(name = "users")
 @Data
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_id")
+    @Column(name = "users_id")
     private Integer id;
 
     @NotNull(message = "El nombre es obligatorio")
@@ -37,14 +38,19 @@ public class User {
     private String photo;
 
     @NotNull(message = "El estado es obligatorio")
-    @Column
+    @Column(name="user_status")
     private Boolean status;
 
+    @NotNull(message = "El estado es obligatorio")
+    @Column(name="role")
+    private Boolean role;
+
+
+    @JsonManagedReference
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<Company> companies;
 
-    @OneToMany(mappedBy = "client", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<ChangeHistory> changesMade;
 
-    // Getters y setters...
 }
