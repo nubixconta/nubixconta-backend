@@ -1,4 +1,5 @@
-package com.nubixconta.modules.administration;
+package com.nubixconta.modules.administration.service;
+import com.nubixconta.modules.administration.repository.AdministrationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
