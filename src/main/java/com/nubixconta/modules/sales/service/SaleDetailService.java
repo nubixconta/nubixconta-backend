@@ -1,8 +1,9 @@
 package com.nubixconta.modules.sales.service;
+
 import com.nubixconta.modules.sales.entity.SaleDetail;
 import com.nubixconta.modules.sales.repository.SaleDetailRepository;
-import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,9 +20,14 @@ public class SaleDetailService {
         return saleDetailRepository.findById(id);
     }
 
+    public List<SaleDetail> findBySaleId(Integer saleId) {
+        return saleDetailRepository.findBySale_SaleId(saleId);
+    }
+
     public SaleDetail save(SaleDetail saleDetail) {
         return saleDetailRepository.save(saleDetail);
     }
+
 
     public void delete(Integer id) {
         if (!saleDetailRepository.existsById(id)) {
