@@ -1,9 +1,6 @@
 package com.nubixconta.modules.sales.controller;
 
-import com.nubixconta.modules.sales.service.SaleService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-
+import com.nubixconta.modules.inventory.service.ProductService;
 import com.nubixconta.modules.sales.entity.Sale;
 import com.nubixconta.modules.sales.entity.SaleDetail;
 import com.nubixconta.modules.sales.service.SaleService;
@@ -11,8 +8,14 @@ import com.nubixconta.modules.sales.service.SaleDetailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.lang.reflect.Field;
+import org.springframework.util.ReflectionUtils;
 
 @RestController
 @RequestMapping("/api/v1/sales")
@@ -21,6 +24,7 @@ public class SaleController {
 
     private final SaleService saleService;
     private final SaleDetailService saleDetailService;
+    private final ProductService productService;
 
     // --- Sale endpoints ---
 
@@ -37,16 +41,31 @@ public class SaleController {
     }
 
     @PostMapping
-    public ResponseEntity<Sale> createSale(@RequestBody Sale sale) {
+    public ResponseEntity<Sale> createSale(@Valid @RequestBody Sale sale) {
         return ResponseEntity.ok(saleService.save(sale));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Sale> updateSale(@PathVariable Integer id, @RequestBody Sale sale) {
-        if (saleService.findById(id).isEmpty()) {
+
+    // PATCH: actualización parcial y validación campo a campo
+    @PatchMapping("/{id}")
+    public ResponseEntity<Sale> patchSale(@PathVariable Integer id, @RequestBody Map<String, Object> updates) {
+        Optional<Sale> optionalSale = saleService.findById(id);
+        if (optionalSale.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        sale.setSaleId(id);
+        Sale sale = optionalSale.get();
+
+        updates.forEach((key, value) -> {
+            if (key.equalsIgnoreCase("saleId")) {
+                return; // No permitir cambiar la PK
+            }
+            Field field = ReflectionUtils.findField(Sale.class, key);
+            if (field != null) {
+                field.setAccessible(true);
+                ReflectionUtils.setField(field, sale, value);
+            }
+        });
+
         return ResponseEntity.ok(saleService.save(sale));
     }
 
@@ -61,6 +80,11 @@ public class SaleController {
     }
 
     // --- SaleDetail endpoints ---
+
+    @GetMapping("/details")
+    public List<SaleDetail> getAllSaleDetails() {
+        return saleDetailService.findAll();
+    }
 
     @GetMapping("/{saleId}/details")
     public ResponseEntity<List<SaleDetail>> getSaleDetailsBySale(@PathVariable Integer saleId) {
@@ -77,7 +101,7 @@ public class SaleController {
     }
 
     @PostMapping("/{saleId}/details")
-    public ResponseEntity<SaleDetail> createSaleDetail(@PathVariable Integer saleId, @RequestBody SaleDetail saleDetail) {
+    public ResponseEntity<SaleDetail> createSaleDetail(@PathVariable Integer saleId, @Valid @RequestBody SaleDetail saleDetail) {
         return saleService.findById(saleId)
                 .map(sale -> {
                     saleDetail.setSale(sale);
@@ -86,16 +110,49 @@ public class SaleController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PutMapping("/details/{detailId}")
-    public ResponseEntity<SaleDetail> updateSaleDetail(@PathVariable Integer detailId, @RequestBody SaleDetail saleDetail) {
-        return saleDetailService.findById(detailId)
-                .map(existingDetail -> {
-                    saleDetail.setSaleDetailId(detailId);
-                    saleDetail.setSale(existingDetail.getSale());
-                    return ResponseEntity.ok(saleDetailService.save(saleDetail));
-                })
-                .orElse(ResponseEntity.notFound().build());
+
+    @PatchMapping("/details/{detailId}")
+    public ResponseEntity<SaleDetail> patchSaleDetail(
+            @PathVariable Integer detailId,
+            @RequestBody Map<String, Object> updates) {
+
+        Optional<SaleDetail> optionalDetail = saleDetailService.findById(detailId);
+        if (optionalDetail.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        SaleDetail saleDetail = optionalDetail.get();
+
+        updates.forEach((key, value) -> {
+            if (key.equalsIgnoreCase("saleDetailId")) {
+                return; // No permitir cambiar la PK
+            }
+            if (key.equalsIgnoreCase("product")) {
+                // Manejo especial para relación con Product
+                Map<String, Object> productMap = (Map<String, Object>) value;
+                Integer idProduct = Integer.parseInt(productMap.get("idProduct").toString());
+                productService.findById(idProduct).ifPresent(saleDetail::setProduct);
+                return;
+            }
+            Field field = ReflectionUtils.findField(SaleDetail.class, key);
+            if (field != null) {
+                field.setAccessible(true);
+                // Conversión especial para BigDecimal
+                if (field.getType().equals(BigDecimal.class)) {
+                    if (value instanceof Number) {
+                        ReflectionUtils.setField(field, saleDetail, BigDecimal.valueOf(((Number) value).doubleValue()));
+                    } else {
+                        ReflectionUtils.setField(field, saleDetail, new BigDecimal(value.toString()));
+                    }
+                } else {
+                    ReflectionUtils.setField(field, saleDetail, value);
+                }
+            }
+        });
+
+        return ResponseEntity.ok(saleDetailService.save(saleDetail));
     }
+
+
 
     @DeleteMapping("/details/{detailId}")
     public ResponseEntity<Void> deleteSaleDetail(@PathVariable Integer detailId) {

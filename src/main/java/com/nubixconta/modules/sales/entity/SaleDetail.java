@@ -1,9 +1,11 @@
 package com.nubixconta.modules.sales.entity;
 
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import lombok.Data;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nubixconta.modules.inventory.entity.Product;
-import lombok.Data;
-import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 
 @Entity
@@ -15,26 +17,34 @@ public class SaleDetail {
     @Column(name = "sale_detail_id")
     private Integer saleDetailId;
 
-    // Relación con Sale (evita recursividad en JSON)
-    @ManyToOne
+
+    @ManyToOne(optional = false)
     @JoinColumn(name = "sale_id", nullable = false)
-    @JsonIgnore
+    @JsonIgnore // para evitar recursividad
     private Sale sale;
 
-    // Relación con Product (clave foránea por código)
+
     @ManyToOne
-    @JoinColumn(name = "product_id", referencedColumnName = "id_product", nullable = false)
+    @JoinColumn(name = "id_product", referencedColumnName = "id_product", nullable = true)
     private Product product;
 
-    @Column(name = "quantity")
+    @NotNull(message = "La cantidad es obligatoria")
+    @Min(value = 1, message = "La cantidad debe ser al menos 1")
+    @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
+
+    @Size(max = 50, message = "El nombre del servicio puede tener máximo 50 caracteres")
     @Column(name = "service_name", length = 50)
     private String serviceName;
 
-    @Column(name = "unit_price", precision = 10, scale = 2)
+    @NotNull(message = "El precio unitario es obligatorio")
+    @Digits(integer = 10, fraction = 2, message = "El precio unitario debe tener hasta 10 dígitos y 2 decimales")
+    @Column(name = "unit_price", precision = 10, scale = 2, nullable = false)
     private BigDecimal unitPrice;
 
-    @Column(name = "subtotal", precision = 10, scale = 2)
+    @NotNull(message = "El subtotal es obligatorio")
+    @Digits(integer = 10, fraction = 2, message = "El subtotal debe tener hasta 10 dígitos y 2 decimales")
+    @Column(name = "subtotal", precision = 10, scale = 2, nullable = false)
     private BigDecimal subtotal;
 }
