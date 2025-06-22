@@ -11,11 +11,13 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.lang.reflect.Field;
 import org.springframework.util.ReflectionUtils;
+import org.springframework.format.annotation.DateTimeFormat;
 
 @RestController
 @RequestMapping("/api/v1/sales")
@@ -162,5 +164,38 @@ public class SaleController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+    // --- Buscar ventas por fechas ---
+    @GetMapping("/search")
+    public List<Sale> searchSalesByDate(
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
+    ) {
+        if (start == null || end == null) {
+            throw new IllegalArgumentException("Debe enviar ambos parámetros: start y end.");
+        }
+        return saleService.findByIssueDateBetween(start, end);
+    }
+
+
+    // --- Buscar ventas por nombre/apellido cliente dui o nit---
+    @GetMapping("/client-search")
+    public List<Sale> searchSalesByCustomer(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String lastName,
+            @RequestParam(required = false) String dui,
+            @RequestParam(required = false) String nit
+    ) {
+        // Si no hay criterios, puedes devolver error o todas (según negocio)
+        if ((name == null || name.isBlank()) &&
+                (lastName == null || lastName.isBlank()) &&
+                (dui == null || dui.isBlank()) &&
+                (nit == null || nit.isBlank())
+        ) {
+            throw new IllegalArgumentException("Debe enviar al menos un criterio de búsqueda.");
+        }
+        return saleService.findByCustomerSearch(name, lastName, dui, nit);
     }
 }
