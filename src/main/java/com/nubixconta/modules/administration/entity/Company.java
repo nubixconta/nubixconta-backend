@@ -1,6 +1,7 @@
 package com.nubixconta.modules.administration.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -52,6 +53,7 @@ public class Company {
     private LocalDateTime creationDate;
 
     @OneToMany(mappedBy = "company", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<ChangeHistory> changeHistories;
 
 
