@@ -52,6 +52,7 @@ public class User {
     private Boolean role;
 
 
+
     @JsonManagedReference
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
