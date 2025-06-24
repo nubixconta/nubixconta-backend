@@ -34,10 +34,6 @@ public class User {
     @Column(name = "user_name", length = 32, unique = true)
     private String userName;
 
-    @NotNull(message = "El userName es obligatorio")
-    @Column(name = "user_name", length = 32, unique = true)
-    private String userName;
-
     @NotNull(message = "El correo es obligatorio")
     @Column(length = 100)
     private String email;
