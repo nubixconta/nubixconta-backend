@@ -4,13 +4,14 @@ import com.nubixconta.modules.administration.service.CompanyService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/companies")
+@RequestMapping("/api/v1/companies")
 public class CompanyController {
 
     private final CompanyService companyService;
@@ -54,6 +55,11 @@ public class CompanyController {
         Company updated = companyService.patchCompany(id, updates);
         return ResponseEntity.ok(updated);
     }
-
+    @GetMapping("/byUser")
+    public ResponseEntity<List<Company>> getMyCompanies(Authentication authentication) {
+        String userName = authentication.getName();
+        List<Company> companies = companyService.getCompaniesByUserName(userName);
+        return ResponseEntity.ok(companies);
+    }
 }
 
