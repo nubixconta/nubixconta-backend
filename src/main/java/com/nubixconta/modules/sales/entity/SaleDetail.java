@@ -1,5 +1,6 @@
 package com.nubixconta.modules.sales.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.Data;
@@ -20,12 +21,27 @@ public class SaleDetail {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "sale_id", nullable = false)
-    @JsonIgnore // para evitar recursividad
+    @JsonIgnoreProperties({
+            "customer",
+            "saleStatus",
+            "issueDate",
+            "saleType",
+            "totalAmount",
+            "saleDate",
+            "moduleType",
+            "saleDetails"
+    })
     private Sale sale;
 
 
     @ManyToOne
     @JoinColumn(name = "id_product", referencedColumnName = "id_product", nullable = true)
+    @JsonIgnoreProperties({
+            "unit",
+            "stockQuantity",
+            "productDate",
+            "productStatus"
+    })
     private Product product;
 
     @NotNull(message = "La cantidad es obligatoria")

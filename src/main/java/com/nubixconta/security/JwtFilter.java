@@ -16,6 +16,13 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+
+        // Permitir directamente las peticiones OPTIONS (preflight CORS)
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_OK);
+            return;
+        }
+
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.replace("Bearer ", "");
@@ -30,6 +37,8 @@ public class JwtFilter extends OncePerRequestFilter {
                 return;
             }
         }
+
         filterChain.doFilter(request, response);
     }
+
 }
