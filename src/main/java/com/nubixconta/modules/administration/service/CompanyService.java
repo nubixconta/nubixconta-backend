@@ -101,5 +101,7 @@ public class CompanyService {
             return companyRepository.save(company);
         }).orElseThrow(() -> new RuntimeException("Empresa no encontrada con id: " + id));
     }
-
+    public List<Company> getCompaniesByUserName(String userName) {
+        return companyRepository.findByUser_UserName(userName);
+    }
 }

@@ -1,5 +1,6 @@
 package com.nubixconta.modules.administration.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -18,10 +19,23 @@ public class ChangeHistory {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({
+            "email",
+            "password",
+            "photo",
+            "status",
+            "role"
+    })
     private User user;
 
     @ManyToOne
     @JoinColumn(name = "company_id", nullable = true)
+    @JsonIgnoreProperties({
+            "accountId",
+            "companyStatus",
+            "activeStatus",
+            "creationDate"
+    })
     private Company company;
 
 

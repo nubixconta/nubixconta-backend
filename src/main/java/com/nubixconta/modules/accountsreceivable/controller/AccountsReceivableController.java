@@ -24,9 +24,10 @@ public class AccountsReceivableController {
     }
 
     @GetMapping
-    public List<AccountsReceivable> getAll() {
+    public List<Map<String, Object>> getAll() {
         return service.findAll();
     }
+
 
     @GetMapping("/id/{id}")
     public ResponseEntity<AccountsReceivable> getById(@PathVariable Integer id) {
