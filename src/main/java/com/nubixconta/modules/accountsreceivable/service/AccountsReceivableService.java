@@ -76,9 +76,31 @@ public class AccountsReceivableService {
                 .collect(Collectors.toList());
 
     }
-    public List<AccountsReceivable> findAll() {
-        return repository.findAll();
+    public List<Map<String, Object>> findAll() {
+        return repository.findAll().stream()
+                .map(account -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", account.getId());
+                    result.put("saleId", account.getSaleId());
+                    result.put("sale", account.getSale()); // incluir el objeto completo de venta
+                    result.put("balance", account.getBalance());
+                    result.put("receiveAccountStatus", account.getReceiveAccountStatus());
+                    result.put("receivableAccountDate", account.getReceivableAccountDate());
+                    result.put("moduleType", account.getModuleType());
+                    result.put("collectionDetails", account.getCollectionDetails());
+
+                    // Agregar el creditDay del cliente
+                    if (account.getSale() != null && account.getSale().getCustomer() != null) {
+                        result.put("creditDay", account.getSale().getCustomer().getCreditDay());
+                    } else {
+                        result.put("creditDay", null);
+                    }
+
+                    return result;
+                })
+                .collect(Collectors.toList());
     }
+
     public List<AccountsReceivable> findByDateRange(LocalDateTime start, LocalDateTime end) {
         return repository.findByDateRange(start, end);
     }
