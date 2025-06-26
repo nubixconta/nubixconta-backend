@@ -29,11 +29,16 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+<<<<<<< cpc/ga21090
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // 
+                .csrf(csrf -> csrf.disable())
+=======
             .cors() // 👉 habilita soporte CORS
             .and()
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ forma moderna
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+>>>>>>> develop
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/login").permitAll()
@@ -68,7 +73,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+                config.setAllowedOrigins(Arrays.asList(
+            "http://localhost:5173",              // para desarrollo local
+            "https://nubixconta.netlify.app"      // para producción en Netlify
+        ));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));
         config.setExposedHeaders(Arrays.asList("Authorization")); // útil para JWT
