@@ -45,7 +45,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.asList("https://nubixconta.netlify.app"));
+                config.setAllowedOrigins(Arrays.asList(
+            "http://localhost:5173",              // para desarrollo local
+            "https://nubixconta.netlify.app"      // para producción en Netlify
+        ));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));
         config.setExposedHeaders(Arrays.asList("Authorization")); // útil para JWT
