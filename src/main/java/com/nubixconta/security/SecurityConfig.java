@@ -29,16 +29,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-<<<<<<< cpc/ga21090
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // 
-                .csrf(csrf -> csrf.disable())
-=======
-            .cors() // 👉 habilita soporte CORS
-            .and()
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ forma moderna
+            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ forma moderna
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
->>>>>>> develop
+
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/login").permitAll()
@@ -89,16 +83,4 @@ public class SecurityConfig {
 }
 
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173")); // 👉 origen frontend
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
-}
