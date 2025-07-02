@@ -1,5 +1,6 @@
 package com.nubixconta.modules.accountsreceivable.controller;
 
+import com.nubixconta.modules.accountsreceivable.dto.AccountsReceivableDTO;
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.service.AccountsReceivableService;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +25,7 @@ public class AccountsReceivableController {
     }
 
     @GetMapping
-    public List<Map<String, Object>> getAll() {
+    public List<AccountsReceivableDTO> getAll() {
         return service.findAll();
     }
 
@@ -90,6 +91,13 @@ public class AccountsReceivableController {
             @RequestParam(required = false) String nit
     ) {
         return ResponseEntity.ok(service.searchByCustomer(name, lastName, dui, nit));
+    }
+    //  buscar accountReceivable por saleId
+    @GetMapping("/by-sale/{saleId}")
+    public ResponseEntity<AccountsReceivable> getBySaleId(@PathVariable Integer saleId) {
+        return service.findBySaleId(saleId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
 }

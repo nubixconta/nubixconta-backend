@@ -27,8 +27,6 @@ public class AccountsReceivable {
     @JoinColumn(name = "sale_id", insertable = false, updatable = false)
     private Sale sale;
 
-
-
     @NotNull(message = "El saldo es obligatorio")
     @Column(precision = 10, scale = 2)
     private BigDecimal balance;

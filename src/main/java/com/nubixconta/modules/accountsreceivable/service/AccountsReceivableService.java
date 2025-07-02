@@ -1,10 +1,11 @@
 package com.nubixconta.modules.accountsreceivable.service;
 
+import com.nubixconta.modules.accountsreceivable.dto.AccountsReceivableDTO;
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.repository.AccountsReceivableRepository;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-
+import org.modelmapper.ModelMapper;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -20,9 +21,10 @@ import java.util.stream.Collectors;
 public class AccountsReceivableService {
 
     private final AccountsReceivableRepository repository;
-
-    public AccountsReceivableService(AccountsReceivableRepository repository) {
+    private final ModelMapper modelMapper;
+    public AccountsReceivableService(AccountsReceivableRepository repository, ModelMapper modelMapper) {
         this.repository = repository;
+        this.modelMapper = modelMapper;
     }
 
 //Este metodo es para filtrar un cobro por un cliente y mostrar en una tabla el estado de cuenta por cliente
@@ -76,27 +78,18 @@ public class AccountsReceivableService {
                 .collect(Collectors.toList());
 
     }
-    public List<Map<String, Object>> findAll() {
+    public List<AccountsReceivableDTO> findAll() {
         return repository.findAll().stream()
                 .map(account -> {
-                    Map<String, Object> result = new HashMap<>();
-                    result.put("id", account.getId());
-                    result.put("saleId", account.getSaleId());
-                    result.put("sale", account.getSale()); // incluir el objeto completo de venta
-                    result.put("balance", account.getBalance());
-                    result.put("receiveAccountStatus", account.getReceiveAccountStatus());
-                    result.put("receivableAccountDate", account.getReceivableAccountDate());
-                    result.put("moduleType", account.getModuleType());
-                    result.put("collectionDetails", account.getCollectionDetails());
+                  AccountsReceivableDTO dto = modelMapper.map(account, AccountsReceivableDTO.class);
 
-                    // Agregar el creditDay del cliente
                     if (account.getSale() != null && account.getSale().getCustomer() != null) {
-                        result.put("creditDay", account.getSale().getCustomer().getCreditDay());
+                        dto.setCreditDay(account.getSale().getCustomer().getCreditDay());
                     } else {
-                        result.put("creditDay", null);
+                        dto.setCreditDay(null);
                     }
 
-                    return result;
+                    return dto;
                 })
                 .collect(Collectors.toList());
     }
@@ -145,6 +138,9 @@ public class AccountsReceivableService {
         });
 
         return repository.save(existing);
+    }
+    public Optional<AccountsReceivable> findBySaleId(Integer saleId) {
+        return repository.findBySaleId(saleId);
     }
 
 }

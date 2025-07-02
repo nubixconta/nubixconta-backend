@@ -40,4 +40,5 @@ public class Product {
     @NotNull(message = "El estado del producto es obligatorio")
     @Column(name = "product_status", nullable = false)
     private Boolean productStatus;
+
 }
