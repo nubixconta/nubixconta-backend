@@ -3,6 +3,7 @@ package com.nubixconta.modules.accountsreceivable.entity;
 import com.nubixconta.modules.accounting.entity.Account;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -37,6 +38,7 @@ public class CollectionEntry {
     private BigDecimal credit;
 
     @NotNull(message = "La descripcion es obligatorio")
+    @Size(max = 50, message = "La descripción no puede tener más 50 caracteres")
     @Column(length = 50)
     private String description;
 

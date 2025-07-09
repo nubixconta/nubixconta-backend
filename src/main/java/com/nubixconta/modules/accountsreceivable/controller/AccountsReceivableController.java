@@ -3,14 +3,12 @@ package com.nubixconta.modules.accountsreceivable.controller;
 import com.nubixconta.modules.accountsreceivable.dto.AccountsReceivableDTO;
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.service.AccountsReceivableService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.Serializable;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -38,7 +36,7 @@ public class AccountsReceivableController {
     }
 
     @PostMapping
-    public ResponseEntity<AccountsReceivable> create(@RequestBody AccountsReceivable accountsReceivable) {
+    public ResponseEntity<AccountsReceivable> create(@RequestBody @Valid AccountsReceivable accountsReceivable) {
         return ResponseEntity.ok(service.save(accountsReceivable));
     }
 
@@ -65,24 +63,7 @@ public class AccountsReceivableController {
         service.deleteById(id);
         return ResponseEntity.noContent().build();
     }
-    //Busca cobros por un rango de fechas
-    @GetMapping("/search-by-date")
-    public ResponseEntity<List<AccountsReceivable>> searchByDateRange(
-            @RequestParam("start") String startStr,
-            @RequestParam("end") String endStr) {
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-
-        // Se convierte la fecha al inicio y fin del día
-        LocalDate startDate = LocalDate.parse(startStr, formatter);
-        LocalDateTime start = startDate.atStartOfDay();
-
-        LocalDate endDate = LocalDate.parse(endStr, formatter);
-        LocalDateTime end = endDate.atTime(LocalTime.MAX);
-
-        List<AccountsReceivable> results = service.findByDateRange(start, end);
-        return ResponseEntity.ok(results);
-    }
     @GetMapping("/search-by-customer")
     public ResponseEntity<List<Map<String, Serializable>>>  searchByCustomer(
             @RequestParam(required = false) String name,
@@ -99,5 +80,6 @@ public class AccountsReceivableController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
 
 }

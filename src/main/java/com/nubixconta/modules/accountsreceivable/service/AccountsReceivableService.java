@@ -1,15 +1,16 @@
 package com.nubixconta.modules.accountsreceivable.service;
 
 import com.nubixconta.modules.accountsreceivable.dto.AccountsReceivableDTO;
+import com.nubixconta.modules.accountsreceivable.dto.CollectionDetailDTO;
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.repository.AccountsReceivableRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.modelmapper.ModelMapper;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +23,7 @@ public class AccountsReceivableService {
 
     private final AccountsReceivableRepository repository;
     private final ModelMapper modelMapper;
+
     public AccountsReceivableService(AccountsReceivableRepository repository, ModelMapper modelMapper) {
         this.repository = repository;
         this.modelMapper = modelMapper;
@@ -81,22 +83,35 @@ public class AccountsReceivableService {
     public List<AccountsReceivableDTO> findAll() {
         return repository.findAll().stream()
                 .map(account -> {
-                  AccountsReceivableDTO dto = modelMapper.map(account, AccountsReceivableDTO.class);
+                    AccountsReceivableDTO dto = modelMapper.map(account, AccountsReceivableDTO.class);
 
+                    // Setear creditDay desde la venta
                     if (account.getSale() != null && account.getSale().getCustomer() != null) {
                         dto.setCreditDay(account.getSale().getCustomer().getCreditDay());
                     } else {
                         dto.setCreditDay(null);
                     }
 
+                    // Transformar manualmente los detalles de cobro por que ModelMapper
+                    //no puede mapea todo el objeto CollectionDetail por defecto y no lo convierte
+                    // a CollectionDetailTDO hay que hacerlo manualmente
+                    List<CollectionDetailDTO> collectionDTOs = account.getCollectionDetails().stream()
+                            .map(cd -> new CollectionDetailDTO(
+                                    cd.getPaymentStatus(),
+                                    cd.getPaymentDetailDescription(),
+                                    cd.getCollectionDetailDate(),
+                                    cd.getPaymentMethod()
+                            ))
+                            .toList();
+
+                    dto.setCollectionDetails(collectionDTOs);
+
                     return dto;
                 })
                 .collect(Collectors.toList());
     }
 
-    public List<AccountsReceivable> findByDateRange(LocalDateTime start, LocalDateTime end) {
-        return repository.findByDateRange(start, end);
-    }
+
 
     public Optional<AccountsReceivable> findById(Integer id) {
         return repository.findById(id);
@@ -115,8 +130,6 @@ public class AccountsReceivableService {
                 .map(existing -> {
                     existing.setSaleId(updated.getSaleId());
                     existing.setBalance(updated.getBalance());
-                    existing.setReceiveAccountStatus(updated.getReceiveAccountStatus());
-                    existing.setReceivableAccountDate(updated.getReceivableAccountDate());
                     existing.setModuleType(updated.getModuleType());
                     return repository.save(existing);
                 })
@@ -131,8 +144,6 @@ public class AccountsReceivableService {
             switch (key) {
                 case "saleId" -> existing.setSaleId(Integer.parseInt(value.toString()));
                 case "balance" -> existing.setBalance(new BigDecimal(value.toString()));
-                case "receiveAccountStatus" -> existing.setReceiveAccountStatus((String) value);
-                case "receivableAccountDate" -> existing.setReceivableAccountDate(LocalDateTime.parse(value.toString()));
                 case "moduleType" -> existing.setModuleType((String) value);
             }
         });
