@@ -1,7 +1,7 @@
 package com.nubixconta.modules.sales.service;
 
 import com.nubixconta.modules.sales.dto.customer.CustomerResponseDTO;
-import com.nubixconta.modules.sales.dto.customer.SaleForAccountsReceivableDTO;
+import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
 import com.nubixconta.modules.sales.entity.Customer;
 import com.nubixconta.modules.sales.entity.Sale;
 import com.nubixconta.modules.sales.repository.SaleRepository;
