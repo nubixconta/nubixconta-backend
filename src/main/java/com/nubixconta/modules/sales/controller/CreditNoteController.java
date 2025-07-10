@@ -47,7 +47,7 @@ public class CreditNoteController {
     }
 
     // Crear una nueva nota de crédito (la venta asociada debe existir)
-    @PostMapping
+   /* @PostMapping
     public ResponseEntity<CreditNote> createCreditNote(@Valid @RequestBody CreditNote creditNote) {
         Integer saleId = creditNote.getSale() != null ? creditNote.getSale().getSaleId() : null;
         if (saleId == null) {
@@ -81,7 +81,7 @@ public class CreditNoteController {
 
         return ResponseEntity.ok(creditNoteService.save(creditNote));
     }
-
+*/
     // Eliminar una nota de crédito
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCreditNote(@PathVariable Integer id) {

@@ -5,13 +5,23 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.List;
 
 @Entity
 @Table(name="sale")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 public class Sale {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,7 +53,7 @@ public class Sale {
 
     @NotBlank(message = "El número de documento es obligatorio")
     @Size(max = 20, message = "El número de documento puede tener máximo 20 caracteres")
-    @Column(name = "document_number", length = 20, nullable = false)
+    @Column(name = "document_number", length = 20, nullable = false,unique = true)
     private String documentNumber;
 
     @NotBlank(message = "El estado de la venta es obligatorio")
@@ -64,10 +74,6 @@ public class Sale {
     @Digits(integer = 10, fraction = 2, message = "El monto total debe tener hasta 10 dígitos y 2 decimales")
     @Column(name = "total_amount", precision = 10, scale = 2, nullable = false)
     private BigDecimal totalAmount;
-
-    @NotNull(message = "La fecha de venta es obligatoria")
-    @Column(name = "sale_date", nullable = false)
-    private LocalDateTime saleDate;
 
     @NotBlank(message = "La descripción es obligatoria")
     @Size(max = 255, message = "La descripción puede tener máximo 255 caracteres")
@@ -90,9 +96,45 @@ public class Sale {
             "subtotal"
 
     })
-    private List<SaleDetail> saleDetails;
+    private Set<SaleDetail> saleDetails = new HashSet<>();
+
     @OneToMany(mappedBy = "sale")
     @JsonIgnore
     private List<CreditNote> creditNotes;
 
+    @CreationTimestamp
+    @Column(name = "creation_date", nullable = false, updatable = false)
+    private LocalDateTime creationDate;
+
+    @UpdateTimestamp
+    @Column(name = "update_date")
+    private LocalDateTime updateDate;
+
+
+    public void addDetail(SaleDetail detail) {
+        if (this.saleDetails == null) {
+            this.saleDetails = new HashSet<>();
+        }
+        this.saleDetails.add(detail);
+        detail.setSale(this); // <-- ¡Esta línea es la magia! Establece el lado inverso de la relación.
+    }
+
+    public void removeDetail(SaleDetail detail) {
+        if (this.saleDetails != null) {
+            this.saleDetails.remove(detail);
+            detail.setSale(null); // Limpia la relación
+        }
+    }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Sale that)) return false;
+        // Las ventas son únicas por su ID, si existe.
+        return saleId != null && saleId.equals(that.saleId);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }
