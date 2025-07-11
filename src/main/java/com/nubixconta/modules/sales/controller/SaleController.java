@@ -1,7 +1,7 @@
 package com.nubixconta.modules.sales.controller;
 
 import com.nubixconta.common.exception.BadRequestException;
-import com.nubixconta.modules.sales.dto.customer.SaleForAccountsReceivableDTO;
+import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleCreateDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleResponseDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleUpdateDTO;

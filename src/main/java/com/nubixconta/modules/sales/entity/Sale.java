@@ -1,10 +1,8 @@
 package com.nubixconta.modules.sales.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -31,23 +29,6 @@ public class Sale {
     @NotNull(message = "El cliente es obligatorio")
     @ManyToOne(optional = false)
     @JoinColumn(name = "client_id", nullable = false)
-    @JsonIgnoreProperties({
-            "customerLastName",
-            "customerDui",
-            "customerNit",
-            "ncr",
-            "address",
-            "email",
-            "phone",
-            "creditDay",
-            "creditLimit",
-            "status",
-            "creationDate",
-            "exemptFromVat",
-            "businessActivity",
-            "personType",
-            "appliesWithholding"
-    })
     private Customer customer;
 
 
@@ -87,20 +68,10 @@ public class Sale {
 
     // Relación con SaleDetail
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnoreProperties({
-            "sale",
-            "product",
-            "serviceName",
-            "quantity",
-            "unitPrice",
-            "subtotal"
-
-    })
     private Set<SaleDetail> saleDetails = new HashSet<>();
 
-    @OneToMany(mappedBy = "sale")
-    @JsonIgnore
-    private List<CreditNote> creditNotes;
+    @OneToOne(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private CreditNote creditNote;
 
     @CreationTimestamp
     @Column(name = "creation_date", nullable = false, updatable = false)

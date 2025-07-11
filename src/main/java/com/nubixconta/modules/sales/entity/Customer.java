@@ -2,7 +2,6 @@ package com.nubixconta.modules.sales.entity;
 
 
 import com.nubixconta.modules.administration.entity.User;
-import com.nubixconta.modules.inventory.entity.Product;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.Getter;

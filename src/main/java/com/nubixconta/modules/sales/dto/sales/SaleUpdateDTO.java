@@ -1,5 +1,7 @@
 package com.nubixconta.modules.sales.dto.sales;
 import java.util.List;
+
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -17,6 +19,6 @@ public class SaleUpdateDTO {
     private String saleType;
     private BigDecimal totalAmount;
     private String saleDescription;
-    private List<SaleDetailCreateDTO> saleDetails;
+    private List<@Valid SaleDetailCreateDTO> saleDetails;
 
 }

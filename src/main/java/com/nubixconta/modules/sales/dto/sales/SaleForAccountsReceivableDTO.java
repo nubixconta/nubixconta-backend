@@ -1,4 +1,4 @@
-package com.nubixconta.modules.sales.dto.customer;
+package com.nubixconta.modules.sales.dto.sales;
 
 import lombok.Getter;
 import lombok.Setter;
