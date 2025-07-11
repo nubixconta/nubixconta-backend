@@ -1,23 +1,32 @@
 package com.nubixconta.modules.sales.entity;
 
-import lombok.Data;
+
+import com.nubixconta.modules.administration.entity.User;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "customer")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "client_id")
     private Integer clientId;
 
-    @NotNull(message = "El userId es obligatorio")
-    @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @NotBlank(message = "El nombre es obligatorio")
     @Size(max = 50, message = "El nombre puede tener máximo 50 caracteres")
@@ -73,9 +82,14 @@ public class Customer {
     @Column(name = "status", nullable = false)
     private Boolean status;
 
-    @NotNull(message = "La fecha de creación es obligatoria")
-    @Column(name = "creation_date", nullable = false)
+    @CreationTimestamp
+    @Column(name = "creation_date", nullable = false, updatable = false)
     private LocalDateTime creationDate;
+
+    @UpdateTimestamp
+    @Column(name = "update_date")
+    private LocalDateTime updateDate;
+
 
     @NotNull(message = "El campo de exención de IVA es obligatorio")
     @Column(name = "exempt_from_vat", nullable = false)
@@ -94,4 +108,20 @@ public class Customer {
     @NotNull(message = "El campo de retención es obligatorio")
     @Column(name = "applies_withholding", nullable = false)
     private Boolean appliesWithholding;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Customer customer = (Customer) o;
+        // Para entidades con ID, una vez que el ID no es nulo, es la única verdad.
+        return clientId != null && clientId.equals(customer.clientId);
+    }
+
+    @Override
+    public int hashCode() {
+        // Usar una constante para objetos transitorios (sin ID)
+        // y el hash del ID para los persistidos.
+        return getClass().hashCode();
+    }
 }

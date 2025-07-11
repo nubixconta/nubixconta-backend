@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Data
 public class CollectionDetailDTO {
+        private Integer id;
         private String paymentStatus;
         private String paymentDetailDescription;
         private LocalDateTime CollectionDetailDate;

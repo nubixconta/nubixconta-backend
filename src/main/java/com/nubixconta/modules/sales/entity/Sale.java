@@ -1,17 +1,25 @@
 package com.nubixconta.modules.sales.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.List;
 
 @Entity
 @Table(name="sale")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 public class Sale {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,29 +29,12 @@ public class Sale {
     @NotNull(message = "El cliente es obligatorio")
     @ManyToOne(optional = false)
     @JoinColumn(name = "client_id", nullable = false)
-    @JsonIgnoreProperties({
-            "customerLastName",
-            "customerDui",
-            "customerNit",
-            "ncr",
-            "address",
-            "email",
-            "phone",
-            "creditDay",
-            "creditLimit",
-            "status",
-            "creationDate",
-            "exemptFromVat",
-            "businessActivity",
-            "personType",
-            "appliesWithholding"
-    })
     private Customer customer;
 
 
     @NotBlank(message = "El número de documento es obligatorio")
     @Size(max = 20, message = "El número de documento puede tener máximo 20 caracteres")
-    @Column(name = "document_number", length = 20, nullable = false)
+    @Column(name = "document_number", length = 20, nullable = false,unique = true)
     private String documentNumber;
 
     @NotBlank(message = "El estado de la venta es obligatorio")
@@ -65,10 +56,6 @@ public class Sale {
     @Column(name = "total_amount", precision = 10, scale = 2, nullable = false)
     private BigDecimal totalAmount;
 
-    @NotNull(message = "La fecha de venta es obligatoria")
-    @Column(name = "sale_date", nullable = false)
-    private LocalDateTime saleDate;
-
     @NotBlank(message = "La descripción es obligatoria")
     @Size(max = 255, message = "La descripción puede tener máximo 255 caracteres")
     @Column(name = "sale_description", length = 255, nullable = false)
@@ -81,18 +68,44 @@ public class Sale {
 
     // Relación con SaleDetail
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnoreProperties({
-            "sale",
-            "product",
-            "serviceName",
-            "quantity",
-            "unitPrice",
-            "subtotal"
+    private Set<SaleDetail> saleDetails = new HashSet<>();
 
-    })
-    private List<SaleDetail> saleDetails;
-    @OneToMany(mappedBy = "sale")
-    @JsonIgnore
-    private List<CreditNote> creditNotes;
+    @OneToOne(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private CreditNote creditNote;
 
+    @CreationTimestamp
+    @Column(name = "creation_date", nullable = false, updatable = false)
+    private LocalDateTime creationDate;
+
+    @UpdateTimestamp
+    @Column(name = "update_date")
+    private LocalDateTime updateDate;
+
+
+    public void addDetail(SaleDetail detail) {
+        if (this.saleDetails == null) {
+            this.saleDetails = new HashSet<>();
+        }
+        this.saleDetails.add(detail);
+        detail.setSale(this); // <-- ¡Esta línea es la magia! Establece el lado inverso de la relación.
+    }
+
+    public void removeDetail(SaleDetail detail) {
+        if (this.saleDetails != null) {
+            this.saleDetails.remove(detail);
+            detail.setSale(null); // Limpia la relación
+        }
+    }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Sale that)) return false;
+        // Las ventas son únicas por su ID, si existe.
+        return saleId != null && saleId.equals(that.saleId);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

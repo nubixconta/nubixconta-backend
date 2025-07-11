@@ -11,13 +11,7 @@ import java.util.List;
 public class AccountsReceivableDTO {
 
     private BigDecimal balance;
-    //private String receiveAccountStatus;
-    //private LocalDateTime receivableAccountDate;
-
-    // incluir la venta completa (sin transformar) de momento
     private Sale sale;
-
-    // incluir los detalles de cobro completos (sin transformar) de momento
     private List<CollectionDetailDTO> collectionDetails;
     private Integer creditDay;
 

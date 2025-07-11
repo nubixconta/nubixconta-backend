@@ -4,6 +4,9 @@ import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import com.nubixconta.modules.accountsreceivable.repository.AccountsReceivableRepository;
 import com.nubixconta.modules.accountsreceivable.repository.CollectionDetailRepository;
+import com.nubixconta.modules.sales.entity.Sale;
+import com.nubixconta.modules.sales.repository.SaleRepository;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -16,10 +19,13 @@ import java.util.Optional;
 @Service
 public class CollectionDetailService {
     private final CollectionDetailRepository repository;
+    private final SaleRepository saleRepository;
+
     @Autowired
     private AccountsReceivableRepository accountsReceivableRepository;
-    public CollectionDetailService(CollectionDetailRepository repository) {
+    public CollectionDetailService(CollectionDetailRepository repository,SaleRepository saleRepository) {
         this.repository = repository;
+        this.saleRepository = saleRepository;
     }
 
     public List<CollectionDetail> findAll() {
@@ -82,23 +88,31 @@ public class CollectionDetailService {
                 })
                 .orElseThrow(() -> new RuntimeException(" Detalle no encontrado con ID: " + id));
     }
+
     //Metodo para registrar un acountsReceivable automaticamante creando primero acountsReceivable y actualizando su
     //saldo si es un cobro parcial
+
     @Transactional
     public CollectionDetail registerPayment(CollectionDetail detail) {
         var saleId = detail.getAccountReceivable().getSaleId();
 
-
         //Buscar si ya existe un registro de accountRecivable por saleId
         var ar = accountsReceivableRepository.findBySaleId(saleId)
                 .orElseGet(() -> {
+                    Sale sale = saleRepository.findById(saleId)
+                            .orElseThrow(() -> new EntityNotFoundException("Venta no encontrada"));
                     //si no existe, se crea uno nuevo cuyo saldo = monto total de la venta
                     AccountsReceivable nuevo = new AccountsReceivable();
                     nuevo.setSaleId(saleId);
+                    nuevo.setSale(sale);
                     nuevo.setBalance(BigDecimal.ZERO);
                     nuevo.setModuleType("Cuentas por cobrar");
                     return accountsReceivableRepository.save(nuevo);
                 });
+        if (ar.getSale() == null) {
+            ar = accountsReceivableRepository.findById(ar.getId()).orElseThrow();
+        }
+
         var montoTotalVenta = ar.getSale().getTotalAmount();
         var saldoActual = ar.getBalance();
         var abonoNuevo = detail.getPaymentAmount();
@@ -112,7 +126,35 @@ public class CollectionDetailService {
         accountsReceivableRepository.save(ar);
 
         detail.setAccountReceivable(ar);
-        return repository.save(detail);
+        CollectionDetail savedDetail = repository.save(detail);
+        recalcularBalancePorReceivableId(ar.getId());
+        return savedDetail;
 
     }
+    @Transactional
+    public void recalcularBalancePorReceivableId(Integer receivableId) {
+        var ar = accountsReceivableRepository.findById(receivableId)
+                .orElseThrow(() -> new RuntimeException("AccountsReceivable no encontrado"));
+
+        List<CollectionDetail> abonos = repository.findByAccountReceivableId(receivableId);
+
+        BigDecimal totalAbonos = abonos.stream()
+                .map(CollectionDetail::getPaymentAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Sale venta = ar.getSale();
+        if (venta == null) {
+            throw new IllegalStateException("La relación con la venta no está disponible para esta cuenta por cobrar.");
+        }
+
+        BigDecimal montoTotalVenta = venta.getTotalAmount();
+        if (totalAbonos.compareTo(montoTotalVenta) > 0) {
+            throw new IllegalArgumentException("La suma total de abonos excede el monto total de la venta.");
+        }
+
+
+        ar.setBalance(totalAbonos);
+        accountsReceivableRepository.save(ar);
+    }
+
 }

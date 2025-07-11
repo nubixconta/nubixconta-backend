@@ -97,6 +97,7 @@ public class AccountsReceivableService {
                     // a CollectionDetailTDO hay que hacerlo manualmente
                     List<CollectionDetailDTO> collectionDTOs = account.getCollectionDetails().stream()
                             .map(cd -> new CollectionDetailDTO(
+                                    cd.getId(),
                                     cd.getPaymentStatus(),
                                     cd.getPaymentDetailDescription(),
                                     cd.getCollectionDetailDate(),

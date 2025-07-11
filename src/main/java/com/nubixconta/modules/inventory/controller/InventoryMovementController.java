@@ -41,7 +41,7 @@ public class InventoryMovementController {
         return movementService.findByProductId(productId);
     }
 
-    @PostMapping
+   /* @PostMapping
     public ResponseEntity<InventoryMovement> createMovement(@Valid @RequestBody Map<String, Object> body) {
         Integer idProduct = (Integer) body.get("idProduct");
         Optional<Product> optProduct = productService.findById(idProduct);
@@ -55,10 +55,10 @@ public class InventoryMovementController {
         movement.setMovementDescription((String) body.get("movementDescription"));
         movement.setModule((String) body.get("module"));
         return ResponseEntity.ok(movementService.save(movement));
-    }
+    }*/
 
 
-    @PatchMapping("/{id}")
+   /* @PatchMapping("/{id}")
     public ResponseEntity<InventoryMovement> updateMovement(
             @PathVariable Integer id,
             @RequestBody Map<String, Object> updates) {
@@ -94,7 +94,7 @@ public class InventoryMovementController {
         }
 
         return ResponseEntity.ok(movementService.save(movement));
-    }
+    }*/
 
 
     @DeleteMapping("/{id}")

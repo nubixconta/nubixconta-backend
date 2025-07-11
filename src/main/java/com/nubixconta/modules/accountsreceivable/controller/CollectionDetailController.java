@@ -7,6 +7,7 @@ import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -49,6 +50,7 @@ public class CollectionDetailController {
                                 .orElseThrow(() -> new RuntimeException("No existe accountReceivable con ID: " + partial.getAccountReceivable().getId()));
                         existing.setAccountReceivable(accountReceivable);
                     }
+
                     if (partial.getAccountId() != null) existing.setAccountId(partial.getAccountId());
                     if (partial.getReference() != null) existing.setReference(partial.getReference());
                     if (partial.getPaymentMethod() != null) existing.setPaymentMethod(partial.getPaymentMethod());
@@ -56,10 +58,17 @@ public class CollectionDetailController {
                     if (partial.getPaymentAmount() != null) existing.setPaymentAmount(partial.getPaymentAmount());
                     if (partial.getPaymentDetailDescription() != null) existing.setPaymentDetailDescription(partial.getPaymentDetailDescription());
                     if (partial.getModuleType() != null) existing.setModuleType(partial.getModuleType());
-                    return ResponseEntity.ok(service.save(existing));
+
+                    CollectionDetail actualizado = service.save(existing);
+
+                    // Recalcular correctamente con todos los abonos actuales
+                    service.recalcularBalancePorReceivableId(actualizado.getAccountReceivable().getId());
+
+                    return ResponseEntity.ok(actualizado);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+
 
     //Busca cobros por un rango de fechas
     @GetMapping("/search-by-date")

@@ -13,6 +13,9 @@ import java.util.List;
 @Repository
 public interface CollectionDetailRepository extends JpaRepository<CollectionDetail, Integer> {
 
+    @Query("SELECT a FROM CollectionDetail a WHERE a.accountReceivable.id = :receivableId")
+    List<CollectionDetail> findByAccountReceivableId(@Param("receivableId") Integer receivableId);
+
     @Query("SELECT a FROM CollectionDetail a WHERE a.CollectionDetailDate BETWEEN :start AND :end")
     List<CollectionDetail> findByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

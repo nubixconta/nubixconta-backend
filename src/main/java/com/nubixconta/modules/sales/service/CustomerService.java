@@ -1,50 +1,105 @@
 package com.nubixconta.modules.sales.service;
 
+import com.nubixconta.modules.administration.entity.User;
+import com.nubixconta.modules.administration.repository.UserRepository;
+import com.nubixconta.modules.sales.dto.customer.*;
 import com.nubixconta.modules.sales.entity.Customer;
 import com.nubixconta.modules.sales.repository.CustomerRepository;
-import org.springframework.stereotype.Service;
+import com.nubixconta.security.JwtUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.springframework.stereotype.Service;
+import com.nubixconta.common.exception.NotFoundException;
+
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
+
 
 @Service
 @RequiredArgsConstructor
 public class CustomerService {
+
     private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
+    private final ModelMapper modelMapper;
 
-    public List<Customer> findAll() {
-        return customerRepository.findByStatusTrue();
+    // Obtener todos los clientes activos
+    public List<CustomerResponseDTO> findAll() {
+        return customerRepository.findByStatusTrue().stream().map(
+                c -> modelMapper.map(c, CustomerResponseDTO.class))
+                .collect(Collectors.toList());
     }
 
-    public Optional<Customer> findById(Integer id) {
-        return customerRepository.findById(id);
+    // Buscar cliente por ID o lanzar excepción personalizada
+    public CustomerResponseDTO findById(Integer id) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Cliente con ID " + id + " no encontrado"));
+        return modelMapper.map(customer, CustomerResponseDTO.class);
     }
 
-    public Customer save(Customer customer) {
-        return customerRepository.save(customer);
+    // Guardar nuevo cliente, vinculando el usuario autenticado
+    public CustomerResponseDTO save(CustomerCreateDTO dto, HttpServletRequest request) {
+        Customer customer = modelMapper.map(dto, Customer.class);
+
+        // Obtener ID de usuario desde token JWT
+        String token = request.getHeader("Authorization");
+        Integer userId = JwtUtil.extractUserId(token);
+
+        // Obtener entidad User o lanzar excepción personalizada
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Usuario autenticado no encontrado"));
+
+        customer.setUser(user);
+        customer.setStatus(true); // por defecto activo
+
+        Customer saved = customerRepository.save(customer);
+        return modelMapper.map(saved, CustomerResponseDTO.class);
     }
 
+    // Actualizar cliente (tipo PATCH, usando CustomerUpdateDTO)
+    public CustomerResponseDTO update(Integer id, CustomerUpdateDTO dto) {
+        Customer existing = customerRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Cliente con ID " + id + " no encontrado"));
+
+        modelMapper.map(dto, existing);
+        Customer updated = customerRepository.save(existing);
+        return modelMapper.map(updated, CustomerResponseDTO.class);
+    }
+
+    // Eliminar cliente (físico o lógico)
     public void delete(Integer id) {
         if (!customerRepository.existsById(id)) {
-            throw new IllegalArgumentException("Cliente no encontrado");
+            throw new NotFoundException("Cliente con ID " + id + " no encontrado");
         }
         customerRepository.deleteById(id);
     }
-    // Nuevo: Búsqueda flexible SOLO clientes activos
-    public List<Customer> searchActive(String name, String lastName, String dui, String nit) {
-        // Si todos los parámetros son null, se devuelven todos los activos.
-        return customerRepository.searchActive(
-                emptyToNull(name), emptyToNull(lastName), emptyToNull(dui), emptyToNull(nit)
-        );
+
+    // Buscar clientes activos con filtros
+    public List<CustomerResponseDTO> searchActive(String name, String lastName, String dui, String nit) {
+        // Pasa los parámetros directamente, sin el helper emptyToNull
+        return customerRepository.searchActive(name, lastName, dui, nit)
+                .stream()
+                .map(c -> modelMapper.map(c, CustomerResponseDTO.class))
+                .collect(Collectors.toList());
     }
 
-    // Nuevo: Obtener clientes desactivados
-    public List<Customer> findInactive() {
-        return customerRepository.findByStatusFalse();
+    // Obtener clientes inactivos
+    public List<CustomerResponseDTO> findInactive() {
+        return customerRepository.findByStatusFalse()
+                .stream()
+                .map(c -> modelMapper.map(c, CustomerResponseDTO.class))
+                .collect(Collectors.toList());
     }
 
-    // Ayuda para no filtrar por cadenas vacías
+    // Utilidad: convertir cadenas vacías a null
     private String emptyToNull(String value) {
         return (value != null && !value.trim().isEmpty()) ? value.trim() : null;
     }
+    // Devuelve la entidad Customer para uso interno en servicios
+    public Customer findEntityById(Integer id) {
+        return customerRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Cliente con ID " + id + " no encontrado"));
+    }
+
 }
