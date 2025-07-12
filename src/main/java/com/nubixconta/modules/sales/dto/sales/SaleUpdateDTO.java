@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class SaleUpdateDTO {
     private String documentNumber;
-    private String saleStatus;
     private LocalDateTime issueDate;
     private String saleType;
     private BigDecimal totalAmount;

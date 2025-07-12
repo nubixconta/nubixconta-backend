@@ -74,13 +74,6 @@ public class ProductService {
         return modelMapper.map(updated, ProductResponseDTO.class);
     }
 
-    public ProductResponseDTO updateStock(Integer id, ProductStockUpdateDTO dto) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + id));
-        product.setStockQuantity(dto.getStockQuantity());
-        Product updated = productRepository.save(product);
-        return modelMapper.map(updated, ProductResponseDTO.class);
-    }
 
     public void delete(Integer id) {
         if (!productRepository.existsById(id)) {

@@ -8,6 +8,7 @@ import com.nubixconta.modules.sales.dto.sales.SaleUpdateDTO;
 import com.nubixconta.modules.sales.service.SaleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -116,4 +117,15 @@ public class SaleController {
         return ResponseEntity.ok(sales);
     }
 
+    @PostMapping("/{id}/apply")
+    @ResponseStatus(HttpStatus.OK)
+    public SaleResponseDTO applySale(@PathVariable Integer id) {
+        return saleService.applySale(id);
+    }
+
+    @PostMapping("/{id}/cancel")
+    @ResponseStatus(HttpStatus.OK)
+    public SaleResponseDTO cancelSale(@PathVariable Integer id) {
+        return saleService.cancelSale(id);
+    }
 }

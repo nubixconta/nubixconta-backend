@@ -1,5 +1,6 @@
 package com.nubixconta.modules.sales.service;
 
+import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.sales.dto.customer.CustomerResponseDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
 import com.nubixconta.modules.sales.entity.Customer;
@@ -35,6 +36,7 @@ public class SaleService {
     private final CustomerService customerService;
     private final ProductService productService;
     private final ModelMapper modelMapper;
+    private final InventoryService inventoryService;
 
     /**
      * Retorna todas las ventas existentes como DTO de respuesta.
@@ -91,7 +93,7 @@ public class SaleService {
         Sale newSale = new Sale();
         newSale.setCustomer(customer);
         newSale.setDocumentNumber(dto.getDocumentNumber());
-        newSale.setSaleStatus(dto.getSaleStatus());
+        newSale.setSaleStatus("PENDIENTE");
         newSale.setIssueDate(dto.getIssueDate());
         newSale.setSaleType(dto.getSaleType());
         newSale.setTotalAmount(dto.getTotalAmount());
@@ -156,8 +158,12 @@ public class SaleService {
      * Elimina una venta por ID. Lanza NotFoundException si no existe.
      */
     public void delete(Integer id) {
-        if (!saleRepository.existsById(id)) {
-            throw new NotFoundException("Venta con ID " + id + " no encontrada");
+        Sale sale = saleRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Venta con ID " + id + " no encontrada para eliminar."));
+
+        // ✅ REGLA DE NEGOCIO: Solo se pueden eliminar ventas PENDIENTES.
+        if (!"PENDIENTE".equals(sale.getSaleStatus())) {
+            throw new BusinessRuleException("Solo se pueden eliminar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
         }
         saleRepository.deleteById(id);
     }
@@ -175,11 +181,14 @@ public class SaleService {
                 saleRepository.existsByDocumentNumber(dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe otra venta con el número de documento: " + dto.getDocumentNumber());
         }
+        // REGLA DE NEGOCIO: Solo se pueden editar ventas PENDIENTES.
+        if (!"PENDIENTE".equals(sale.getSaleStatus())) {
+            throw new BusinessRuleException("Solo se pueden editar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
+        }
 
         // 3. Actualizar campos simples de la venta MANUALMENTE
         // Esto es más seguro que un mapeo general.
         if (dto.getDocumentNumber() != null) sale.setDocumentNumber(dto.getDocumentNumber());
-        if (dto.getSaleStatus() != null) sale.setSaleStatus(dto.getSaleStatus());
         if (dto.getIssueDate() != null) sale.setIssueDate(dto.getIssueDate());
         if (dto.getSaleType() != null) sale.setSaleType(dto.getSaleType());
         if (dto.getTotalAmount() != null) sale.setTotalAmount(dto.getTotalAmount());
@@ -226,6 +235,54 @@ public class SaleService {
         return modelMapper.map(updatedSale, SaleResponseDTO.class);
     }
 
+    // --- NUEVOS MÉTODOS PARA EL CICLO DE VIDA ---
+
+    @Transactional
+    public SaleResponseDTO applySale(Integer saleId) {
+        // 1. Buscar la venta y sus detalles
+        Sale sale = saleRepository.findById(saleId)
+                .orElseThrow(() -> new NotFoundException("Venta con ID " + saleId + " no encontrada"));
+
+        // 2. Validar estado actual
+        if (!"PENDIENTE".equals(sale.getSaleStatus())) {
+            throw new BusinessRuleException("La venta solo puede ser aplicada si su estado es PENDIENTE. Estado actual: " + sale.getSaleStatus());
+        }
+
+        // 3. Delegar la lógica de inventario al InventoryService
+        inventoryService.processSaleApplication(sale);
+
+        // 4. (Futuro) Aquí llamarías al servicio de contabilidad
+        // accountingService.createAccountingEntryForSale(sale);
+
+        // 5. Actualizar el estado de la venta
+        sale.setSaleStatus("APLICADA");
+        Sale appliedSale = saleRepository.save(sale);
+
+        return modelMapper.map(appliedSale, SaleResponseDTO.class);
+    }
+
+    @Transactional
+    public SaleResponseDTO cancelSale(Integer saleId) {
+        Sale sale = saleRepository.findById(saleId)
+                .orElseThrow(() -> new NotFoundException("Venta con ID " + saleId + " no encontrada"));
+
+        // 2. Validar estado actual
+        if (!"APLICADA".equals(sale.getSaleStatus())) {
+            throw new BusinessRuleException("La venta solo puede ser anulada si su estado es APLICADA. Estado actual: " + sale.getSaleStatus());
+        }
+
+        // 3. Delegar la REVERSIÓN de inventario al InventoryService
+        inventoryService.processSaleCancellation(sale);
+
+        // 4. (Futuro) Revertir la partida contable
+        // accountingService.revertAccountingEntryForSale(sale);
+
+        // 5. Actualizar estado
+        sale.setSaleStatus("ANULADA");
+        Sale cancelledSale = saleRepository.save(sale);
+
+        return modelMapper.map(cancelledSale, SaleResponseDTO.class);
+    }
 
     /**
      * Mapea un SaleDetailCreateDTO a una entidad SaleDetail, asociando el producto si es necesario.
