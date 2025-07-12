@@ -1,13 +1,15 @@
 package com.nubixconta.modules.accountsreceivable.controller;
 
-import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
+import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailCreateDTO;
+import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailResponseDTO;
+import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailUpdateDTO;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import com.nubixconta.modules.accountsreceivable.repository.AccountsReceivableRepository;
 import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService;
+import jakarta.validation.Valid;
+import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -20,10 +22,12 @@ public class CollectionDetailController {
 
     private final CollectionDetailService service;
     private final AccountsReceivableRepository accountsReceivableRepository;
+    private final ModelMapper modelMapper;
 
-    public CollectionDetailController(CollectionDetailService service, AccountsReceivableRepository accountsReceivableRepository) {
+    public CollectionDetailController(CollectionDetailService service, AccountsReceivableRepository accountsReceivableRepository,ModelMapper modelMapper) {
         this.service = service;
         this.accountsReceivableRepository = accountsReceivableRepository;
+        this.modelMapper = modelMapper;
     }
 
     @GetMapping
@@ -38,36 +42,33 @@ public class CollectionDetailController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-
-
-
     @PatchMapping("/{id}")
-    public ResponseEntity<CollectionDetail> partialUpdate(@PathVariable Integer id, @RequestBody CollectionDetail partial) {
+    public ResponseEntity<CollectionDetail> partialUpdate(
+            @PathVariable Integer id,
+            @RequestBody @Valid CollectionDetailUpdateDTO dto) {
+
         return service.findById(id)
                 .map(existing -> {
-                    if (partial.getAccountReceivable() != null && partial.getAccountReceivable().getId() != null) {
-                        var accountReceivable = accountsReceivableRepository.findById(partial.getAccountReceivable().getId())
-                                .orElseThrow(() -> new RuntimeException("No existe accountReceivable con ID: " + partial.getAccountReceivable().getId()));
-                        existing.setAccountReceivable(accountReceivable);
-                    }
 
-                    if (partial.getAccountId() != null) existing.setAccountId(partial.getAccountId());
-                    if (partial.getReference() != null) existing.setReference(partial.getReference());
-                    if (partial.getPaymentMethod() != null) existing.setPaymentMethod(partial.getPaymentMethod());
-                    if (partial.getPaymentStatus() != null) existing.setPaymentStatus(partial.getPaymentStatus());
-                    if (partial.getPaymentAmount() != null) existing.setPaymentAmount(partial.getPaymentAmount());
-                    if (partial.getPaymentDetailDescription() != null) existing.setPaymentDetailDescription(partial.getPaymentDetailDescription());
-                    if (partial.getModuleType() != null) existing.setModuleType(partial.getModuleType());
+                    Integer receivableId = dto.getAccountReceivableId() != null
+                            ? dto.getAccountReceivableId()
+                            : existing.getAccountReceivable().getId();
+
+                    if (dto.getReference() != null) existing.setReference(dto.getReference());
+                    if (dto.getPaymentMethod() != null) existing.setPaymentMethod(dto.getPaymentMethod());
+                    if (dto.getPaymentAmount() != null) existing.setPaymentAmount(dto.getPaymentAmount());
+                    if (dto.getPaymentStatus() != null) existing.setPaymentStatus(dto.getPaymentStatus());
+                    if (dto.getPaymentDetailDescription() != null) existing.setPaymentDetailDescription(dto.getPaymentDetailDescription());
+                    if (dto.getAccountId() != null) existing.setAccountId(dto.getAccountId());
 
                     CollectionDetail actualizado = service.save(existing);
 
-                    // Recalcular correctamente con todos los abonos actuales
-                    service.recalcularBalancePorReceivableId(actualizado.getAccountReceivable().getId());
-
+                    service.recalcularBalancePorReceivableId(receivableId);
                     return ResponseEntity.ok(actualizado);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+
 
 
     //Busca cobros por un rango de fechas
@@ -90,14 +91,19 @@ public class CollectionDetailController {
     }
 
     @PostMapping("/register-payment")
-    public ResponseEntity<CollectionDetail> registerPayment(@RequestBody CollectionDetail detail) {
-        return ResponseEntity.ok(service.registerPayment(detail));
+    public ResponseEntity<CollectionDetailResponseDTO> registerPayment(
+            @RequestBody @Valid CollectionDetailCreateDTO dto) {
+
+        CollectionDetail saved = service.registerPayment(dto);
+        CollectionDetailResponseDTO response = modelMapper.map(saved, CollectionDetailResponseDTO.class);
+        return ResponseEntity.ok(response);
     }
+    /*
     @PostMapping
     public ResponseEntity<CollectionDetail> create(@RequestBody CollectionDetail detail) {
         return ResponseEntity.ok(service.save(detail));
     }
-
+*/
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
         service.deleteById(id);

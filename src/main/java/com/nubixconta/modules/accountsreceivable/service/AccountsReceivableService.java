@@ -1,10 +1,10 @@
 package com.nubixconta.modules.accountsreceivable.service;
 
-import com.nubixconta.modules.accountsreceivable.dto.AccountsReceivableDTO;
-import com.nubixconta.modules.accountsreceivable.dto.CollectionDetailDTO;
+import com.nubixconta.modules.accountsreceivable.dto.accountsreceivable.AccountsReceivableResponseDTO;
+import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailResponseDTO;
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.repository.AccountsReceivableRepository;
-import jakarta.transaction.Transactional;
+import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.modelmapper.ModelMapper;
@@ -80,23 +80,31 @@ public class AccountsReceivableService {
                 .collect(Collectors.toList());
 
     }
-    public List<AccountsReceivableDTO> findAll() {
+
+    public List<AccountsReceivableResponseDTO> findAll() {
         return repository.findAll().stream()
                 .map(account -> {
-                    AccountsReceivableDTO dto = modelMapper.map(account, AccountsReceivableDTO.class);
+                    AccountsReceivableResponseDTO dto = modelMapper.map(account, AccountsReceivableResponseDTO.class);
 
-                    // Setear creditDay desde la venta
-                    if (account.getSale() != null && account.getSale().getCustomer() != null) {
-                        dto.setCreditDay(account.getSale().getCustomer().getCreditDay());
-                    } else {
-                        dto.setCreditDay(null);
+                    if (account.getSale() != null) {
+                        SaleForAccountsReceivableDTO saleDTO = new SaleForAccountsReceivableDTO();
+                        saleDTO.setDocumentNumber(account.getSale().getDocumentNumber());
+                        saleDTO.setIssueDate(account.getSale().getIssueDate());
+                        saleDTO.setTotalAmount(account.getSale().getTotalAmount());
+
+                        if (account.getSale().getCustomer() != null) {
+                            saleDTO.setCustomerName(account.getSale().getCustomer().getCustomerName());
+                            saleDTO.setCustomerLastName(account.getSale().getCustomer().getCustomerLastName());
+                            saleDTO.setCreditDay(account.getSale().getCustomer().getCreditDay());
+                        }
+
+                        dto.setSale(saleDTO);
                     }
-
                     // Transformar manualmente los detalles de cobro por que ModelMapper
                     //no puede mapea todo el objeto CollectionDetail por defecto y no lo convierte
                     // a CollectionDetailTDO hay que hacerlo manualmente
-                    List<CollectionDetailDTO> collectionDTOs = account.getCollectionDetails().stream()
-                            .map(cd -> new CollectionDetailDTO(
+                    List<CollectionDetailResponseDTO> collectionDTOs = account.getCollectionDetails().stream()
+                            .map(cd -> new CollectionDetailResponseDTO(
                                     cd.getId(),
                                     cd.getPaymentStatus(),
                                     cd.getPaymentDetailDescription(),
@@ -112,44 +120,12 @@ public class AccountsReceivableService {
                 .collect(Collectors.toList());
     }
 
-
-
     public Optional<AccountsReceivable> findById(Integer id) {
         return repository.findById(id);
     }
 
-    public AccountsReceivable save(AccountsReceivable accountsReceivable) {
-        return repository.save(accountsReceivable);
-    }
-
     public void deleteById(Integer id) {
         repository.deleteById(id);
-    }
-
-    public AccountsReceivable update(Integer id, AccountsReceivable updated) {
-        return repository.findById(id)
-                .map(existing -> {
-                    existing.setSaleId(updated.getSaleId());
-                    existing.setBalance(updated.getBalance());
-                    existing.setModuleType(updated.getModuleType());
-                    return repository.save(existing);
-                })
-                .orElseThrow(() -> new RuntimeException("Cuenta por cobrar no encontrada con ID: " + id));
-    }
-    //Este metodo es para actualizar uno o mas campos especificos
-    public AccountsReceivable partialUpdate(Integer id, Map<String, Object> updates) {
-        AccountsReceivable existing = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Cuenta por cobrar no encontrada"));
-
-        updates.forEach((key, value) -> {
-            switch (key) {
-                case "saleId" -> existing.setSaleId(Integer.parseInt(value.toString()));
-                case "balance" -> existing.setBalance(new BigDecimal(value.toString()));
-                case "moduleType" -> existing.setModuleType((String) value);
-            }
-        });
-
-        return repository.save(existing);
     }
     public Optional<AccountsReceivable> findBySaleId(Integer saleId) {
         return repository.findBySaleId(saleId);

@@ -48,5 +48,5 @@ public class CollectionEntry {
     @Column(name = "identifier", length = 50)
     private String identifier;
 
-    // Getters y setters...
+
 }

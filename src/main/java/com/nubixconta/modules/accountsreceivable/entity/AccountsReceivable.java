@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -35,13 +36,6 @@ public class AccountsReceivable {
     @DecimalMin(value="0.00",inclusive=true,message = "El Saldo no puede ser negativo")
     private BigDecimal balance;
 
-    //@NotNull(message = "El estado es obligatorio")
-    //@Column(name = "receive_account_status", length = 10)
-    //private String receiveAccountStatus;
-
-    //@NotNull(message = "La fecha es obligatorio")
-    //@Column(name = "receivable_account_date")
-    //private LocalDateTime receivableAccountDate;
 
     @NotNull(message = "El modulo es obligatorio")
     @Size(max = 30, message = "La el modulo no puede tener mas de 30 caracteres")
@@ -50,6 +44,21 @@ public class AccountsReceivable {
 
     @OneToMany(mappedBy = "accountReceivable", cascade = CascadeType.ALL)
     private List<CollectionDetail> collectionDetails;
+
+    public void addCollectionDetail(CollectionDetail detail) {
+        if (this.collectionDetails == null) {
+            this.collectionDetails = new ArrayList<>();
+        }
+        this.collectionDetails.add(detail);
+        detail.setAccountReceivable(this);
+    }
+
+    public void removeCollectionDetail(CollectionDetail detail) {
+        if (this.collectionDetails != null) {
+            this.collectionDetails.remove(detail);
+            detail.setAccountReceivable(null);
+        }
+    }
 
 
 }

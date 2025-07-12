@@ -10,6 +10,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -69,5 +70,21 @@ public class CollectionDetail {
 
     @OneToMany(mappedBy = "collectionDetail", cascade = CascadeType.ALL)
     private List<CollectionEntry> collectionEntries;
+
+    public void addEntry(CollectionEntry entry) {
+        if (this.collectionEntries == null) {
+            this.collectionEntries = new ArrayList<>();
+        }
+        this.collectionEntries.add(entry);
+        entry.setCollectionDetail(this);
+    }
+
+    public void removeEntry(CollectionEntry entry) {
+        if (this.collectionEntries != null) {
+            this.collectionEntries.remove(entry);
+            entry.setCollectionDetail(null);
+        }
+    }
+
 }
 

@@ -1,5 +1,7 @@
 package com.nubixconta.modules.accountsreceivable.service;
 
+import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailCreateDTO;
+import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailUpdateDTO;
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import com.nubixconta.modules.accountsreceivable.repository.AccountsReceivableRepository;
@@ -93,15 +95,14 @@ public class CollectionDetailService {
     //saldo si es un cobro parcial
 
     @Transactional
-    public CollectionDetail registerPayment(CollectionDetail detail) {
-        var saleId = detail.getAccountReceivable().getSaleId();
+    public CollectionDetail registerPayment(CollectionDetailCreateDTO dto) {
+        Integer saleId = dto.getSaleId();
 
-        //Buscar si ya existe un registro de accountRecivable por saleId
+        // Buscar o crear automáticamente la cuenta por cobrar
         var ar = accountsReceivableRepository.findBySaleId(saleId)
                 .orElseGet(() -> {
                     Sale sale = saleRepository.findById(saleId)
                             .orElseThrow(() -> new EntityNotFoundException("Venta no encontrada"));
-                    //si no existe, se crea uno nuevo cuyo saldo = monto total de la venta
                     AccountsReceivable nuevo = new AccountsReceivable();
                     nuevo.setSaleId(saleId);
                     nuevo.setSale(sale);
@@ -109,28 +110,41 @@ public class CollectionDetailService {
                     nuevo.setModuleType("Cuentas por cobrar");
                     return accountsReceivableRepository.save(nuevo);
                 });
+
         if (ar.getSale() == null) {
             ar = accountsReceivableRepository.findById(ar.getId()).orElseThrow();
         }
 
-        var montoTotalVenta = ar.getSale().getTotalAmount();
-        var saldoActual = ar.getBalance();
-        var abonoNuevo = detail.getPaymentAmount();
+        BigDecimal montoTotalVenta = ar.getSale().getTotalAmount();
+        BigDecimal saldoActual = ar.getBalance();
+        BigDecimal abonoNuevo = dto.getPaymentAmount();
 
         if (saldoActual.add(abonoNuevo).compareTo(montoTotalVenta) > 0) {
             throw new IllegalArgumentException("El monto a abonar excede el monto total de la venta.");
         }
 
-        //Actualizar el balance sumando el abono
+        // Actualizar el balance
         ar.setBalance(saldoActual.add(abonoNuevo));
         accountsReceivableRepository.save(ar);
 
+        // Crear CollectionDetail desde DTO
+        CollectionDetail detail = new CollectionDetail();
         detail.setAccountReceivable(ar);
-        CollectionDetail savedDetail = repository.save(detail);
-        recalcularBalancePorReceivableId(ar.getId());
-        return savedDetail;
+        detail.setAccountId(dto.getAccountId());
+        detail.setReference(dto.getReference());
+        detail.setPaymentMethod(dto.getPaymentMethod());
+        detail.setPaymentStatus(dto.getPaymentStatus());
+        detail.setPaymentAmount(dto.getPaymentAmount());
+        detail.setPaymentDetailDescription(dto.getPaymentDetailDescription());
+        detail.setCollectionDetailDate(dto.getCollectionDetailDate());
+        detail.setModuleType(dto.getModuleType());
 
+        CollectionDetail saved = repository.save(detail);
+        recalcularBalancePorReceivableId(ar.getId());
+        return saved;
     }
+
+
     @Transactional
     public void recalcularBalancePorReceivableId(Integer receivableId) {
         var ar = accountsReceivableRepository.findById(receivableId)

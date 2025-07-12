@@ -1,14 +1,12 @@
 package com.nubixconta.modules.accountsreceivable.controller;
 
-import com.nubixconta.modules.accountsreceivable.dto.AccountsReceivableDTO;
+import com.nubixconta.modules.accountsreceivable.dto.accountsreceivable.AccountsReceivableResponseDTO;
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.service.AccountsReceivableService;
-import jakarta.validation.Valid;
+import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -17,13 +15,15 @@ import java.util.Map;
 public class AccountsReceivableController {
 
     private final AccountsReceivableService service;
+    private final ModelMapper modelMapper;
 
-    public AccountsReceivableController(AccountsReceivableService service) {
+    public AccountsReceivableController(AccountsReceivableService service,ModelMapper modelMapper) {
         this.service = service;
+        this.modelMapper= modelMapper;
     }
 
     @GetMapping
-    public List<AccountsReceivableDTO> getAll() {
+    public List<AccountsReceivableResponseDTO> getAll() {
         return service.findAll();
     }
 
@@ -35,28 +35,6 @@ public class AccountsReceivableController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping
-    public ResponseEntity<AccountsReceivable> create(@RequestBody @Valid AccountsReceivable accountsReceivable) {
-        return ResponseEntity.ok(service.save(accountsReceivable));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<AccountsReceivable> update(@PathVariable Integer id, @RequestBody AccountsReceivable updated) {
-        try {
-            return ResponseEntity.ok(service.update(id, updated));
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
-    }
-    // Se usara cuando se quiera actualizar un campo en especifico como el estado o el saldo
-    @PatchMapping("/{id}")
-    public ResponseEntity<AccountsReceivable> partialUpdate(@PathVariable Integer id, @RequestBody Map<String, Object> updates) {
-        try {
-            return ResponseEntity.ok(service.partialUpdate(id, updates));
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
-    }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
