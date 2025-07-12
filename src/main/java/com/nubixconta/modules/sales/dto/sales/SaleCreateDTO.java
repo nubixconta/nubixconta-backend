@@ -21,10 +21,6 @@ public class SaleCreateDTO {
         @Size(max = 20, message = "Máximo 20 caracteres")
         private String documentNumber;
 
-        @NotBlank(message = "El estado de la venta es obligatorio")
-        @Size(max = 10, message = "Máximo 10 caracteres")
-        private String saleStatus;
-
         @NotNull(message = "La fecha de emisión es obligatoria")
         private LocalDateTime issueDate;
 

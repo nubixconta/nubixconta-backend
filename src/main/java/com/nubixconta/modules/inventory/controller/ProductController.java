@@ -90,13 +90,6 @@ public class ProductController {
         return ResponseEntity.ok(productService.update(id, dto));
     }
 
-    // Actualizar únicamente el stock del producto
-    @PatchMapping("/{id}/stock")
-    public ResponseEntity<ProductResponseDTO> updateStock(
-            @PathVariable Integer id,
-            @Valid @RequestBody ProductStockUpdateDTO dto) {
-        return ResponseEntity.ok(productService.updateStock(id, dto));
-    }
 
     // Eliminar producto por ID
     @DeleteMapping("/{id}")
