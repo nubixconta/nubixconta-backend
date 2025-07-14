@@ -2,10 +2,12 @@ package com.nubixconta.modules.accountsreceivable.service;
 
 import com.nubixconta.modules.accounting.entity.Account;
 import com.nubixconta.modules.accounting.repository.AccountRepository;
+import com.nubixconta.modules.accounting.service.AccountService;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionEntry;
 import com.nubixconta.modules.accountsreceivable.repository.CollectionDetailRepository;
 import com.nubixconta.modules.accountsreceivable.repository.CollectionEntryRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -18,48 +20,59 @@ public class CollectionEntryService {
     private final CollectionEntryRepository entryRepository;
     private final CollectionDetailRepository detailRepository;
     private final AccountRepository accountRepository;
+    private final AccountService accountService;
+    private final CollectionDetailRepository collectionDetailRepository;
 
     @Autowired
     public CollectionEntryService(CollectionEntryRepository entryRepository,
                                   CollectionDetailRepository detailRepository,
-                                  AccountRepository accountRepository) {
+                                  AccountRepository accountRepository,
+                                  AccountService accountService,
+                                  CollectionDetailRepository collectionDetailRepository) {
         this.entryRepository = entryRepository;
         this.detailRepository = detailRepository;
         this.accountRepository = accountRepository;
+        this.accountService = accountService;
+        this.collectionDetailRepository = collectionDetailRepository;
     }
 
+    @Transactional
     public void createEntriesFromDetail(Integer detailId) {
         CollectionDetail detail = detailRepository.findById(detailId)
                 .orElseThrow(() -> new RuntimeException("No se encontró CollectionDetail con ID: " + detailId));
 
-        Account originalAccount = accountRepository.findById(detail.getAccountId())
-                .orElseThrow(() -> new RuntimeException("No se encontró cuenta con ID: " + detail.getAccountId()));
+        // Cuenta de banco (viene del detalle)
+        Account bankAccount = accountRepository.findById(detail.getAccountId())
+                .orElseThrow(() -> new RuntimeException("Cuenta bancaria no encontrada"));
 
-        Account clientAccount = accountRepository
-                .findByAccountNameIgnoreCase("Clientes")
-                .orElseThrow(() -> new RuntimeException("No se encontró cuenta con nombre exacto 'Clientes'"));
+        // Cuenta de cliente (ahora usando el servicio)
+        Account clientAccount = accountRepository.findById(accountService.getClientAccountId())
+                .orElseThrow(() -> new RuntimeException("Cuenta Clientes no encontrada"));
 
-        // Registro original (debe)
-        CollectionEntry original = new CollectionEntry();
-        original.setCollectionDetail(detail);
-        original.setAccount(originalAccount);
-        original.setDebit(detail.getPaymentAmount());
-        original.setCredit(BigDecimal.ZERO);
-        original.setDescription(detail.getPaymentDetailDescription());
-        original.setDate(LocalDateTime.now());
+       detail.setPaymentStatus("APLICADO");
 
-        // Contra cuenta (haber)
-        CollectionEntry contraEntry = new CollectionEntry();
-        contraEntry.setCollectionDetail(detail);
-        contraEntry.setAccount(clientAccount);
-        contraEntry.setDebit(BigDecimal.ZERO);
-        contraEntry.setCredit(detail.getPaymentAmount());
-        contraEntry.setDescription(detail.getPaymentDetailDescription());
-        contraEntry.setDate(LocalDateTime.now());
+        // Registro al DEBE (Banco)
+        CollectionEntry entryDebe = new CollectionEntry();
+        entryDebe.setCollectionDetail(detail);
+        entryDebe.setAccount(bankAccount);
+        entryDebe.setDebit(detail.getPaymentAmount());
+        entryDebe.setCredit(BigDecimal.ZERO);
+        entryDebe.setDescription(detail.getPaymentDetailDescription());
+        entryDebe.setDate(LocalDateTime.now());
 
-        // Guardar ambos registros
-        entryRepository.save(original);
-        entryRepository.save(contraEntry);
+        // Registro al HABER (Clientes)
+        CollectionEntry entryHaber = new CollectionEntry();
+        entryHaber.setCollectionDetail(detail);
+        entryHaber.setAccount(clientAccount);
+        entryHaber.setDebit(BigDecimal.ZERO);
+        entryHaber.setCredit(detail.getPaymentAmount());
+        entryHaber.setDescription(detail.getPaymentDetailDescription());
+        entryHaber.setDate(LocalDateTime.now());
+
+        // Guardar ambos
+        collectionDetailRepository.save(detail);
+        entryRepository.save(entryDebe);
+        entryRepository.save(entryHaber);
     }
 
     public void deleteById(Integer id) {

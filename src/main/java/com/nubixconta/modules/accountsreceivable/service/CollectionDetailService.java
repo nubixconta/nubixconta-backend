@@ -57,8 +57,23 @@ public class CollectionDetailService {
     }
 
 
+    @Transactional
     public void deleteById(Integer id) {
+        CollectionDetail detail = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("No se encontró el detalle con ID: " + id));
+
+        // 🚫 Solo se puede eliminar si NO ha sido aplicado
+        if ("APLICADO".equalsIgnoreCase(detail.getPaymentStatus())) {
+            throw new IllegalStateException("No se puede eliminar un cobro ya aplicado.");
+        }
+
+        Integer receivableId = detail.getAccountReceivable().getId();
+
+        // Primero eliminar
         repository.deleteById(id);
+
+        // Luego recalcular el saldo
+        recalcularBalancePorReceivableId(receivableId);
     }
 
     public CollectionDetail update(Integer id, CollectionDetail updated) {
@@ -150,7 +165,10 @@ public class CollectionDetailService {
         var ar = accountsReceivableRepository.findById(receivableId)
                 .orElseThrow(() -> new RuntimeException("AccountsReceivable no encontrado"));
 
-        List<CollectionDetail> abonos = repository.findByAccountReceivableId(receivableId);
+        // Obtener solo los abonos que NO estén anulados
+        List<CollectionDetail> abonos = repository.findByAccountReceivableId(receivableId).stream()
+                .filter(detalle -> !"ANULADO".equalsIgnoreCase(detalle.getPaymentStatus()))
+                .toList();
 
         BigDecimal totalAbonos = abonos.stream()
                 .map(CollectionDetail::getPaymentAmount)
@@ -163,12 +181,12 @@ public class CollectionDetailService {
 
         BigDecimal montoTotalVenta = venta.getTotalAmount();
         if (totalAbonos.compareTo(montoTotalVenta) > 0) {
-            throw new IllegalArgumentException("La suma total de abonos excede el monto total de la venta.");
+            throw new IllegalArgumentException("La suma total de abonos válidos excede el monto total de la venta.");
         }
-
 
         ar.setBalance(totalAbonos);
         accountsReceivableRepository.save(ar);
     }
+
 
 }

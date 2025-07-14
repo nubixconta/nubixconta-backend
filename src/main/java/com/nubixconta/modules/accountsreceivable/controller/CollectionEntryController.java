@@ -1,6 +1,8 @@
 package com.nubixconta.modules.accountsreceivable.controller;
 
+import com.nubixconta.modules.accountsreceivable.dto.collectionentry.CollectionEntryCreateDTO;
 import com.nubixconta.modules.accountsreceivable.service.CollectionEntryService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

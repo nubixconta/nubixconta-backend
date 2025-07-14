@@ -18,4 +18,9 @@ public class AccountService {
     public List<Account> findBankAccounts() {
         return repository.findByAccountType("ACTIVO-BANCO");
     }
+    //Este metodo busca la cuenta de clientes
+    public Integer getClientAccountId() {
+        return repository.findClientAccountId()
+                .orElseThrow(() -> new RuntimeException("Cuenta 'Cliente(s)' no encontrada"));
+    }
 }
