@@ -1,5 +1,4 @@
 package com.nubixconta.modules.accountsreceivable.controller;
-
 import com.nubixconta.modules.accountsreceivable.service.CollectionEntryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

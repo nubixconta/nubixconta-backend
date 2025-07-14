@@ -31,7 +31,6 @@ public class User {
     private String lastName;
 
     @NotNull(message = "El userName es obligatorio")
-    @JsonProperty("userName") // <- Esta línea es clave
     @Column(name = "user_name", length = 32, unique = true)
     private String userName;
 
@@ -40,19 +39,20 @@ public class User {
     private String email;
 
     @NotNull(message = "La contraseña es obligatorio")
-    @JsonProperty("password") // <- Esta línea también es necesaria
     @Column(name = "pass_word", length = 255)
     private String password;
+
 
     @Column(length = 255)
     private String photo;
 
-    // ... imports y anotaciones de clase
-    @Column(name = "user_status", nullable = false)
-    private Boolean status = Boolean.TRUE; // <- default
+    @NotNull(message = "El estado es obligatorio")
+    @Column(name="user_status")
+    private Boolean status;
 
-    @Column(name = "role", nullable = false)
-    private Boolean role = Boolean.FALSE; // <- default
+    @NotNull(message = "El estado es obligatorio")
+    @Column(name="role")
+    private Boolean role;
 
 
     @JsonManagedReference
