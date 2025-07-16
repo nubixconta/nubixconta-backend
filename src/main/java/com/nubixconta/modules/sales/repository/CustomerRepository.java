@@ -24,4 +24,14 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer>{
     List<Customer> findByStatusFalse();
     List<Customer> findByStatusTrue();
 
+    // --- ¡AÑADIR ESTOS MÉTODOS! ---
+    boolean existsByCustomerDui(String dui);
+    boolean existsByCustomerNit(String nit);
+    boolean existsByNcr(String ncr);
+
+    // Métodos para la actualización (ignoran el propio cliente que se está actualizando)
+    boolean existsByCustomerDuiAndClientIdNot(String dui, Integer clientId);
+    boolean existsByCustomerNitAndClientIdNot(String nit, Integer clientId);
+    boolean existsByNcrAndClientIdNot(String ncr, Integer clientId);
+
 }

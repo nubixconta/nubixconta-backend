@@ -1,4 +1,6 @@
 package com.nubixconta.modules.sales.dto.customer;
+
+import com.nubixconta.modules.sales.entity.PersonType;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 
@@ -19,6 +21,8 @@ public class CustomerCreateDTO {
     @Size(max = 17)
     private String customerNit;
 
+
+    @NotBlank(message = "El NCR es obligatorio")
     @Size(max = 14)
     private String ncr;
 
@@ -50,9 +54,8 @@ public class CustomerCreateDTO {
     @Size(max = 100)
     private String businessActivity;
 
-    @NotBlank(message = "El tipo de persona es obligatorio")
-    @Size(max = 30)
-    private String personType;
+    @NotNull(message = "El tipo de persona es obligatorio")
+    private PersonType personType;
 
     @NotNull(message = "El campo de retención es obligatorio")
     private Boolean appliesWithholding;

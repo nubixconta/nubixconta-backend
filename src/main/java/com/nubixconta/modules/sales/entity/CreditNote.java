@@ -8,6 +8,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -30,6 +31,11 @@ public class CreditNote {
     @Column(name = "document_number", length = 20, nullable = false, unique = true) // Sugerencia: añadir unique=true
     private String documentNumber;
 
+    @NotBlank(message = "La descripcion es obligatorio")
+    @Size(max = 255, message = "La descripcion puede tener máximo 255 caracteres")
+    @Column(name = "description", length = 255)
+    private String description;
+
     @NotBlank(message = "El estado de la nota de crédito es obligatorio")
     @Size(max = 10, message = "El estado puede tener máximo 10 caracteres")
     @Column(name = "credit_note_status", length = 10, nullable = false)
@@ -44,9 +50,29 @@ public class CreditNote {
     private LocalDateTime updateDate;
 
     @NotNull(message = "La venta asociada es obligatoria")
-    @OneToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "sale_id", nullable = false, unique = true) // 'unique = true' refuerza la regla
+    // La relación ahora es ManyToOne, ya que muchas NC pueden apuntar a una Venta.
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    // El JoinColumn ya no necesita 'unique = true'.
+    @JoinColumn(name = "sale_id", nullable = false)
     private Sale sale;
+
+
+    // --- ¡AÑADIR ESTOS TRES CAMPOS NUEVOS! ---
+
+    @NotNull
+    @Digits(integer = 10, fraction = 2)
+    @Column(name = "subtotal_amount", nullable = false)
+    private BigDecimal subtotalAmount;
+
+    @NotNull
+    @Digits(integer = 10, fraction = 2)
+    @Column(name = "vat_amount", nullable = false)
+    private BigDecimal vatAmount;
+
+    @NotNull
+    @Digits(integer = 10, fraction = 2)
+    @Column(name = "total_amount", nullable = false)
+    private BigDecimal totalAmount;
 
     // --- ¡AÑADIMOS LA RELACIÓN CON LOS DETALLES! ---
     @OneToMany(

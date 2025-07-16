@@ -2,6 +2,6 @@ package com.nubixconta.modules.inventory.entity;
 
 
 public enum MovementType {
-    IN,  // Entrada de inventario
-    OUT  // Salida de inventario
+    ENTRADA,  // Entrada de inventario
+    SALIDA    // Salida de inventario
 }

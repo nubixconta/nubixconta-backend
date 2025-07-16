@@ -1,7 +1,9 @@
 package com.nubixconta.modules.sales.dto.customer;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.nubixconta.modules.sales.entity.PersonType;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -21,9 +23,10 @@ public class CustomerResponseDTO {
     private String phone;
     private Integer creditDay;
     private BigDecimal creditLimit;
+    private BigDecimal currentBalance;
     private Boolean exemptFromVat;
     private String businessActivity;
-    private String personType;
+    private PersonType personType;
     private Boolean appliesWithholding;
     private Boolean status;
     private LocalDateTime creationDate;
