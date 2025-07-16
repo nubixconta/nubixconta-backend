@@ -66,4 +66,25 @@ public class CreditNoteController {
     public ResponseEntity<List<CreditNoteResponseDTO>> getByStatus(@RequestParam String status) {
         return ResponseEntity.ok(creditNoteService.findByStatus(status));
     }
+    //NUEVOS ENDPOINTS PARA EL CICLO DE VIDA ---
+
+    /**
+     * Aplica una nota de crédito que está en estado PENDIENTE.
+     * Esto afectará el stock (incrementándolo) y cambiará el estado a APLICADA.
+     */
+    @PostMapping("/{id}/apply")
+    public ResponseEntity<CreditNoteResponseDTO> applyCreditNote(@PathVariable Integer id) {
+        CreditNoteResponseDTO appliedNote = creditNoteService.applyCreditNote(id);
+        return ResponseEntity.ok(appliedNote);
+    }
+
+    /**
+     * Anula una nota de crédito que está en estado APLICADA.
+     * Esto revertirá la afectación al stock y cambiará el estado a ANULADA.
+     */
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<CreditNoteResponseDTO> cancelCreditNote(@PathVariable Integer id) {
+        CreditNoteResponseDTO cancelledNote = creditNoteService.cancelCreditNote(id);
+        return ResponseEntity.ok(cancelledNote);
+    }
 }

@@ -1,4 +1,5 @@
 package com.nubixconta.modules.sales.dto.creditnote;
+
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;

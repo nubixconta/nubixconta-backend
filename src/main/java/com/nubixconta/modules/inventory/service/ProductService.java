@@ -8,6 +8,8 @@ import com.nubixconta.modules.inventory.dto.product.*;
 import com.nubixconta.modules.inventory.entity.Product;
 import com.nubixconta.modules.inventory.repository.ProductRepository;
 import org.modelmapper.ModelMapper;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.stream.Collectors;
 
 @Service
@@ -57,7 +59,7 @@ public class ProductService {
                 .map(p -> modelMapper.map(p, ProductResponseDTO.class))
                 .collect(Collectors.toList());
     }
-
+    @Transactional
     public ProductResponseDTO create(ProductCreateDTO dto) {
         Product product = modelMapper.map(dto, Product.class);
         product.setIdProduct(null);
@@ -65,7 +67,7 @@ public class ProductService {
         Product saved = productRepository.save(product);
         return modelMapper.map(saved, ProductResponseDTO.class);
     }
-
+    @Transactional
     public ProductResponseDTO update(Integer id, ProductUpdateDTO dto) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + id));
@@ -74,13 +76,6 @@ public class ProductService {
         return modelMapper.map(updated, ProductResponseDTO.class);
     }
 
-    public ProductResponseDTO updateStock(Integer id, ProductStockUpdateDTO dto) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + id));
-        product.setStockQuantity(dto.getStockQuantity());
-        Product updated = productRepository.save(product);
-        return modelMapper.map(updated, ProductResponseDTO.class);
-    }
 
     public void delete(Integer id) {
         if (!productRepository.existsById(id)) {

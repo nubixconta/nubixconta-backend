@@ -1,14 +1,18 @@
 package com.nubixconta.modules.sales.service;
 
+import com.nubixconta.modules.accounting.service.AccountingService;
+import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.sales.dto.customer.CustomerResponseDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
 import com.nubixconta.modules.sales.entity.Customer;
 import com.nubixconta.modules.sales.entity.Sale;
+import com.nubixconta.modules.sales.repository.CustomerRepository;
 import com.nubixconta.modules.sales.repository.SaleRepository;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.time.LocalDate;
@@ -35,6 +39,9 @@ public class SaleService {
     private final CustomerService customerService;
     private final ProductService productService;
     private final ModelMapper modelMapper;
+    private final InventoryService inventoryService;
+    private final AccountingService accountingService;
+    private final CustomerRepository customerRepository;
 
     /**
      * Retorna todas las ventas existentes como DTO de respuesta.
@@ -81,6 +88,38 @@ public class SaleService {
                 }
             }
         }
+        // --- INICIO DE LA NUEVA VALIDACIÓN DE INTEGRIDAD FINANCIERA ---
+
+        BigDecimal calculatedSubtotalFromDetails = BigDecimal.ZERO;
+        if (dto.getSaleDetails() != null) {
+            for (SaleDetailCreateDTO detailDTO : dto.getSaleDetails()) {
+                // 1. Validar la consistencia de cada línea de detalle
+                BigDecimal lineSubtotal = detailDTO.getUnitPrice().multiply(BigDecimal.valueOf(detailDTO.getQuantity()));
+                if (lineSubtotal.compareTo(detailDTO.getSubtotal()) != 0) {
+                    throw new BusinessRuleException(
+                            "Inconsistencia en el detalle del item '" + (detailDTO.getServiceName() != null ? detailDTO.getServiceName() : "Producto ID " + detailDTO.getProductId()) + "': " +
+                                    "El subtotal enviado (" + detailDTO.getSubtotal() + ") no coincide con el cálculo (Precio " + detailDTO.getUnitPrice() + " * Cantidad " + detailDTO.getQuantity() + " = " + lineSubtotal + ")."
+                    );
+                }
+                // 2. Sumar el subtotal (ya verificado) de la línea al total general
+                calculatedSubtotalFromDetails = calculatedSubtotalFromDetails.add(detailDTO.getSubtotal());
+            }
+        }
+
+        // 3. Validar que la suma de los detalles coincida con el subtotal de la cabecera
+        if (calculatedSubtotalFromDetails.compareTo(dto.getSubtotalAmount()) != 0) {
+            throw new BusinessRuleException(
+                    "Inconsistencia en el subtotal de la venta: " +
+                            "El subtotal enviado (" + dto.getSubtotalAmount() + ") no coincide con la suma de los subtotales de los detalles (" + calculatedSubtotalFromDetails + ")."
+            );
+        }
+
+        // 4. Validar que Subtotal + IVA == Total (esta ya la tenías, la mantenemos como validación final)
+        if (dto.getSubtotalAmount().add(dto.getVatAmount()).compareTo(dto.getTotalAmount()) != 0) {
+            throw new BusinessRuleException("Inconsistencia en los totales: Subtotal + IVA no es igual al Total.");
+        }
+
+        // --- FIN DE LA NUEVA VALIDACIÓN ---
 
         // --- CONSTRUCCIÓN MANUAL ---
 
@@ -91,9 +130,11 @@ public class SaleService {
         Sale newSale = new Sale();
         newSale.setCustomer(customer);
         newSale.setDocumentNumber(dto.getDocumentNumber());
-        newSale.setSaleStatus(dto.getSaleStatus());
+        newSale.setSaleStatus("PENDIENTE");
         newSale.setIssueDate(dto.getIssueDate());
         newSale.setSaleType(dto.getSaleType());
+        newSale.setSubtotalAmount(dto.getSubtotalAmount());
+        newSale.setVatAmount(dto.getVatAmount());
         newSale.setTotalAmount(dto.getTotalAmount());
         newSale.setSaleDescription(dto.getSaleDescription());
         newSale.setModuleType(dto.getModuleType());
@@ -156,8 +197,12 @@ public class SaleService {
      * Elimina una venta por ID. Lanza NotFoundException si no existe.
      */
     public void delete(Integer id) {
-        if (!saleRepository.existsById(id)) {
-            throw new NotFoundException("Venta con ID " + id + " no encontrada");
+        Sale sale = saleRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Venta con ID " + id + " no encontrada para eliminar."));
+
+        // ✅ REGLA DE NEGOCIO: Solo se pueden eliminar ventas PENDIENTES.
+        if (!"PENDIENTE".equals(sale.getSaleStatus())) {
+            throw new BusinessRuleException("Solo se pueden eliminar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
         }
         saleRepository.deleteById(id);
     }
@@ -175,17 +220,64 @@ public class SaleService {
                 saleRepository.existsByDocumentNumber(dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe otra venta con el número de documento: " + dto.getDocumentNumber());
         }
+        //3. REGLA DE NEGOCIO: Solo se pueden editar ventas PENDIENTES.
+        if (!"PENDIENTE".equals(sale.getSaleStatus())) {
+            throw new BusinessRuleException("Solo se pueden editar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
+        }
+        // --- INICIO DE LA VALIDACIÓN FINANCIERA COMPLETA ---
 
-        // 3. Actualizar campos simples de la venta MANUALMENTE
+        // 4. Si se envían detalles, se deben enviar también los totales y se validará todo.
+        if (dto.getSaleDetails() != null) {
+            if (dto.getSubtotalAmount() == null || dto.getVatAmount() == null || dto.getTotalAmount() == null) {
+                throw new BusinessRuleException("Si se modifican los detalles, se deben enviar los nuevos valores de subtotalAmount, vatAmount y totalAmount.");
+            }
+
+            BigDecimal calculatedSubtotalFromDetails = BigDecimal.ZERO;
+            for (SaleDetailCreateDTO detailDTO : dto.getSaleDetails()) {
+                // 4.1. Validar la consistencia de cada línea de detalle
+                BigDecimal lineSubtotal = detailDTO.getUnitPrice().multiply(BigDecimal.valueOf(detailDTO.getQuantity()));
+                if (lineSubtotal.compareTo(detailDTO.getSubtotal()) != 0) {
+                    throw new BusinessRuleException(
+                            "Inconsistencia en el detalle del item '" + (detailDTO.getServiceName() != null ? detailDTO.getServiceName() : "Producto ID " + detailDTO.getProductId()) + "': " +
+                                    "El subtotal enviado (" + detailDTO.getSubtotal() + ") no coincide con el cálculo (Precio " + detailDTO.getUnitPrice() + " * Cantidad " + detailDTO.getQuantity() + " = " + lineSubtotal + ")."
+                    );
+                }
+                calculatedSubtotalFromDetails = calculatedSubtotalFromDetails.add(detailDTO.getSubtotal());
+            }
+
+            // 4.2. Validar que la suma de los detalles coincida con el subtotal de la cabecera
+            if (calculatedSubtotalFromDetails.compareTo(dto.getSubtotalAmount()) != 0) {
+                throw new BusinessRuleException(
+                        "Inconsistencia en el subtotal de la venta: " +
+                                "El subtotal enviado (" + dto.getSubtotalAmount() + ") no coincide con la suma de los subtotales de los detalles (" + calculatedSubtotalFromDetails + ")."
+                );
+            }
+        }
+
+        // 4.3. Validar que Subtotal + IVA == Total. Esta validación se ejecuta siempre,
+        // incluso si solo se actualizan los totales sin cambiar los detalles.
+        if (dto.getSubtotalAmount() != null && dto.getVatAmount() != null && dto.getTotalAmount() != null) {
+            if (dto.getSubtotalAmount().add(dto.getVatAmount()).compareTo(dto.getTotalAmount()) != 0) {
+                throw new BusinessRuleException("Inconsistencia en los totales: Subtotal + IVA no es igual al Total.");
+            }
+        }
+
+        // --- FIN DE LA VALIDACIÓN FINANCIERA COMPLETA ---
+
+        // 5. Actualizar campos simples de la venta MANUALMENTE
         // Esto es más seguro que un mapeo general.
         if (dto.getDocumentNumber() != null) sale.setDocumentNumber(dto.getDocumentNumber());
-        if (dto.getSaleStatus() != null) sale.setSaleStatus(dto.getSaleStatus());
         if (dto.getIssueDate() != null) sale.setIssueDate(dto.getIssueDate());
         if (dto.getSaleType() != null) sale.setSaleType(dto.getSaleType());
         if (dto.getTotalAmount() != null) sale.setTotalAmount(dto.getTotalAmount());
         if (dto.getSaleDescription() != null) sale.setSaleDescription(dto.getSaleDescription());
 
-        // 4. Lógica de sincronización de detalles (si se proporcionan)
+        // Actualizar totales solo si se proporcionaron
+        if(dto.getSubtotalAmount() != null) sale.setSubtotalAmount(dto.getSubtotalAmount());
+        if(dto.getVatAmount() != null) sale.setVatAmount(dto.getVatAmount());
+        if(dto.getTotalAmount() != null) sale.setTotalAmount(dto.getTotalAmount());
+
+        // 6. Lógica de sincronización de detalles (si se proporcionan)
         if (dto.getSaleDetails() != null) {
             // Tu lógica de validación de duplicados y mapa es excelente... la mantenemos.
             Map<Object, SaleDetail> existingDetailsMap = sale.getSaleDetails().stream()
@@ -221,11 +313,88 @@ public class SaleService {
             sale.getSaleDetails().addAll(updatedDetails);
         }
 
-        // 5. Guardar la venta actualizada.
+        // 7. Guardar la venta actualizada.
         Sale updatedSale = saleRepository.save(sale);
         return modelMapper.map(updatedSale, SaleResponseDTO.class);
     }
 
+    // --- NUEVOS MÉTODOS PARA EL CICLO DE VIDA ---
+
+    @Transactional
+    public SaleResponseDTO applySale(Integer saleId) {
+        // 1. Buscar la venta y sus detalles
+        Sale sale = saleRepository.findById(saleId)
+                .orElseThrow(() -> new NotFoundException("Venta con ID " + saleId + " no encontrada"));
+
+        // 2. Validar estado actual
+        if (!"PENDIENTE".equals(sale.getSaleStatus())) {
+            throw new BusinessRuleException("La venta solo puede ser aplicada si su estado es PENDIENTE. Estado actual: " + sale.getSaleStatus());
+        }
+
+
+        // --- INICIO DE LA NUEVA LÓGICA DE VALIDACIÓN DE CRÉDITO ---
+
+        Customer customer = sale.getCustomer();
+        BigDecimal potentialNewBalance = customer.getCurrentBalance().add(sale.getTotalAmount());
+
+        // 3. Comprobar si el nuevo saldo excede el límite de crédito
+        if (potentialNewBalance.compareTo(customer.getCreditLimit()) > 0) {
+            throw new BusinessRuleException(
+                    "Límite de crédito excedido para el cliente. " +
+                            "Límite: " + customer.getCreditLimit() + ", " +
+                            "Saldo Actual: " + customer.getCurrentBalance() + ", " +
+                            "Total de esta Venta: " + sale.getTotalAmount()
+            );
+        }
+
+        // --- FIN DE LA NUEVA LÓGICA DE VALIDACIÓN DE CRÉDITO ---
+
+        // 4. Delegar la lógica de inventario al InventoryService
+        inventoryService.processSaleApplication(sale);
+
+        // 5. Generar asiento contable
+        accountingService.createEntriesForSaleApplication(sale);
+
+        // 6. Actualizar el estado de la venta
+        sale.setSaleStatus("APLICADA");
+        customer.setCurrentBalance(potentialNewBalance); // <-- Actualizamos el saldo en la entidad
+
+        // 7. Persistir todos los cambios (Venta y Cliente)
+        customerRepository.save(customer); // <-- Guardamos el cliente con su nuevo saldo
+        Sale appliedSale = saleRepository.save(sale);
+
+        return modelMapper.map(appliedSale, SaleResponseDTO.class);
+    }
+
+    @Transactional
+    public SaleResponseDTO cancelSale(Integer saleId) {
+        Sale sale = saleRepository.findById(saleId)
+                .orElseThrow(() -> new NotFoundException("Venta con ID " + saleId + " no encontrada"));
+
+        // 2. Validar estado actual
+        if (!"APLICADA".equals(sale.getSaleStatus())) {
+            throw new BusinessRuleException("La venta solo puede ser anulada si su estado es APLICADA. Estado actual: " + sale.getSaleStatus());
+        }
+
+        // 3. Delegar la REVERSIÓN de inventario al InventoryService
+        inventoryService.processSaleCancellation(sale);
+
+        // 4. Revertir la partida contable
+        accountingService.deleteEntriesForSaleCancellation(sale);
+
+        // --- NUEVA LÓGICA DE REVERSIÓN DE SALDO ---
+        Customer customer = sale.getCustomer();
+        BigDecimal newBalance = customer.getCurrentBalance().subtract(sale.getTotalAmount());
+        customer.setCurrentBalance(newBalance);
+        customerRepository.save(customer);
+        // --- FIN ---
+
+        // 5. Actualizar estado
+        sale.setSaleStatus("ANULADA");
+        Sale cancelledSale = saleRepository.save(sale);
+
+        return modelMapper.map(cancelledSale, SaleResponseDTO.class);
+    }
 
     /**
      * Mapea un SaleDetailCreateDTO a una entidad SaleDetail, asociando el producto si es necesario.
