@@ -1,8 +1,13 @@
 package com.nubixconta.modules.administration.service;
 
 
+import com.nubixconta.modules.administration.dto.user.UserCreateDTO;
+import com.nubixconta.modules.administration.dto.user.UserUpdateDTO;
+import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.entity.User;
 import com.nubixconta.modules.administration.repository.UserRepository;
+import jakarta.transaction.Transactional;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -13,42 +18,59 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
-    @Autowired
-    private ChangeHistoryService changeHistoryService;
-    @Autowired
+    private   ChangeHistoryService changeHistoryService;
+    private final ModelMapper modelMapper;
     private BCryptPasswordEncoder passwordEncoder;
 
     @Autowired
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository,ModelMapper modelMapper,
+                       ChangeHistoryService changeHistoryService,
+                       BCryptPasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.modelMapper = modelMapper;
+        this.changeHistoryService = changeHistoryService;
+        this.passwordEncoder = passwordEncoder;
+
+
     }
 
 
-    public User saveUser(User user) {
+    public User saveUser(UserCreateDTO userdto) {
+        // Validar unicidad del correo
+        if (userRepository.existsByEmail(userdto.getEmail())) {
+            throw new IllegalArgumentException("El correo electrónico ya está registrado.");
+        }
+        User user = modelMapper.map(userdto, User.class);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        User savedUser = userRepository.save(user);
-        String action = "Se registró el usuario " + savedUser.getFirstName() + " " + savedUser.getLastName();
-        changeHistoryService.logChange("Administración", action, savedUser.getId(), null);
-        return savedUser;
+
+        User saved = userRepository.save(user);
+        // Bitácora
+        changeHistoryService.logChange(
+                "Administración",
+                "Se creó el usuario " + saved.getFirstName() + " " + saved.getLastName(),
+                null
+        );
+        return saved;
+
     }
 
-    public User updateUser(Integer id, User updatedUser) {
-        return userRepository.findById(id).map(existingUser -> {
-            if (!updatedUser.getRole().equals(existingUser.getRole())) {
-                throw new RuntimeException("No está permitido modificar el rol del usuario.");
-            }
-            existingUser.setFirstName(updatedUser.getFirstName());
-            existingUser.setLastName(updatedUser.getLastName());
-            existingUser.setEmail(updatedUser.getEmail());
-            // Solo cifrar si la contraseña fue modificada
-            if (!updatedUser.getPassword().equals(existingUser.getPassword())) {
-                existingUser.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
-            }
-            existingUser.setPhoto(updatedUser.getPhoto());
-            existingUser.setStatus(updatedUser.getStatus());
-            return userRepository.save(existingUser);
-        }).orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
+    @Transactional
+    public User updateUser(Integer id, UserUpdateDTO dto) {
+        if (userRepository.existsByEmail(dto.getEmail())) {
+            throw new IllegalArgumentException("El correo electrónico ya está registrado.");
+        }
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
+        modelMapper.map(dto, user);
+
+        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        }
+
+        return userRepository.save(user);
     }
+
+
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }

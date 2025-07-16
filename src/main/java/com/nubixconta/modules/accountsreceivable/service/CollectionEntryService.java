@@ -78,4 +78,21 @@ public class CollectionEntryService {
     public void deleteById(Integer id) {
         entryRepository.deleteById(id);
     }
+    @Transactional
+    public void deleteEntriesByDetailId(Integer detailId) {
+        // Validación opcional
+        if (!detailRepository.existsById(detailId)) {
+            throw new RuntimeException("No existe un detalle con ID: " + detailId);
+        }
+
+        entryRepository.deleteByCollectionDetailId(detailId);
+
+        // Cambiar el estado del CollectionDetail a "ANULADO" si quieres
+        CollectionDetail detail = detailRepository.findById(detailId)
+                .orElseThrow(() -> new RuntimeException("Detalle no encontrado"));
+
+        detail.setPaymentStatus("ANULADO");
+        detailRepository.save(detail);
+    }
+
 }

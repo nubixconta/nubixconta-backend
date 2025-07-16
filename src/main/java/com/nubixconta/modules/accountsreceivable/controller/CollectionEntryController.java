@@ -24,4 +24,9 @@ public class CollectionEntryController {
         service.deleteById(id);
         return ResponseEntity.noContent().build();
     }
+    @DeleteMapping("/by-detail/{detailId}")
+    public ResponseEntity<Void> deleteByDetailId(@PathVariable Integer detailId) {
+        service.deleteEntriesByDetailId(detailId);
+        return ResponseEntity.noContent().build();
+    }
 }

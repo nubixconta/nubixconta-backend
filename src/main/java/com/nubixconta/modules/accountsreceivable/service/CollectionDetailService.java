@@ -62,7 +62,7 @@ public class CollectionDetailService {
         CollectionDetail detail = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("No se encontró el detalle con ID: " + id));
 
-        // 🚫 Solo se puede eliminar si NO ha sido aplicado
+        //  Solo se puede eliminar si NO ha sido aplicado
         if ("APLICADO".equalsIgnoreCase(detail.getPaymentStatus())) {
             throw new IllegalStateException("No se puede eliminar un cobro ya aplicado.");
         }
