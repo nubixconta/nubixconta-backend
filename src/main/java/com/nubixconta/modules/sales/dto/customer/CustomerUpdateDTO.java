@@ -1,4 +1,6 @@
 package com.nubixconta.modules.sales.dto.customer;
+
+import com.nubixconta.modules.sales.entity.PersonType;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 
@@ -51,9 +53,8 @@ public class CustomerUpdateDTO {
     @Size(max = 100)
     private String businessActivity;
 
-    @NotBlank
-    @Size(max = 30)
-    private String personType;
+    @NotNull(message = "El tipo de persona es obligatorio")
+    private PersonType personType;
 
     @NotNull
     private Boolean appliesWithholding;

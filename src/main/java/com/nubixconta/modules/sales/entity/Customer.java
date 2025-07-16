@@ -39,17 +39,17 @@ public class Customer {
     private String customerLastName;
 
 
-    @Size(max = 10, message = "El DUI puede tener máximo 10 caracteres")
-    @Column(name = "customer_dui", length = 10)
+    @Size(max = 10)
+    @Column(name = "customer_dui", length = 10, unique = true) // <-- AÑADIR UNIQUE
     private String customerDui;
 
-
-    @Size(max = 17, message = "El NIT puede tener máximo 17 caracteres")
-    @Column(name = "customer_nit", length = 17)
+    @Size(max = 17)
+    @Column(name = "customer_nit", length = 17, unique = true) // <-- AÑADIR UNIQUE
     private String customerNit;
 
+    @NotBlank(message = "El NCR es obligatorio") // <-- ¡AÑADIR @NotBlank!
     @Size(max = 14, message = "El NCR puede tener máximo 14 caracteres")
-    @Column(name = "ncr", length = 14)
+    @Column(name = "ncr",nullable = false, length = 14, unique = true) // <-- AÑADIR UNIQUE
     private String ncr;
 
     @NotBlank(message = "La dirección es obligatoria")
@@ -78,6 +78,14 @@ public class Customer {
     @Column(name = "credit_limit", precision = 10, scale = 2, nullable = false)
     private BigDecimal creditLimit;
 
+    // Este campo llevará el control del saldo pendiente del cliente.
+    // Lo inicializamos en CERO para nuevos clientes.
+    @NotNull
+    @Digits(integer = 10, fraction = 2)
+    @Column(name = "current_balance", precision = 10, scale = 2, nullable = false)
+    private BigDecimal currentBalance = BigDecimal.ZERO;
+
+
     @NotNull(message = "El estado es obligatorio")
     @Column(name = "status", nullable = false)
     private Boolean status;
@@ -100,10 +108,10 @@ public class Customer {
     @Column(name = "business_activity", length = 100, nullable = false)
     private String businessActivity;
 
-    @NotBlank(message = "El tipo de persona es obligatorio")
-    @Size(max = 30, message = "El tipo de persona puede tener máximo 30 caracteres")
+    @NotNull(message = "El tipo de persona es obligatorio")
+    @Enumerated(EnumType.STRING) // Le dice a JPA que guarde el nombre del enum ("NATURAL", "JURIDICA") en la BD
     @Column(name = "person_type", length = 30, nullable = false)
-    private String personType;
+    private PersonType personType;
 
     @NotNull(message = "El campo de retención es obligatorio")
     @Column(name = "applies_withholding", nullable = false)

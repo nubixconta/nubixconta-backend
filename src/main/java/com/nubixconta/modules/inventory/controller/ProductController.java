@@ -1,4 +1,5 @@
 package com.nubixconta.modules.inventory.controller;
+
 import com.nubixconta.common.exception.BadRequestException;
 import com.nubixconta.modules.inventory.service.ProductService;
 import lombok.RequiredArgsConstructor;

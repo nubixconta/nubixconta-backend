@@ -28,5 +28,15 @@ public interface CreditNoteRepository extends JpaRepository<CreditNote, Integer>
 
     // Método para validar unicidad del número de documento
     boolean existsByDocumentNumber(String documentNumber);
-    boolean existsBySale_SaleId(Integer saleId);
+
+    // --- MÉTODO CLAVE A AÑADIR ---
+    /**
+     * Verifica si existe al menos una nota de crédito para una venta dada que
+     * se encuentre en uno de los estados proporcionados.
+     * @param saleId El ID de la venta a verificar.
+     * @param statuses La lista de estados a buscar (ej. ["PENDIENTE", "APLICADA"]).
+     * @return true si se encuentra al menos una, false en caso contrario.
+     */
+    boolean existsBySale_SaleIdAndCreditNoteStatusIn(Integer saleId, List<String> statuses);
+
 }
