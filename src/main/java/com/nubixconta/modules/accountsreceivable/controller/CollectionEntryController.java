@@ -1,5 +1,6 @@
-package com.nubixconta.modules.accounting.controller;
-import com.nubixconta.modules.accounting.service.CollectionEntryService;
+package com.nubixconta.modules.accountsreceivable.controller;
+
+import com.nubixconta.modules.accountsreceivable.service.CollectionEntryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,13 +16,13 @@ public class CollectionEntryController {
 
     @PostMapping("/from-detail/{detailId}")
     public ResponseEntity<Void> createFromDetail(@PathVariable Integer detailId) {
-        service.ApplyCollectionDetail(detailId);
+        service.createEntriesFromDetail(detailId);
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/by-detail/{detailId}")
-    public ResponseEntity<Void> deleteByDetailId(@PathVariable Integer detailId) {
-        service.cancelByDetailId(detailId);
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteById(@PathVariable Integer id) {
+        service.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 }

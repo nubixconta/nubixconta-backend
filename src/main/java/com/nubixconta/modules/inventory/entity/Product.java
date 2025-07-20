@@ -2,19 +2,12 @@ package com.nubixconta.modules.inventory.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
+import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "product")
-@Getter
-@Setter
-@NoArgsConstructor
+@Data
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,31 +33,11 @@ public class Product {
     @Column(name = "stock_quantity", nullable = false)
     private Integer stockQuantity;
 
+    @NotNull(message = "La fecha de producto es obligatoria")
+    @Column(name = "product_date", nullable = false)
+    private LocalDateTime productDate;
+
     @NotNull(message = "El estado del producto es obligatorio")
     @Column(name = "product_status", nullable = false)
     private Boolean productStatus;
-
-    @CreationTimestamp
-    @Column(name = "creation_date", nullable = false, updatable = false)
-    private LocalDateTime creationDate;
-
-    @UpdateTimestamp
-    @Column(name = "update_date")
-    private LocalDateTime updateDate;
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Product that)) return false;
-        // La igualdad para una entidad con ID debe basarse en el ID.
-        // Si idProduct es nulo, dos entidades no pueden ser iguales a menos que sean la misma instancia.
-        return idProduct != null && idProduct.equals(that.idProduct);
-    }
-
-    @Override
-    public int hashCode() {
-        // Usar una constante (el hash de la clase) es la práctica estándar para entidades JPA.
-        // Esto evita que el hash cambie cuando se asigna un ID.
-        return getClass().hashCode();
-    }
 }

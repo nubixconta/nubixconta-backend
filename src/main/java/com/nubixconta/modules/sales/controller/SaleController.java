@@ -1,20 +1,23 @@
 package com.nubixconta.modules.sales.controller;
 
-import com.nubixconta.common.exception.BadRequestException;
-import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
-import com.nubixconta.modules.sales.dto.sales.SaleCreateDTO;
-import com.nubixconta.modules.sales.dto.sales.SaleResponseDTO;
-import com.nubixconta.modules.sales.dto.sales.SaleUpdateDTO;
+import com.nubixconta.modules.inventory.service.ProductService;
+import com.nubixconta.modules.sales.entity.Sale;
+import com.nubixconta.modules.sales.entity.SaleDetail;
 import com.nubixconta.modules.sales.service.SaleService;
+import com.nubixconta.modules.sales.service.SaleDetailService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import jakarta.validation.Valid;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.lang.reflect.Field;
+import org.springframework.util.ReflectionUtils;
+import org.springframework.format.annotation.DateTimeFormat;
 
 @RestController
 @RequestMapping("/api/v1/sales")
@@ -22,110 +25,177 @@ import java.util.List;
 public class SaleController {
 
     private final SaleService saleService;
+    private final SaleDetailService saleDetailService;
+    private final ProductService productService;
 
-    /**
-     * Obtener todas las ventas registradas.
-     * Devuelve una lista de SaleResponseDTO.
-     */
+    // --- Sale endpoints ---
+
     @GetMapping
-    public ResponseEntity<List<SaleResponseDTO>> getAllSales() {
-        List<SaleResponseDTO> sales = saleService.findAll();
-        return ResponseEntity.ok(sales);
+    public List<Sale> getAllSales() {
+        return saleService.findAll();
     }
 
-    /**
-     * Obtener una venta por ID, incluyendo sus detalles.
-     */
     @GetMapping("/{id}")
-    public ResponseEntity<SaleResponseDTO> getSaleById(@PathVariable Integer id) {
-        SaleResponseDTO sale = saleService.findById(id);
-        return ResponseEntity.ok(sale);
+    public ResponseEntity<Sale> getSale(@PathVariable Integer id) {
+        return saleService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * Crear una nueva venta junto con sus detalles.
-     * Se valida:
-     *  - Que el cliente exista
-     *  - Que los productos existan
-     *  - Que cada detalle tenga solo producto o servicio, no ambos
-     */
     @PostMapping
-    public ResponseEntity<SaleResponseDTO> createSale(@Valid @RequestBody SaleCreateDTO saleCreateDTO) {
-        SaleResponseDTO createdSale = saleService.createSale(saleCreateDTO);
-        return ResponseEntity.ok(createdSale);
+    public ResponseEntity<Sale> createSale(@Valid @RequestBody Sale sale) {
+        return ResponseEntity.ok(saleService.save(sale));
     }
 
-    /**
-     * Eliminar una venta por ID.
-     */
+
+    // PATCH: actualización parcial y validación campo a campo
+    @PatchMapping("/{id}")
+    public ResponseEntity<Sale> patchSale(@PathVariable Integer id, @RequestBody Map<String, Object> updates) {
+        Optional<Sale> optionalSale = saleService.findById(id);
+        if (optionalSale.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Sale sale = optionalSale.get();
+
+        updates.forEach((key, value) -> {
+            if (key.equalsIgnoreCase("saleId")) {
+                return; // No permitir cambiar la PK
+            }
+            Field field = ReflectionUtils.findField(Sale.class, key);
+            if (field != null) {
+                field.setAccessible(true);
+                ReflectionUtils.setField(field, sale, value);
+            }
+        });
+
+        return ResponseEntity.ok(saleService.save(sale));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteSale(@PathVariable Integer id) {
-        saleService.delete(id);
-        return ResponseEntity.noContent().build();
+        try {
+            saleService.delete(id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    /**
-     * Buscar ventas por rango de fechas.
-     * Las fechas deben ser enviadas en formato ISO (yyyy-MM-dd).
-     */
-    @GetMapping("/search")
-    public ResponseEntity<List<SaleResponseDTO>> searchSalesByDate(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
-    ) {
-        List<SaleResponseDTO> sales = saleService.findByIssueDateBetween(start, end);
-        return ResponseEntity.ok(sales);
+    // --- SaleDetail endpoints ---
+
+    @GetMapping("/details")
+    public List<SaleDetail> getAllSaleDetails() {
+        return saleDetailService.findAll();
     }
 
-    /**
-     * Obtener los detalles de una venta específica.
-     * Este endpoint es opcional, ya que normalmente los detalles vienen embebidos en SaleResponseDTO.
-     */
     @GetMapping("/{saleId}/details")
-    public ResponseEntity<List<?>> getSaleDetailsBySale(@PathVariable Integer saleId) {
-        SaleResponseDTO sale = saleService.findById(saleId);
-        return ResponseEntity.ok(sale.getSaleDetails());
+    public ResponseEntity<List<SaleDetail>> getSaleDetailsBySale(@PathVariable Integer saleId) {
+        return saleService.findById(saleId)
+                .map(sale -> ResponseEntity.ok(sale.getSaleDetails()))
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    //endpoint para actualizar una venta
-    @PatchMapping("/{id}")
-    public ResponseEntity<SaleResponseDTO> updateSale(@PathVariable Integer id,@RequestBody SaleUpdateDTO updateDTO) {
-        SaleResponseDTO updated = saleService.updateSalePartial(id, updateDTO);
-        return ResponseEntity.ok(updated);
+    @GetMapping("/details/{detailId}")
+    public ResponseEntity<SaleDetail> getSaleDetail(@PathVariable Integer detailId) {
+        return saleDetailService.findById(detailId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/{saleId}/details")
+    public ResponseEntity<SaleDetail> createSaleDetail(@PathVariable Integer saleId, @Valid @RequestBody SaleDetail saleDetail) {
+        return saleService.findById(saleId)
+                .map(sale -> {
+                    saleDetail.setSale(sale);
+                    return ResponseEntity.ok(saleDetailService.save(saleDetail));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+
+    @PatchMapping("/details/{detailId}")
+    public ResponseEntity<SaleDetail> patchSaleDetail(
+            @PathVariable Integer detailId,
+            @RequestBody Map<String, Object> updates) {
+
+        Optional<SaleDetail> optionalDetail = saleDetailService.findById(detailId);
+        if (optionalDetail.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        SaleDetail saleDetail = optionalDetail.get();
+
+        updates.forEach((key, value) -> {
+            if (key.equalsIgnoreCase("saleDetailId")) {
+                return; // No permitir cambiar la PK
+            }
+            if (key.equalsIgnoreCase("product")) {
+                // Manejo especial para relación con Product
+                Map<String, Object> productMap = (Map<String, Object>) value;
+                Integer idProduct = Integer.parseInt(productMap.get("idProduct").toString());
+                productService.findById(idProduct).ifPresent(saleDetail::setProduct);
+                return;
+            }
+            Field field = ReflectionUtils.findField(SaleDetail.class, key);
+            if (field != null) {
+                field.setAccessible(true);
+                // Conversión especial para BigDecimal
+                if (field.getType().equals(BigDecimal.class)) {
+                    if (value instanceof Number) {
+                        ReflectionUtils.setField(field, saleDetail, BigDecimal.valueOf(((Number) value).doubleValue()));
+                    } else {
+                        ReflectionUtils.setField(field, saleDetail, new BigDecimal(value.toString()));
+                    }
+                } else {
+                    ReflectionUtils.setField(field, saleDetail, value);
+                }
+            }
+        });
+
+        return ResponseEntity.ok(saleDetailService.save(saleDetail));
+    }
+
+
+
+    @DeleteMapping("/details/{detailId}")
+    public ResponseEntity<Void> deleteSaleDetail(@PathVariable Integer detailId) {
+        try {
+            saleDetailService.delete(detailId);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    // --- Buscar ventas por fechas ---
+    @GetMapping("/search")
+    public List<Sale> searchSalesByDate(
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
+    ) {
+        if (start == null || end == null) {
+            throw new IllegalArgumentException("Debe enviar ambos parámetros: start y end.");
+        }
+        return saleService.findByIssueDateBetween(start, end);
+    }
+
+
+    // --- Buscar ventas por nombre/apellido cliente dui o nit---
     @GetMapping("/client-search")
-    public ResponseEntity<List<SaleResponseDTO>> searchSalesByCustomer(
+    public List<Sale> searchSalesByCustomer(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String lastName,
             @RequestParam(required = false) String dui,
             @RequestParam(required = false) String nit
     ) {
+        // Si no hay criterios, puedes devolver error o todas (según negocio)
         if ((name == null || name.isBlank()) &&
                 (lastName == null || lastName.isBlank()) &&
                 (dui == null || dui.isBlank()) &&
                 (nit == null || nit.isBlank())
         ) {
-            throw new BadRequestException("Debe enviar al menos un criterio de búsqueda.");
+            throw new IllegalArgumentException("Debe enviar al menos un criterio de búsqueda.");
         }
-        List<SaleResponseDTO> results = saleService.findByCustomerSearch(name, lastName, dui, nit);
-        return ResponseEntity.ok(results);
-    }
-    @GetMapping("/receivables")
-    public ResponseEntity<List<SaleForAccountsReceivableDTO>> getSalesForAccountsReceivable() {
-        List<SaleForAccountsReceivableDTO> sales = saleService.findSalesForAccountsReceivable();
-        return ResponseEntity.ok(sales);
-    }
-
-    @PostMapping("/{id}/apply")
-    @ResponseStatus(HttpStatus.OK)
-    public SaleResponseDTO applySale(@PathVariable Integer id) {
-        return saleService.applySale(id);
-    }
-
-    @PostMapping("/{id}/cancel")
-    @ResponseStatus(HttpStatus.OK)
-    public SaleResponseDTO cancelSale(@PathVariable Integer id) {
-        return saleService.cancelSale(id);
+        return saleService.findByCustomerSearch(name, lastName, dui, nit);
     }
 }

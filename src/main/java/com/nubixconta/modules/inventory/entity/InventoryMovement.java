@@ -1,71 +1,41 @@
 package com.nubixconta.modules.inventory.entity;
 
-import com.nubixconta.modules.sales.entity.CreditNote;
-import com.nubixconta.modules.sales.entity.Sale;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
-
+import jakarta.validation.constraints.*;
+import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "inventory_movement")
-@Getter
-@Setter
+@Data
 public class InventoryMovement {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "movement_id")
     private Integer movementId;
 
     @NotNull(message = "El producto es obligatorio")
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = false)
     @JoinColumn(name = "id_product", referencedColumnName = "id_product")
     private Product product;
 
-    @NotNull(message = "El tipo de movimiento es obligatorio")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "movement_type", nullable = false)
-    private MovementType movementType;
-
-    @NotNull(message = "La cantidad es obligatoria")
-    @Column(name = "quantity", nullable = false)
-    private Integer quantity;
-
-    // Guardará el stock que quedó en el producto DESPUÉS de este movimiento.
-    @NotNull(message = "El stock resultante es obligatorio")
-    @Column(name = "stock_after_movement", nullable = false)
-    private Integer stockAfterMovement;
-
-    @CreationTimestamp
-    @Column(name = "date", nullable = false, updatable = false)
+    @NotNull(message = "La fecha es obligatoria")
+    @Column(name = "date", nullable = false)
     private LocalDateTime date;
 
+    @NotBlank(message = "El tipo de movimiento es obligatorio")
+    @Size(max = 30, message = "El tipo de movimiento puede tener máximo 30 caracteres")
+    @Column(name = "movement_type", length = 30, nullable = false)
+    private String movementType;
 
-    // Este es el estado PROPIO del movimiento (para ajustes manuales)
-    @NotNull(message = "El estado del movimiento es obligatorio")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "movement_status", nullable = false)
-    private MovementStatus status;
-
+    @NotBlank(message = "La descripción es obligatoria")
     @Size(max = 256, message = "La descripción puede tener máximo 256 caracteres")
-    @Column(name = "description", length = 256)
-    private String description;
+    @Column(name = "movement_description", length = 256, nullable = false)
+    private String movementDescription;
 
-    // --- VÍNCULOS DE AUDITORÍA ---
-    // Si el movimiento es por una venta, este campo tendrá valor.
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sale_id", nullable = true)
-    private Sale sale;
-
-    // Si es por una nota de crédito, este tendrá valor.
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "credit_note_id", nullable = true)
-    private CreditNote creditNote;
-
+    @NotBlank(message = "El módulo es obligatorio")
+    @Size(max = 50, message = "El módulo puede tener máximo 50 caracteres")
+    @Column(name = "module", length = 50, nullable = false)
+    private String module;
 
 }

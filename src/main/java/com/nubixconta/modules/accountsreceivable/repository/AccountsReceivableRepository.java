@@ -9,10 +9,10 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface AccountsReceivableRepository extends JpaRepository<AccountsReceivable, Integer>, JpaSpecificationExecutor<AccountsReceivable>{
-
-    Optional<AccountsReceivable> findBySaleId(Integer saleId);
+ //Selecciona un rango de fecha
+   @Query("SELECT a FROM AccountsReceivable a WHERE a.receivableAccountDate BETWEEN :start AND :end")
+    List<AccountsReceivable> findByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

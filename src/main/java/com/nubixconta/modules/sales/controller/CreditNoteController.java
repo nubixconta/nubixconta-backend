@@ -1,18 +1,18 @@
 package com.nubixconta.modules.sales.controller;
 
-import com.nubixconta.modules.sales.dto.creditnote.CreditNoteCreateDTO;
-import com.nubixconta.modules.sales.dto.creditnote.CreditNoteResponseDTO;
-import com.nubixconta.modules.sales.dto.creditnote.CreditNoteUpdateDTO;
+import com.nubixconta.modules.sales.entity.CreditNote;
+import com.nubixconta.modules.sales.entity.Sale;
 import com.nubixconta.modules.sales.service.CreditNoteService;
+import com.nubixconta.modules.sales.service.SaleService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
+
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/credit-notes")
@@ -20,71 +20,95 @@ import java.util.List;
 public class CreditNoteController {
 
     private final CreditNoteService creditNoteService;
+    private final SaleService saleService;
 
+    // Obtener todas las notas de crédito
     @GetMapping
-    public ResponseEntity<List<CreditNoteResponseDTO>> getAllCreditNotes() {
-        return ResponseEntity.ok(creditNoteService.findAll());
+    public List<CreditNote> getAllCreditNotes() {
+        return creditNoteService.findAll();
     }
 
+    // Obtener una nota de crédito por su ID
     @GetMapping("/{id}")
-    public ResponseEntity<CreditNoteResponseDTO> getCreditNoteById(@PathVariable Integer id) {
-        return ResponseEntity.ok(creditNoteService.findById(id));
+    public ResponseEntity<CreditNote> getCreditNote(@PathVariable Integer id) {
+        return creditNoteService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
+    // Obtener todas las notas de crédito asociadas a una venta
+    @GetMapping("/by-sale/{saleId}")
+    public ResponseEntity<List<CreditNote>> getCreditNotesBySale(@PathVariable Integer saleId) {
+        List<CreditNote> notes = creditNoteService.findBySaleId(saleId);
+        if (notes.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(notes);
+    }
+
+    // Crear una nueva nota de crédito (la venta asociada debe existir)
     @PostMapping
-    public ResponseEntity<CreditNoteResponseDTO> createCreditNote(@Valid @RequestBody CreditNoteCreateDTO createDTO) {
-        CreditNoteResponseDTO createdNote = creditNoteService.createCreditNote(createDTO);
-        return new ResponseEntity<>(createdNote, HttpStatus.CREATED);
+    public ResponseEntity<CreditNote> createCreditNote(@Valid @RequestBody CreditNote creditNote) {
+        Integer saleId = creditNote.getSale() != null ? creditNote.getSale().getSaleId() : null;
+        if (saleId == null) {
+            return ResponseEntity.badRequest().body(null);
+        }
+        Optional<Sale> saleOpt = saleService.findById(saleId);
+        if (saleOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(null);
+        }
+        creditNote.setSale(saleOpt.get());
+        return ResponseEntity.ok(creditNoteService.save(creditNote));
     }
 
+    // Actualizar completamente una nota de crédito
     @PatchMapping("/{id}")
-    public ResponseEntity<CreditNoteResponseDTO> updateCreditNote(@PathVariable Integer id, @Valid @RequestBody CreditNoteUpdateDTO updateDTO) {
-        CreditNoteResponseDTO updatedNote = creditNoteService.updateCreditNote(id, updateDTO);
-        return ResponseEntity.ok(updatedNote);
+    public ResponseEntity<CreditNote> patchCreditNote(@PathVariable Integer id, @RequestBody CreditNote updates) {
+        Optional<CreditNote> optionalNote = creditNoteService.findById(id);
+        if (optionalNote.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        CreditNote creditNote = optionalNote.get();
+
+        // Solo actualiza los campos enviados (campos nulos se ignoran)
+        if (updates.getDocumentNumber() != null) creditNote.setDocumentNumber(updates.getDocumentNumber());
+        if (updates.getCreditNoteStatus() != null) creditNote.setCreditNoteStatus(updates.getCreditNoteStatus());
+        if (updates.getCreditNoteDate() != null) creditNote.setCreditNoteDate(updates.getCreditNoteDate());
+        if (updates.getSale() != null && updates.getSale().getSaleId() != null) {
+            Optional<Sale> saleOpt = saleService.findById(updates.getSale().getSaleId());
+            saleOpt.ifPresent(creditNote::setSale);
+        }
+
+        return ResponseEntity.ok(creditNoteService.save(creditNote));
     }
 
+    // Eliminar una nota de crédito
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCreditNote(@PathVariable Integer id) {
-        creditNoteService.delete(id);
-        return ResponseEntity.noContent().build();
+        try {
+            creditNoteService.delete(id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    @GetMapping("/by-sale/{saleId}")
-    public ResponseEntity<List<CreditNoteResponseDTO>> getCreditNotesBySale(@PathVariable Integer saleId) {
-        return ResponseEntity.ok(creditNoteService.findBySaleId(saleId));
-    }
-
+    // 1. Buscar notas de crédito por rango de fechas (inicio y fin son obligatorios)
+    //    y, opcionalmente, por estado: FINALIZADO, PENDIENTE, APLICADA
+    //    Ejemplo: /api/v1/credit-notes/search?start=2025-06-01&end=2025-06-30&status=FINALIZADO
     @GetMapping("/search")
-    public ResponseEntity<List<CreditNoteResponseDTO>> searchByDateAndStatus(
+    public List<CreditNote> searchCreditNotesByDateAndStatus(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
-            @RequestParam(required = false) String status) {
-        return ResponseEntity.ok(creditNoteService.findByDateRangeAndStatus(start, end, status));
+            @RequestParam(required = false) String status
+    ) {
+        return creditNoteService.findByDateRangeAndStatus(start, end, status);
     }
 
+    // 2. Buscar SOLO por estado (todos los de FINALIZADO, PENDIENTE o APLICADA)
+    //    Ejemplo: /api/v1/credit-notes/by-status?status=FINALIZADO
     @GetMapping("/by-status")
-    public ResponseEntity<List<CreditNoteResponseDTO>> getByStatus(@RequestParam String status) {
-        return ResponseEntity.ok(creditNoteService.findByStatus(status));
-    }
-    //NUEVOS ENDPOINTS PARA EL CICLO DE VIDA ---
-
-    /**
-     * Aplica una nota de crédito que está en estado PENDIENTE.
-     * Esto afectará el stock (incrementándolo) y cambiará el estado a APLICADA.
-     */
-    @PostMapping("/{id}/apply")
-    public ResponseEntity<CreditNoteResponseDTO> applyCreditNote(@PathVariable Integer id) {
-        CreditNoteResponseDTO appliedNote = creditNoteService.applyCreditNote(id);
-        return ResponseEntity.ok(appliedNote);
-    }
-
-    /**
-     * Anula una nota de crédito que está en estado APLICADA.
-     * Esto revertirá la afectación al stock y cambiará el estado a ANULADA.
-     */
-    @PostMapping("/{id}/cancel")
-    public ResponseEntity<CreditNoteResponseDTO> cancelCreditNote(@PathVariable Integer id) {
-        CreditNoteResponseDTO cancelledNote = creditNoteService.cancelCreditNote(id);
-        return ResponseEntity.ok(cancelledNote);
+    public List<CreditNote> getByStatus(@RequestParam String status) {
+        return creditNoteService.findByStatus(status);
     }
 }

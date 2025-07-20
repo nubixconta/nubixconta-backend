@@ -20,7 +20,7 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody User loginUser) {
         var userOpt = userRepository.findByUserName(loginUser.getUserName());
         if (userOpt.isEmpty()) {
-            return ResponseEntity.status(401).body("Usuario incorrecto");
+            return ResponseEntity.status(401).body("UserName incorrecto");
         }
         User user = userOpt.get();
         if (!passwordEncoder.matches(loginUser.getPassword(), user.getPassword())) {

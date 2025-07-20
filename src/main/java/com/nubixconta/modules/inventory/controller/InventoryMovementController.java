@@ -1,88 +1,109 @@
 package com.nubixconta.modules.inventory.controller;
 
-import com.nubixconta.modules.inventory.dto.movement.ManualMovementCreateDTO;
-import com.nubixconta.modules.inventory.dto.movement.ManualMovementUpdateDTO;
-import com.nubixconta.modules.inventory.dto.movement.MovementResponseDTO;
 import com.nubixconta.modules.inventory.entity.InventoryMovement;
-import com.nubixconta.modules.inventory.service.InventoryService;
+import com.nubixconta.modules.inventory.entity.Product;
+import com.nubixconta.modules.inventory.service.InventoryMovementService;
 import com.nubixconta.modules.inventory.service.ProductService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
-
+import java.util.Map;
+import java.util.Optional;
+import java.lang.reflect.Field;
+import org.springframework.util.ReflectionUtils;
 
 @RestController
 @RequestMapping("/api/v1/inventory-movements")
 @RequiredArgsConstructor
 public class InventoryMovementController {
 
-    private final InventoryService inventoryService;
+    private final InventoryMovementService movementService;
+    private final ProductService productService;
 
-    /**
-     * Endpoint para obtener la lista COMPLETA de todos los movimientos de inventario.
-     */
     @GetMapping
-    public ResponseEntity<List<MovementResponseDTO>> findAllMovements() {
-        List<MovementResponseDTO> movements = inventoryService.findAllMovements();
-        // Envolvemos la lista en un ResponseEntity con estado 200 OK.
-        // El método .ok() es un atajo para ResponseEntity.status(HttpStatus.OK).
-        return ResponseEntity.ok(movements);
+    public List<InventoryMovement> getAllMovements() {
+        return movementService.findAll();
     }
 
-    /**
-     * Endpoint para obtener una lista de movimientos filtrada por un rango de fechas.
-     */
-    @GetMapping("/by-date-range")
-    public ResponseEntity<List<MovementResponseDTO>> findMovementsByDateRange(
-            @RequestParam LocalDate startDate,
-            @RequestParam LocalDate endDate
-    ) {
-        List<MovementResponseDTO> movements = inventoryService.findMovementsByDateRange(startDate, endDate);
-
-        /*
-           Ejemplo del poder de ResponseEntity:
-           Si quisiéramos, podríamos devolver un código de estado diferente
-           si la lista está vacía, lo cual es imposible con 'return List<DTO>'.
-
-           if (movements.isEmpty()) {
-               return ResponseEntity.noContent().build(); // Devuelve un 204 No Content
-           }
-        */
-
-        return ResponseEntity.ok(movements);
+    @GetMapping("/{id}")
+    public ResponseEntity<InventoryMovement> getMovement(@PathVariable Integer id) {
+        return movementService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // Endpoint para CREAR un nuevo ajuste manual (en estado PENDIENTE)
-    @PostMapping("/manual")
-    @ResponseStatus(HttpStatus.CREATED)
-    public MovementResponseDTO createManualMovement(@Valid @RequestBody ManualMovementCreateDTO dto) {
-        return inventoryService.createManualMovement(dto);
+    @GetMapping("/by-product/{productId}")
+    public List<InventoryMovement> getMovementsByProduct(@PathVariable Integer productId) {
+        return movementService.findByProductId(productId);
     }
 
-    // Endpoint para APLICAR un ajuste manual que está PENDIENTE
-    @PostMapping("/{id}/apply")
-    public MovementResponseDTO applyManualMovement(@PathVariable Integer id) {
-        return inventoryService.applyManualMovement(id);
+    @PostMapping
+    public ResponseEntity<InventoryMovement> createMovement(@Valid @RequestBody Map<String, Object> body) {
+        Integer idProduct = (Integer) body.get("idProduct");
+        Optional<Product> optProduct = productService.findById(idProduct);
+        if (optProduct.isEmpty()) {
+            return ResponseEntity.badRequest().body(null);
+        }
+        InventoryMovement movement = new InventoryMovement();
+        movement.setProduct(optProduct.get());
+        movement.setDate(LocalDateTime.parse((String) body.get("date")));
+        movement.setMovementType((String) body.get("movementType"));
+        movement.setMovementDescription((String) body.get("movementDescription"));
+        movement.setModule((String) body.get("module"));
+        return ResponseEntity.ok(movementService.save(movement));
     }
 
-    // Endpoint para ANULAR un ajuste manual que ya fue APLICADO
-    @PostMapping("/{id}/cancel")
-    public MovementResponseDTO cancelManualMovement(@PathVariable Integer id) {
-        return inventoryService.cancelManualMovement(id);
-    }
-    @PatchMapping("/manual/{id}")
-    public MovementResponseDTO updateManualMovement(@PathVariable Integer id, @Valid @RequestBody ManualMovementUpdateDTO dto) {
-        return inventoryService.updateManualMovement(id, dto);
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<InventoryMovement> updateMovement(
+            @PathVariable Integer id,
+            @RequestBody Map<String, Object> updates) {
+        Optional<InventoryMovement> optionalMovement = movementService.findById(id);
+        if (optionalMovement.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        InventoryMovement movement = optionalMovement.get();
+
+        if (updates.containsKey("date")) {
+            try {
+                movement.setDate(LocalDateTime.parse(updates.get("date").toString()));
+            } catch (Exception e) {
+                // Maneja error de formato de fecha si quieres
+            }
+        }
+        if (updates.containsKey("movementType")) {
+            movement.setMovementType(updates.get("movementType").toString());
+        }
+        if (updates.containsKey("movementDescription")) {
+            movement.setMovementDescription(updates.get("movementDescription").toString());
+        }
+        if (updates.containsKey("module")) {
+            movement.setModule(updates.get("module").toString());
+        }
+        if (updates.containsKey("idProduct")) {
+            try {
+                Integer idProduct = Integer.parseInt(updates.get("idProduct").toString());
+                productService.findById(idProduct).ifPresent(movement::setProduct);
+            } catch (Exception e) {
+                // Maneja error de idProduct si quieres
+            }
+        }
+
+        return ResponseEntity.ok(movementService.save(movement));
     }
 
-    @DeleteMapping("/manual/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT) // 204 No Content es la respuesta estándar para un DELETE exitoso
-    public void deleteManualMovement(@PathVariable Integer id) {
-        inventoryService.deleteManualMovement(id);
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteMovement(@PathVariable Integer id) {
+        try {
+            movementService.delete(id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

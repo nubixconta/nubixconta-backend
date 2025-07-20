@@ -1,32 +1,23 @@
 package com.nubixconta.modules.sales.entity;
 
-
-import com.nubixconta.modules.administration.entity.User;
+import lombok.Data;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "customer")
-@Getter
-@Setter
-@NoArgsConstructor
+@Data
 public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "client_id")
     private Integer clientId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @NotNull(message = "El userId es obligatorio")
+    @Column(name = "user_id", nullable = false)
+    private Integer userId;
 
     @NotBlank(message = "El nombre es obligatorio")
     @Size(max = 50, message = "El nombre puede tener máximo 50 caracteres")
@@ -39,17 +30,17 @@ public class Customer {
     private String customerLastName;
 
 
-    @Size(max = 10)
-    @Column(name = "customer_dui", length = 10, unique = true) // <-- AÑADIR UNIQUE
+    @Size(max = 10, message = "El DUI puede tener máximo 10 caracteres")
+    @Column(name = "customer_dui", length = 10)
     private String customerDui;
 
-    @Size(max = 17)
-    @Column(name = "customer_nit", length = 17, unique = true) // <-- AÑADIR UNIQUE
+
+    @Size(max = 17, message = "El NIT puede tener máximo 17 caracteres")
+    @Column(name = "customer_nit", length = 17)
     private String customerNit;
 
-    @NotBlank(message = "El NCR es obligatorio") // <-- ¡AÑADIR @NotBlank!
     @Size(max = 14, message = "El NCR puede tener máximo 14 caracteres")
-    @Column(name = "ncr",nullable = false, length = 14, unique = true) // <-- AÑADIR UNIQUE
+    @Column(name = "ncr", length = 14)
     private String ncr;
 
     @NotBlank(message = "La dirección es obligatoria")
@@ -78,26 +69,13 @@ public class Customer {
     @Column(name = "credit_limit", precision = 10, scale = 2, nullable = false)
     private BigDecimal creditLimit;
 
-    // Este campo llevará el control del saldo pendiente del cliente.
-    // Lo inicializamos en CERO para nuevos clientes.
-    @NotNull
-    @Digits(integer = 10, fraction = 2)
-    @Column(name = "current_balance", precision = 10, scale = 2, nullable = false)
-    private BigDecimal currentBalance = BigDecimal.ZERO;
-
-
     @NotNull(message = "El estado es obligatorio")
     @Column(name = "status", nullable = false)
     private Boolean status;
 
-    @CreationTimestamp
-    @Column(name = "creation_date", nullable = false, updatable = false)
+    @NotNull(message = "La fecha de creación es obligatoria")
+    @Column(name = "creation_date", nullable = false)
     private LocalDateTime creationDate;
-
-    @UpdateTimestamp
-    @Column(name = "update_date")
-    private LocalDateTime updateDate;
-
 
     @NotNull(message = "El campo de exención de IVA es obligatorio")
     @Column(name = "exempt_from_vat", nullable = false)
@@ -108,28 +86,12 @@ public class Customer {
     @Column(name = "business_activity", length = 100, nullable = false)
     private String businessActivity;
 
-    @NotNull(message = "El tipo de persona es obligatorio")
-    @Enumerated(EnumType.STRING) // Le dice a JPA que guarde el nombre del enum ("NATURAL", "JURIDICA") en la BD
+    @NotBlank(message = "El tipo de persona es obligatorio")
+    @Size(max = 30, message = "El tipo de persona puede tener máximo 30 caracteres")
     @Column(name = "person_type", length = 30, nullable = false)
-    private PersonType personType;
+    private String personType;
 
     @NotNull(message = "El campo de retención es obligatorio")
     @Column(name = "applies_withholding", nullable = false)
     private Boolean appliesWithholding;
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Customer customer = (Customer) o;
-        // Para entidades con ID, una vez que el ID no es nulo, es la única verdad.
-        return clientId != null && clientId.equals(customer.clientId);
-    }
-
-    @Override
-    public int hashCode() {
-        // Usar una constante para objetos transitorios (sin ID)
-        // y el hash del ID para los persistidos.
-        return getClass().hashCode();
-    }
 }

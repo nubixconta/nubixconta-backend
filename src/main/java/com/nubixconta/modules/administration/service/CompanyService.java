@@ -1,18 +1,10 @@
 package com.nubixconta.modules.administration.service;
-import com.nubixconta.modules.administration.dto.company.CompanyCreateDTO;
-import com.nubixconta.modules.administration.dto.company.CompanyResponseDTO;
-import com.nubixconta.modules.administration.dto.company.CompanyUpdateDTO;
 import com.nubixconta.modules.administration.entity.ChangeHistory;
 import com.nubixconta.modules.administration.entity.Company;
-import com.nubixconta.modules.administration.entity.User;
 import com.nubixconta.modules.administration.repository.ChangeHistoryRepository;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
-import com.nubixconta.modules.administration.repository.UserRepository;
-import com.nubixconta.security.JwtUtil;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,89 +16,37 @@ import java.util.Map;
 @Service
 public class CompanyService {
 
-
-    private ChangeHistoryService changeHistoryService;
     private final CompanyRepository companyRepository;
-    private final UserRepository userRepository;
-    private final ModelMapper  modelMapper;
+    @Autowired
+    private ChangeHistoryRepository changeHistoryRepository;
 
     @Autowired
-    public CompanyService(CompanyRepository companyRepository,
-                          UserRepository userRepository,
-                          ChangeHistoryService changeHistoryService,
-                          ModelMapper modelMapper) {
+    private ChangeHistoryService changeHistoryService;
+    public CompanyService(CompanyRepository companyRepository) {
         this.companyRepository = companyRepository;
-        this.userRepository = userRepository;
-        this.changeHistoryService = changeHistoryService;
-        this.modelMapper = new ModelMapper();
-
     }
-    //Este metodo crea una empresa
-    public Company saveCompany(CompanyCreateDTO dto) {
-    // Validaciones de unicidad
-    if (companyRepository.existsByCompanyName(dto.getCompanyName())) {
-        throw new IllegalArgumentException("El nombre de empresa ya está registrado.");
-    }
+//Este metodo crea una empresa
+    public Company saveCompany(Company company) {
+        Company saved = companyRepository.save(company);
 
-    if (dto.getCompanyDui() != null && companyRepository.existsByCompanyDui(dto.getCompanyDui())) {
-        throw new IllegalArgumentException("El DUI ya está registrado.");
-    }
+        // Buscar entrada antigua sin company_id
+        List<ChangeHistory> pendientes = changeHistoryRepository
+                .findByUserIdAndCompanyIsNullOrderByDateDesc(saved.getUser().getId());
 
-    if (dto.getCompanyNit() != null && companyRepository.existsByCompanyNit(dto.getCompanyNit())) {
-        throw new IllegalArgumentException("El NIT ya está registrado.");
-    }
-
-    if (dto.getCompanyNrc() != null && companyRepository.existsByCompanyNrc(dto.getCompanyNrc())) {
-        throw new IllegalArgumentException("El NRC ya está registrado.");
-    }
-
-        // Validación de consistencia entre activeStatus y companyStatus
-        if (Boolean.FALSE.equals(dto.getActiveStatus()) && Boolean.TRUE.equals(dto.getCompanyStatus())) {
-            throw new IllegalArgumentException("Una empresa inactiva no puede estar asignada (companyStatus = true).");
+        if (!pendientes.isEmpty()) {
+            ChangeHistory entrada = pendientes.get(0); // Solo actualizas la más reciente
+            entrada.setCompany(saved);
+            changeHistoryRepository.save(entrada);
         }
 
+        // Registrar creación de empresa en la entidad ChangeHistory
+        String action = "Se creó la empresa " + saved.getCompanyName();
+        changeHistoryService.logChange("Administración", action, saved.getUser().getId(), saved.getId());
 
-        Company company = new Company();
-    company.setCompanyName(dto.getCompanyName());
-    company.setCompanyDui(dto.getCompanyDui());
-    company.setCompanyNit(dto.getCompanyNit());
-    company.setCompanyNrc(dto.getCompanyNrc());
-    company.setCompanyStatus(dto.getCompanyStatus());
-    company.setActiveStatus(dto.getActiveStatus());
-    company.setCreationDate(dto.getCreationDate());
-    company.setAccountId(dto.getAccountId());
-
-    // Asignar relación con usuario
-    User user = userRepository.findById(dto.getUserId())
-            .orElseThrow(() -> new EntityNotFoundException("Usuario indicado no encontrado"));
-    company.setUser(user);
-
-
-    // Guardar empresa
-    Company saved = companyRepository.save(company);
-
-    // Bitácora
-        changeHistoryService.logChange(
-                "Administración",
-                "Se creó la empresa " + saved.getCompanyName(),
-                null
-        );
-
-    return saved;
-}
-
-
-    public List<CompanyResponseDTO> getAllCompanies() {
-        List<Company> companies = companyRepository.findAll();
-        return companies.stream()
-                .map(company -> modelMapper.map(company, CompanyResponseDTO.class))
-                .toList();
+        return saved;
     }
-    public List<CompanyResponseDTO> getCompaniesByStatus(boolean status) {
-        List<Company> companies = companyRepository.findByactiveStatus(status);
-        return companies.stream()
-                .map(company -> modelMapper.map(company, CompanyResponseDTO.class))
-                .toList();
+    public List<Company> getAllCompanies() {
+        return companyRepository.findAll();
     }
 
     public List<Company> searchCompanies(String companyName, String userName, Boolean status) {
@@ -147,107 +87,20 @@ public class CompanyService {
         }).orElseThrow(() -> new RuntimeException("Empresa no encontrada con id: " + id));
     }
 
-    public Company patchCompany(Integer id, CompanyUpdateDTO dto) {
-        Company company = companyRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Empresa no encontrada con id: " + id));
-
-        StringBuilder cambios = new StringBuilder();
-
-        // Validaciones de unicidad
-        if (dto.getCompanyName() != null && !dto.getCompanyName().equals(company.getCompanyName())) {
-            if (companyRepository.existsByCompanyName(dto.getCompanyName())) {
-                throw new IllegalArgumentException("El nombre de empresa ya está registrado.");
-            }
-            cambios.append("Nombre cambiado de ").append(company.getCompanyName())
-                    .append(" a ").append(dto.getCompanyName()).append(". ");
-            company.setCompanyName(dto.getCompanyName());
-        }
-
-        if (dto.getCompanyDui() != null && !dto.getCompanyDui().equals(company.getCompanyDui())) {
-            if (companyRepository.existsByCompanyDui(dto.getCompanyDui())) {
-                throw new IllegalArgumentException("El DUI ya está registrado.");
-            }
-            cambios.append("El DUI cambio de ").append(company.getCompanyDui())
-                    .append(" a ").append(dto.getCompanyDui()).append(". ");
-            company.setCompanyDui(dto.getCompanyDui());
-        }
-
-        if (dto.getCompanyNit() != null && !dto.getCompanyNit().equals(company.getCompanyNit())) {
-            if (companyRepository.existsByCompanyNit(dto.getCompanyNit())) {
-                throw new IllegalArgumentException("El NIT ya está registrado.");
-            }
-            cambios.append("El NIT cambio de ").append(company.getCompanyNit())
-                    .append(" a ").append(dto.getCompanyNit()).append(". ");
-            company.setCompanyNit(dto.getCompanyNit());
-        }
-
-        if (dto.getCompanyNrc() != null && !dto.getCompanyNrc().equals(company.getCompanyNrc())) {
-            if (companyRepository.existsByCompanyNrc(dto.getCompanyNrc())) {
-                throw new IllegalArgumentException("El NRC ya está registrado.");
-            }
-            cambios.append("El NRC cambio de ").append(company.getCompanyNrc())
-                    .append(" a ").append(dto.getCompanyNrc()).append(". ");
-            company.setCompanyNrc(dto.getCompanyNrc());
-        }
-        // Validación de consistencia entre activeStatus y companyStatus
-        if (Boolean.FALSE.equals(dto.getActiveStatus()) && Boolean.TRUE.equals(dto.getCompanyStatus())) {
-            throw new IllegalArgumentException("Una empresa inactiva no puede estar asignada (companyStatus = true).");
-        }
-
-        if (dto.getCompanyStatus() != null && !dto.getCompanyStatus().equals(company.getCompanyStatus())) {
-            String estadoAnterior = company.getCompanyStatus() ? "asignada" : "no asignada";
-            String estadoNuevo = dto.getCompanyStatus() ? "asignada" : "no asignada";
-
-            cambios.append("El estado de la empresa cambió de ")
-                    .append(estadoAnterior)
-                    .append(" a ")
-                    .append(estadoNuevo)
-                    .append(". ");
-
-            company.setCompanyStatus(dto.getCompanyStatus());
-        }
-
-        if (dto.getActiveStatus() != null && !dto.getActiveStatus().equals(company.getActiveStatus())) {
-            String estadoAnterior = company.getActiveStatus() ? "activa" : "inactiva";
-            String estadoNuevo = dto.getActiveStatus() ? "activa" : "inactiva";
-
-            cambios.append("El estado de actividad de la empresa cambió de ")
-                    .append(estadoAnterior)
-                    .append(" a ")
-                    .append(estadoNuevo)
-                    .append(". ");
-
-            company.setActiveStatus(dto.getActiveStatus());
-        }
-
-        // Este campo no genera historial (como pediste)
-        if (dto.getAccountId() != null) {
-            company.setAccountId(dto.getAccountId());
-        }
-
-        if (dto.getUserId() != null && !dto.getUserId().equals(company.getUser().getId())) {
-            User user = userRepository.findById(dto.getUserId())
-                    .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
-            cambios.append("Responsable cambiado de ID ")
-                    .append(company.getUser().getId()).append(" a ").append(user.getId()).append(". ");
-            company.setUser(user);
-        }
-
-        Company saved = companyRepository.save(company);
-
-        // Si hubo cambios, registrar en bitácora
-        if (!cambios.isEmpty()) {
-            changeHistoryService.logChange(
-                    "Administración",
-                    cambios.toString(),
-                    null
-            );
-        }
-
-        return saved;
+    public Company patchCompany(Integer id, Map<String, Object> fields) {
+        return companyRepository.findById(id).map(company -> {
+            fields.forEach((key, value) -> {
+                try {
+                    Field field = Company.class.getDeclaredField(key);
+                    field.setAccessible(true);
+                    field.set(company, value);
+                } catch (NoSuchFieldException | IllegalAccessException e) {
+                    throw new RuntimeException("Error al actualizar el campo: " + key, e);
+                }
+            });
+            return companyRepository.save(company);
+        }).orElseThrow(() -> new RuntimeException("Empresa no encontrada con id: " + id));
     }
-
-
     public List<Company> getCompaniesByUserName(String userName) {
         return companyRepository.findByUser_UserName(userName);
     }

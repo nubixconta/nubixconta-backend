@@ -1,11 +1,7 @@
 package com.nubixconta.modules.administration.controller;
-import com.nubixconta.modules.administration.dto.company.CompanyCreateDTO;
-import com.nubixconta.modules.administration.dto.company.CompanyResponseDTO;
-import com.nubixconta.modules.administration.dto.company.CompanyUpdateDTO;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.service.CompanyService;
 import jakarta.validation.Valid;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -19,33 +15,20 @@ import java.util.Map;
 public class CompanyController {
 
     private final CompanyService companyService;
-    private final ModelMapper modelMapper;
 
     @Autowired
-    public CompanyController(CompanyService companyService,ModelMapper modelMapper) {
+    public CompanyController(CompanyService companyService) {
         this.companyService = companyService;
-        this.modelMapper = modelMapper;
     }
 
     @PostMapping
-    public ResponseEntity<CompanyResponseDTO> createCompany(
-            @Valid @RequestBody CompanyCreateDTO dto) {
-
-        Company saved = companyService.saveCompany(dto);
-        CompanyResponseDTO response = modelMapper.map(saved, CompanyResponseDTO.class);
-
-        return ResponseEntity.status(201).body(response);
-
+    public ResponseEntity<Company> createCompany(@Valid @RequestBody Company company) {
+        Company saved = companyService.saveCompany(company);
+        return ResponseEntity.status(201).body(saved);
     }
-
-    @GetMapping("/assigned") // Empresas con companyStatus = true
-    public ResponseEntity<List<CompanyResponseDTO>> getAssignedCompanies() {
-        List<CompanyResponseDTO> companies = companyService.getCompaniesByStatus(true);
-        return ResponseEntity.ok(companies);
-    }
-    @GetMapping("/unassigned") // Empresas con companyStatus = false
-    public ResponseEntity<List<CompanyResponseDTO>> getUnassignedCompanies() {
-        List<CompanyResponseDTO> companies = companyService.getCompaniesByStatus(false);
+    @GetMapping
+    public ResponseEntity<List<Company>> getAllCompanies() {
+        List<Company> companies = companyService.getAllCompanies();
         return ResponseEntity.ok(companies);
     }
     //Metodo para filtrar por nombre del usuario de la empresa y por el estatus de la empresa
@@ -62,15 +45,16 @@ public class CompanyController {
         List<Company> results = companyService.searchCompanies(companyName, userName, status);
         return ResponseEntity.ok(results);
     }
-
-    @PatchMapping("/{id}")
-    public ResponseEntity<Company> patchCompany(
-            @PathVariable Integer id,
-            @Valid @RequestBody CompanyUpdateDTO dto) {
-        Company updated = companyService.patchCompany(id, dto);
+    @PutMapping("/{id}")
+    public ResponseEntity<Company> updateCompany(@PathVariable Integer id, @Valid @RequestBody Company company) {
+        Company updated = companyService.updateCompany(id, company);
         return ResponseEntity.ok(updated);
     }
-
+    @PatchMapping("/{id}")
+    public ResponseEntity<Company> patchCompany(@PathVariable Integer id, @RequestBody Map<String, Object> updates) {
+        Company updated = companyService.patchCompany(id, updates);
+        return ResponseEntity.ok(updated);
+    }
     @GetMapping("/byUser")
     public ResponseEntity<List<Company>> getMyCompanies(Authentication authentication) {
         String userName = authentication.getName();

@@ -3,13 +3,8 @@ package com.nubixconta.modules.administration.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import com.nubixconta.modules.sales.entity.Customer;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
@@ -25,24 +20,19 @@ public class User {
     private Integer id;
 
     @NotNull(message = "El nombre es obligatorio")
-    @Size(max = 50, message = "El firstName no puede tener mas de 50 caracteres")
     @Column(name = "first_name", length = 50)
     private String firstName;
 
     @NotNull(message = "El apellido es obligatorio")
-    @Size(max = 50, message = "El lastName  no puede tener mas de 50 caracteres")
     @Column(name = "last_name", length = 50)
     private String lastName;
 
     @NotNull(message = "El userName es obligatorio")
-    @Size(max = 32, message = "La userName no puede tener mas de 32 caracteres")
     @Column(name = "user_name", length = 32, unique = true)
     private String userName;
 
     @NotNull(message = "El correo es obligatorio")
-    @Size(max = 50, message = "La email no puede tener mas de 50 caracteres")
-    @Email(message = "El correo no tiene un formato válido")
-    @Column(length = 50,unique = true)
+    @Column(length = 100)
     private String email;
 
     @NotNull(message = "La contraseña es obligatorio")
@@ -62,6 +52,7 @@ public class User {
     private Boolean role;
 
 
+
     @JsonManagedReference
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
@@ -70,9 +61,5 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
     private List<ChangeHistory> changesMade;
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    @JsonIgnore
-    private List<Customer> customers;
 
 }
