@@ -349,6 +349,9 @@ public class SaleService {
 
         // --- FIN DE LA NUEVA LÓGICA DE VALIDACIÓN DE CRÉDITO ---
 
+        //    Esta será ahora la fecha oficial de la venta.
+        sale.setIssueDate(LocalDateTime.now());
+        
         // 4. Delegar la lógica de inventario al InventoryService
         inventoryService.processSaleApplication(sale);
 
