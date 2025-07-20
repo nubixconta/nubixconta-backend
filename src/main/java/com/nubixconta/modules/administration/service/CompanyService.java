@@ -28,12 +28,17 @@ public class CompanyService {
     private ChangeHistoryService changeHistoryService;
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
+    private final ModelMapper  modelMapper;
 
     @Autowired
-    public CompanyService(CompanyRepository companyRepository,UserRepository userRepository,ChangeHistoryService changeHistoryService) {
+    public CompanyService(CompanyRepository companyRepository,
+                          UserRepository userRepository,
+                          ChangeHistoryService changeHistoryService,
+                          ModelMapper modelMapper) {
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
         this.changeHistoryService = changeHistoryService;
+        this.modelMapper = new ModelMapper();
 
     }
     //Este metodo crea una empresa
@@ -55,7 +60,13 @@ public class CompanyService {
         throw new IllegalArgumentException("El NRC ya está registrado.");
     }
 
-    Company company = new Company();
+        // Validación de consistencia entre activeStatus y companyStatus
+        if (Boolean.FALSE.equals(dto.getActiveStatus()) && Boolean.TRUE.equals(dto.getCompanyStatus())) {
+            throw new IllegalArgumentException("Una empresa inactiva no puede estar asignada (companyStatus = true).");
+        }
+
+
+        Company company = new Company();
     company.setCompanyName(dto.getCompanyName());
     company.setCompanyDui(dto.getCompanyDui());
     company.setCompanyNit(dto.getCompanyNit());
@@ -85,8 +96,17 @@ public class CompanyService {
 }
 
 
-    public List<Company> getAllCompanies() {
-        return companyRepository.findAll();
+    public List<CompanyResponseDTO> getAllCompanies() {
+        List<Company> companies = companyRepository.findAll();
+        return companies.stream()
+                .map(company -> modelMapper.map(company, CompanyResponseDTO.class))
+                .toList();
+    }
+    public List<CompanyResponseDTO> getCompaniesByStatus(boolean status) {
+        List<Company> companies = companyRepository.findByactiveStatus(status);
+        return companies.stream()
+                .map(company -> modelMapper.map(company, CompanyResponseDTO.class))
+                .toList();
     }
 
     public List<Company> searchCompanies(String companyName, String userName, Boolean status) {
@@ -131,44 +151,102 @@ public class CompanyService {
         Company company = companyRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Empresa no encontrada con id: " + id));
 
-        // Validación de unicidad si se están cambiando los valores
-        if (dto.getCompanyName() != null && !dto.getCompanyName().equals(company.getCompanyName())
-                && companyRepository.existsByCompanyName(dto.getCompanyName())) {
-            throw new IllegalArgumentException("El nombre de empresa ya está registrado.");
+        StringBuilder cambios = new StringBuilder();
+
+        // Validaciones de unicidad
+        if (dto.getCompanyName() != null && !dto.getCompanyName().equals(company.getCompanyName())) {
+            if (companyRepository.existsByCompanyName(dto.getCompanyName())) {
+                throw new IllegalArgumentException("El nombre de empresa ya está registrado.");
+            }
+            cambios.append("Nombre cambiado de ").append(company.getCompanyName())
+                    .append(" a ").append(dto.getCompanyName()).append(". ");
+            company.setCompanyName(dto.getCompanyName());
         }
 
-        if (dto.getCompanyDui() != null && !dto.getCompanyDui().equals(company.getCompanyDui())
-                && companyRepository.existsByCompanyDui(dto.getCompanyDui())) {
-            throw new IllegalArgumentException("El DUI ya está registrado.");
+        if (dto.getCompanyDui() != null && !dto.getCompanyDui().equals(company.getCompanyDui())) {
+            if (companyRepository.existsByCompanyDui(dto.getCompanyDui())) {
+                throw new IllegalArgumentException("El DUI ya está registrado.");
+            }
+            cambios.append("El DUI cambio de ").append(company.getCompanyDui())
+                    .append(" a ").append(dto.getCompanyDui()).append(". ");
+            company.setCompanyDui(dto.getCompanyDui());
         }
 
-        if (dto.getCompanyNit() != null && !dto.getCompanyNit().equals(company.getCompanyNit())
-                && companyRepository.existsByCompanyNit(dto.getCompanyNit())) {
-            throw new IllegalArgumentException("El NIT ya está registrado.");
+        if (dto.getCompanyNit() != null && !dto.getCompanyNit().equals(company.getCompanyNit())) {
+            if (companyRepository.existsByCompanyNit(dto.getCompanyNit())) {
+                throw new IllegalArgumentException("El NIT ya está registrado.");
+            }
+            cambios.append("El NIT cambio de ").append(company.getCompanyNit())
+                    .append(" a ").append(dto.getCompanyNit()).append(". ");
+            company.setCompanyNit(dto.getCompanyNit());
         }
 
-        if (dto.getCompanyNrc() != null && !dto.getCompanyNrc().equals(company.getCompanyNrc())
-                && companyRepository.existsByCompanyNrc(dto.getCompanyNrc())) {
-            throw new IllegalArgumentException("El NRC ya está registrado.");
+        if (dto.getCompanyNrc() != null && !dto.getCompanyNrc().equals(company.getCompanyNrc())) {
+            if (companyRepository.existsByCompanyNrc(dto.getCompanyNrc())) {
+                throw new IllegalArgumentException("El NRC ya está registrado.");
+            }
+            cambios.append("El NRC cambio de ").append(company.getCompanyNrc())
+                    .append(" a ").append(dto.getCompanyNrc()).append(". ");
+            company.setCompanyNrc(dto.getCompanyNrc());
+        }
+        // Validación de consistencia entre activeStatus y companyStatus
+        if (Boolean.FALSE.equals(dto.getActiveStatus()) && Boolean.TRUE.equals(dto.getCompanyStatus())) {
+            throw new IllegalArgumentException("Una empresa inactiva no puede estar asignada (companyStatus = true).");
         }
 
-        // Asignación solo si el valor viene en el DTO (no null)
-        if (dto.getCompanyName() != null) company.setCompanyName(dto.getCompanyName());
-        if (dto.getCompanyDui() != null) company.setCompanyDui(dto.getCompanyDui());
-        if (dto.getCompanyNit() != null) company.setCompanyNit(dto.getCompanyNit());
-        if (dto.getCompanyNrc() != null) company.setCompanyNrc(dto.getCompanyNrc());
-        if (dto.getCompanyStatus() != null) company.setCompanyStatus(dto.getCompanyStatus());
-        if (dto.getActiveStatus() != null) company.setActiveStatus(dto.getActiveStatus());
-        if (dto.getAccountId() != null) company.setAccountId(dto.getAccountId());
+        if (dto.getCompanyStatus() != null && !dto.getCompanyStatus().equals(company.getCompanyStatus())) {
+            String estadoAnterior = company.getCompanyStatus() ? "asignada" : "no asignada";
+            String estadoNuevo = dto.getCompanyStatus() ? "asignada" : "no asignada";
 
-        if (dto.getUserId() != null) {
+            cambios.append("El estado de la empresa cambió de ")
+                    .append(estadoAnterior)
+                    .append(" a ")
+                    .append(estadoNuevo)
+                    .append(". ");
+
+            company.setCompanyStatus(dto.getCompanyStatus());
+        }
+
+        if (dto.getActiveStatus() != null && !dto.getActiveStatus().equals(company.getActiveStatus())) {
+            String estadoAnterior = company.getActiveStatus() ? "activa" : "inactiva";
+            String estadoNuevo = dto.getActiveStatus() ? "activa" : "inactiva";
+
+            cambios.append("El estado de actividad de la empresa cambió de ")
+                    .append(estadoAnterior)
+                    .append(" a ")
+                    .append(estadoNuevo)
+                    .append(". ");
+
+            company.setActiveStatus(dto.getActiveStatus());
+        }
+
+        // Este campo no genera historial (como pediste)
+        if (dto.getAccountId() != null) {
+            company.setAccountId(dto.getAccountId());
+        }
+
+        if (dto.getUserId() != null && !dto.getUserId().equals(company.getUser().getId())) {
             User user = userRepository.findById(dto.getUserId())
                     .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
+            cambios.append("Responsable cambiado de ID ")
+                    .append(company.getUser().getId()).append(" a ").append(user.getId()).append(". ");
             company.setUser(user);
         }
 
-        return companyRepository.save(company);
+        Company saved = companyRepository.save(company);
+
+        // Si hubo cambios, registrar en bitácora
+        if (!cambios.isEmpty()) {
+            changeHistoryService.logChange(
+                    "Administración",
+                    cambios.toString(),
+                    null
+            );
+        }
+
+        return saved;
     }
+
 
     public List<Company> getCompaniesByUserName(String userName) {
         return companyRepository.findByUser_UserName(userName);

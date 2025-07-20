@@ -1,18 +1,19 @@
-package com.nubixconta.modules.accountsreceivable.service;
-
+package com.nubixconta.modules.accounting.service;
+import com.nubixconta.modules.accounting.dto.Account.AccountBankResponseDTO;
 import com.nubixconta.modules.accounting.entity.Account;
+import com.nubixconta.modules.accounting.entity.CollectionEntry;
 import com.nubixconta.modules.accounting.repository.AccountRepository;
-import com.nubixconta.modules.accounting.service.AccountService;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
-import com.nubixconta.modules.accountsreceivable.entity.CollectionEntry;
 import com.nubixconta.modules.accountsreceivable.repository.CollectionDetailRepository;
-import com.nubixconta.modules.accountsreceivable.repository.CollectionEntryRepository;
+import com.nubixconta.modules.accounting.repository.CollectionEntryRepository;
+import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService;
 import jakarta.transaction.Transactional;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class CollectionEntryService {
@@ -20,24 +21,42 @@ public class CollectionEntryService {
     private final CollectionEntryRepository entryRepository;
     private final CollectionDetailRepository detailRepository;
     private final AccountRepository accountRepository;
-    private final AccountService accountService;
+    private final ModelMapper mapper;
     private final CollectionDetailRepository collectionDetailRepository;
+    private final CollectionDetailService collectionDetailService;
 
     @Autowired
     public CollectionEntryService(CollectionEntryRepository entryRepository,
                                   CollectionDetailRepository detailRepository,
                                   AccountRepository accountRepository,
-                                  AccountService accountService,
-                                  CollectionDetailRepository collectionDetailRepository) {
+                                  CollectionDetailRepository collectionDetailRepository,
+                                  ModelMapper mapper,
+                                  CollectionDetailService collectionDetailService) {
         this.entryRepository = entryRepository;
         this.detailRepository = detailRepository;
         this.accountRepository = accountRepository;
-        this.accountService = accountService;
         this.collectionDetailRepository = collectionDetailRepository;
+        this.mapper = mapper;
+        this.collectionDetailService = collectionDetailService;
     }
 
+    //Filra solo las cuenta de ACTIVO-BANCO
+    public List<AccountBankResponseDTO> findBankAccounts() {
+        List<Account> accounts = accountRepository.findByAccountType("ACTIVO-BANCO");
+        return accounts.stream()
+                .map(account -> mapper.map(account,AccountBankResponseDTO.class)) // convertir a DTO
+                .toList();
+    }
+
+    //Este metodo busca la cuenta de clientes
+    public Integer getClientAccountId() {
+        return accountRepository.findClientAccountId()
+                .orElseThrow(() -> new RuntimeException("Cuenta 'Cliente(s)' no encontrada"));
+    }
+
+    //Crea el asiento contable de CollectionDetail (sucede cuando se aplica un cobro)
     @Transactional
-    public void createEntriesFromDetail(Integer detailId) {
+    public void ApplyCollectionDetail(Integer detailId) {
         CollectionDetail detail = detailRepository.findById(detailId)
                 .orElseThrow(() -> new RuntimeException("No se encontró CollectionDetail con ID: " + detailId));
 
@@ -46,7 +65,7 @@ public class CollectionEntryService {
                 .orElseThrow(() -> new RuntimeException("Cuenta bancaria no encontrada"));
 
         // Cuenta de cliente (ahora usando el servicio)
-        Account clientAccount = accountRepository.findById(accountService.getClientAccountId())
+        Account clientAccount = accountRepository.findById(getClientAccountId())
                 .orElseThrow(() -> new RuntimeException("Cuenta Clientes no encontrada"));
 
        detail.setPaymentStatus("APLICADO");
@@ -75,15 +94,13 @@ public class CollectionEntryService {
         entryRepository.save(entryHaber);
     }
 
-    public void deleteById(Integer id) {
-        entryRepository.deleteById(id);
-    }
     @Transactional
-    public void deleteEntriesByDetailId(Integer detailId) {
+    public void cancelByDetailId(Integer detailId) {
         // Validación opcional
         if (!detailRepository.existsById(detailId)) {
             throw new RuntimeException("No existe un detalle con ID: " + detailId);
         }
+
 
         entryRepository.deleteByCollectionDetailId(detailId);
 
@@ -93,6 +110,8 @@ public class CollectionEntryService {
 
         detail.setPaymentStatus("ANULADO");
         detailRepository.save(detail);
+        collectionDetailService.recalcularBalancePorReceivableId(detail.getAccountReceivable().getId());
+
     }
 
 }

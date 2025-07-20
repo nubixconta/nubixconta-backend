@@ -6,6 +6,7 @@ import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import com.nubixconta.modules.accountsreceivable.repository.AccountsReceivableRepository;
 import com.nubixconta.modules.accountsreceivable.repository.CollectionDetailRepository;
+import com.nubixconta.modules.administration.service.ChangeHistoryService;
 import com.nubixconta.modules.sales.entity.Sale;
 import com.nubixconta.modules.sales.repository.SaleRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -22,12 +23,15 @@ import java.util.Optional;
 public class CollectionDetailService {
     private final CollectionDetailRepository repository;
     private final SaleRepository saleRepository;
-
+    private ChangeHistoryService changeHistoryService;
     @Autowired
     private AccountsReceivableRepository accountsReceivableRepository;
-    public CollectionDetailService(CollectionDetailRepository repository,SaleRepository saleRepository) {
+    public CollectionDetailService(CollectionDetailRepository repository,
+                                   SaleRepository saleRepository,
+                                   ChangeHistoryService changeHistoryService) {
         this.repository = repository;
         this.saleRepository = saleRepository;
+        this.changeHistoryService = changeHistoryService;
     }
 
     public List<CollectionDetail> findAll() {
@@ -156,6 +160,15 @@ public class CollectionDetailService {
 
         CollectionDetail saved = repository.save(detail);
         recalcularBalancePorReceivableId(ar.getId());
+
+        // Bitácora
+        changeHistoryService.logChange(
+                "Cuentas por cobrar",
+                "Se realizo un cobro para el numero de documento " + ar.getSale().getDocumentNumber(),
+                null
+        );
+
+
         return saved;
     }
 

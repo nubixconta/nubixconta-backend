@@ -38,9 +38,14 @@ public class CompanyController {
 
     }
 
-    @GetMapping
-    public ResponseEntity<List<Company>> getAllCompanies() {
-        List<Company> companies = companyService.getAllCompanies();
+    @GetMapping("/assigned") // Empresas con companyStatus = true
+    public ResponseEntity<List<CompanyResponseDTO>> getAssignedCompanies() {
+        List<CompanyResponseDTO> companies = companyService.getCompaniesByStatus(true);
+        return ResponseEntity.ok(companies);
+    }
+    @GetMapping("/unassigned") // Empresas con companyStatus = false
+    public ResponseEntity<List<CompanyResponseDTO>> getUnassignedCompanies() {
+        List<CompanyResponseDTO> companies = companyService.getCompaniesByStatus(false);
         return ResponseEntity.ok(companies);
     }
     //Metodo para filtrar por nombre del usuario de la empresa y por el estatus de la empresa

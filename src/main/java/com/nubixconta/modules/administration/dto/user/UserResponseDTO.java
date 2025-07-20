@@ -20,5 +20,7 @@ public class UserResponseDTO {
     private String photo;
 
     private Boolean status;
+    
+
 
 }

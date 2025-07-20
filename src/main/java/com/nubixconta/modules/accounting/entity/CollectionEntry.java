@@ -1,6 +1,6 @@
-package com.nubixconta.modules.accountsreceivable.entity;
+package com.nubixconta.modules.accounting.entity;
 
-import com.nubixconta.modules.accounting.entity.Account;
+import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;

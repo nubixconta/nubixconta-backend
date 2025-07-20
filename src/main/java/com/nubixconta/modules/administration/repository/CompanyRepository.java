@@ -11,5 +11,6 @@ public interface CompanyRepository extends JpaRepository<Company, Integer>, JpaS
     boolean existsByCompanyDui(String companyDui);
     boolean existsByCompanyNit(String companyNit);
     boolean existsByCompanyNrc(String companyNrc);
+    List<Company> findByactiveStatus(boolean status);
 }
 

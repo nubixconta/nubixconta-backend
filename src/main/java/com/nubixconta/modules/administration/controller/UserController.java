@@ -1,5 +1,6 @@
 package com.nubixconta.modules.administration.controller;
 
+import com.nubixconta.modules.administration.dto.company.CompanyResponseDTO;
 import com.nubixconta.modules.administration.dto.user.UserCreateDTO;
 import com.nubixconta.modules.administration.dto.user.UserResponseDTO;
 import com.nubixconta.modules.administration.dto.user.UserUpdateDTO;
@@ -52,6 +53,12 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
         List<User> users = userService.getAllUsers();
+        return ResponseEntity.ok(users);
+    }
+//Metodo que lista a asistentes contables
+    @GetMapping("/assistant")
+    public ResponseEntity<List<UserResponseDTO>> getUserByAssistant() {
+        List<UserResponseDTO> users = userService.getUserByAssistant(false);
         return ResponseEntity.ok(users);
     }
 
