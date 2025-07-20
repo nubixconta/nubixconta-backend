@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -29,22 +30,27 @@ public class Company {
     private Integer accountId;
 
     @NotNull(message = "El nombre es obligatorio")
-    @Column(name = "company_name", length = 100, nullable=false)
+    @Size(max = 100, message = "El companyName no puede tener mas de 50 caracteres")
+    @Column(name = "company_name", length = 100, nullable=false, unique = true)
     private String companyName;
 
 
-    @Column(name = "company_dui", length = 10)
+    @Size(max = 10, message = "El companyDui no puede tener mas de 50 caracteres")
+    @Column(name = "company_dui", length = 10, unique = true)
     private String companyDui;
 
-    @Column(name = "company_nit", length = 17)
+    @Size(max = 17, message = "El companyNit no puede tener mas de 50 caracteres")
+    @Column(name = "company_nit", length = 17, unique = true)
     private String companyNit;
 
-    @Column(name = "company_nrc", length = 14)
+    @Column(name = "company_nrc", length = 14, unique = true)
     private String companyNrc;
 
+    @NotNull(message = "El campo companyStatus es obligatorio")
     @Column(name = "company_status",nullable = false)
     private Boolean companyStatus;
 
+    @NotNull(message = "La activeStatus es obligatorio")
     @Column(name = "active_status",nullable = false)
     private Boolean activeStatus;
 

@@ -200,7 +200,7 @@ public class SaleService {
         Sale sale = saleRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Venta con ID " + id + " no encontrada para eliminar."));
 
-        // ✅ REGLA DE NEGOCIO: Solo se pueden eliminar ventas PENDIENTES.
+        //  REGLA DE NEGOCIO: Solo se pueden eliminar ventas PENDIENTES.
         if (!"PENDIENTE".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException("Solo se pueden eliminar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
         }

@@ -3,6 +3,7 @@ package com.nubixconta.modules.administration.entity;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -43,8 +44,8 @@ public class ChangeHistory {
         @Column(name="date")
         private LocalDateTime date;
 
-        @NotNull(message = "Es obligatoria la accion que se realizo ")
-        @Column(name = "action_performed", length = 100)
+        @Size(max = 3000, message = "La descripción no puede superar los 2000 caracteres")
+        @Column(name = "action_performed", columnDefinition = "TEXT")
         private String actionPerformed;
 
         @NotNull(message = "El modulo es obligatorio")
