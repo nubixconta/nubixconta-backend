@@ -1,6 +1,7 @@
 package com.nubixconta.modules.accountsreceivable.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.nubixconta.modules.accounting.entity.CollectionEntry;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;

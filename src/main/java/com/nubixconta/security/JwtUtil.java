@@ -4,6 +4,9 @@ import com.nubixconta.modules.administration.entity.User;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
 import java.security.Key;
 import java.util.Date;
 
@@ -38,5 +41,20 @@ public class JwtUtil {
         Claims claims = getClaims(token.replace("Bearer ", ""));
         return claims.get("userId", Integer.class);
     }
+    public static Integer extractCurrentUserId() {
+        // Obtiene el token del header "Authorization"
+        String bearerToken = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes())
+                .getRequest()
+                .getHeader("Authorization");
+
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return extractUserId(bearerToken);
+        }
+
+        throw new RuntimeException("Token JWT no encontrado o inválido");
+    }
+
+
+
 
 }

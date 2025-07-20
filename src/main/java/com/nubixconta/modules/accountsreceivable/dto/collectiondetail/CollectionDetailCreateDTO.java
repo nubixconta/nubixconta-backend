@@ -43,4 +43,5 @@ public class CollectionDetailCreateDTO {
 
     @NotNull(message = "El ID de la cuenta contable es obligatorio")
     private Integer accountId;
+
 }

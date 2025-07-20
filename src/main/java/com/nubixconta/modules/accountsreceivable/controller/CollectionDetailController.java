@@ -98,12 +98,7 @@ public class CollectionDetailController {
         CollectionDetailResponseDTO response = modelMapper.map(saved, CollectionDetailResponseDTO.class);
         return ResponseEntity.ok(response);
     }
-    /*
-    @PostMapping
-    public ResponseEntity<CollectionDetail> create(@RequestBody CollectionDetail detail) {
-        return ResponseEntity.ok(service.save(detail));
-    }
-*/
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
         service.deleteById(id);
