@@ -1,17 +1,20 @@
 package com.nubixconta.modules.sales.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import lombok.Data;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nubixconta.modules.inventory.entity.Product;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Entity
 @Table(name = "sale_detail")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 public class SaleDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,29 +22,13 @@ public class SaleDetail {
     private Integer saleDetailId;
 
 
-    @ManyToOne(optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sale_id", nullable = false)
-    @JsonIgnoreProperties({
-            "customer",
-            "saleStatus",
-            "issueDate",
-            "saleType",
-            "totalAmount",
-            "saleDate",
-            "moduleType",
-            "saleDetails"
-    })
     private Sale sale;
 
 
     @ManyToOne
     @JoinColumn(name = "id_product", referencedColumnName = "id_product", nullable = true)
-    @JsonIgnoreProperties({
-            "unit",
-            "stockQuantity",
-            "productDate",
-            "productStatus"
-    })
     private Product product;
 
     @NotNull(message = "La cantidad es obligatoria")
@@ -63,4 +50,20 @@ public class SaleDetail {
     @Digits(integer = 10, fraction = 2, message = "El subtotal debe tener hasta 10 dígitos y 2 decimales")
     @Column(name = "subtotal", precision = 10, scale = 2, nullable = false)
     private BigDecimal subtotal;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SaleDetail that = (SaleDetail) o;
+        // La igualdad completa debe considerar al padre
+        return Objects.equals(sale, that.sale) &&
+                Objects.equals(product, that.product) &&
+                Objects.equals(serviceName, that.serviceName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(sale, product, serviceName);
+    }
 }

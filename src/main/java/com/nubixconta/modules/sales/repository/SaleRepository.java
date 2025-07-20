@@ -16,4 +16,6 @@ public interface SaleRepository extends JpaRepository<Sale, Integer>{
 
     @Query("SELECT s FROM Sale s WHERE s.customer.clientId IN :customerIds")
     List<Sale> findByCustomerIds(@Param("customerIds") List<Integer> customerIds);
+
+    boolean existsByDocumentNumber(String documentNumber);
 }
