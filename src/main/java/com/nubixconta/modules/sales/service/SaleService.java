@@ -44,10 +44,11 @@ public class SaleService {
     private final CustomerRepository customerRepository;
 
     /**
-     * Retorna todas las ventas existentes como DTO de respuesta.
+     * Retorna todas las ventas existentes, ordenadas por fecha de emisión descendente.
      */
     public List<SaleResponseDTO> findAll() {
-        return saleRepository.findAll().stream()
+        // Llama al nuevo método que garantiza el orden
+        return saleRepository.findAllByOrderByIssueDateDesc().stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
                 .collect(Collectors.toList());
     }
@@ -59,6 +60,17 @@ public class SaleService {
         Sale sale = saleRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Venta con ID " + id + " no encontrada"));
         return modelMapper.map(sale, SaleResponseDTO.class);
+    }
+
+    public List<SaleResponseDTO> findByStatus(String status) {
+        // Para evitar problemas con mayúsculas/minúsculas, convertimos la entrada a mayúsculas.
+        // Esto asume que los estados en tu base de datos están en mayúsculas.
+        List<Sale> sales = saleRepository.findBySaleStatus(status.toUpperCase());
+
+        // Reutilizamos el mismo patrón de mapeo que ya usas en otros métodos.
+        return sales.stream()
+                .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
+                .collect(Collectors.toList());
     }
 
     /**
