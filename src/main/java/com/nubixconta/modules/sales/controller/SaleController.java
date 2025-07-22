@@ -42,6 +42,12 @@ public class SaleController {
         return ResponseEntity.ok(sale);
     }
 
+    /**Busca ventas por su estado= PENDIENTE,ANULADA,APLICADA*/
+    @GetMapping("/status/{status}")
+    public ResponseEntity<List<SaleResponseDTO>> getSalesByStatus(@PathVariable String status) {
+        List<SaleResponseDTO> sales = saleService.findByStatus(status);
+        return ResponseEntity.ok(sales);
+    }
     /**
      * Crear una nueva venta junto con sus detalles.
      * Se valida:

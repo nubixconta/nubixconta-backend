@@ -18,4 +18,9 @@ public interface SaleRepository extends JpaRepository<Sale, Integer>{
     List<Sale> findByCustomerIds(@Param("customerIds") List<Integer> customerIds);
 
     boolean existsByDocumentNumber(String documentNumber);
+
+    List<Sale> findBySaleStatus(String saleStatus);
+
+    List<Sale> findAllByOrderByIssueDateDesc();
+
 }
