@@ -39,11 +39,27 @@ public class CreditNoteService {
     private final AccountingService accountingService;
     private final CustomerRepository customerRepository;
 
+
+
     /**
-     * Retorna todas las notas de crédito como DTOs.
+     * Retorna todas las notas de crédito, aplicando un ordenamiento específico.
+     * @param sortBy El criterio de ordenamiento. "status" para agrupar por estado (default),
+     *               "date" para ordenar solo por fecha.
+     * @return Lista de CreditNoteResponseDTO ordenadas.
      */
-    public List<CreditNoteResponseDTO> findAll() {
-        return creditNoteRepository.findAll().stream()
+    public List<CreditNoteResponseDTO> findAll(String sortBy) { // Modificado para aceptar el parámetro
+        List<CreditNote> creditNotes;
+
+        if ("status".equalsIgnoreCase(sortBy)) {
+            // Llama a la nueva consulta compleja para ordenar por estado y luego fecha
+            creditNotes = creditNoteRepository.findAllOrderByStatusAndCreditNoteDate();
+        } else {
+            // Por defecto o si sortBy es "date", ordena solo por fecha
+            creditNotes = creditNoteRepository.findAllByOrderByCreditNoteDateDesc();
+        }
+
+        // El resto del método no cambia
+        return creditNotes.stream()
                 .map(cn -> modelMapper.map(cn, CreditNoteResponseDTO.class))
                 .collect(Collectors.toList());
     }

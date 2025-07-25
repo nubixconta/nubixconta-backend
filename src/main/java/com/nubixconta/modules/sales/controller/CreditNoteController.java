@@ -1,5 +1,6 @@
 package com.nubixconta.modules.sales.controller;
 
+import com.nubixconta.common.exception.BadRequestException;
 import com.nubixconta.modules.sales.dto.creditnote.CreditNoteCreateDTO;
 import com.nubixconta.modules.sales.dto.creditnote.CreditNoteResponseDTO;
 import com.nubixconta.modules.sales.dto.creditnote.CreditNoteUpdateDTO;
@@ -21,9 +22,23 @@ public class CreditNoteController {
 
     private final CreditNoteService creditNoteService;
 
+    /**
+     * Obtener todas las notas de crédito con un ordenamiento específico.
+     * @param sortBy (opcional) Criterio de ordenamiento.
+     *               - 'status' (default): Agrupa por PENDIENTE, APLICADA, ANULADA y luego ordena por fecha.
+     *               - 'date': Ordena estrictamente por fecha de creación descendente.
+     * @return Una lista de notas de crédito ordenadas según el criterio.
+     */
     @GetMapping
-    public ResponseEntity<List<CreditNoteResponseDTO>> getAllCreditNotes() {
-        return ResponseEntity.ok(creditNoteService.findAll());
+    public ResponseEntity<List<CreditNoteResponseDTO>> getAllCreditNotes(
+            @RequestParam(name = "sortBy", defaultValue = "status") String sortBy
+    ) {
+        if (!"status".equalsIgnoreCase(sortBy) && !"date".equalsIgnoreCase(sortBy)) {
+            throw new BadRequestException("Valor de 'sortBy' no válido. Use 'status' o 'date'.");
+        }
+
+        List<CreditNoteResponseDTO> creditNotes = creditNoteService.findAll(sortBy);
+        return ResponseEntity.ok(creditNotes);
     }
 
     @GetMapping("/{id}")

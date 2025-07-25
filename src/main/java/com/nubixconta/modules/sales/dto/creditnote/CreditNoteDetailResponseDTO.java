@@ -12,7 +12,8 @@ import lombok.NoArgsConstructor;
 public class CreditNoteDetailResponseDTO {
     private Integer creditNoteDetailId;
     private Integer productId;
-    private String productName; // Puedes agregarlo si quieres mostrar el nombre del producto
+    private String productName;
+    private String productCode;
     private String serviceName;
     private Integer quantity;
     private BigDecimal unitPrice;

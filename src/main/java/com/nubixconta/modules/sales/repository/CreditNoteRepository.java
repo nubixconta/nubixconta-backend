@@ -29,7 +29,6 @@ public interface CreditNoteRepository extends JpaRepository<CreditNote, Integer>
     // Método para validar unicidad del número de documento
     boolean existsByDocumentNumber(String documentNumber);
 
-    // --- MÉTODO CLAVE A AÑADIR ---
     /**
      * Verifica si existe al menos una nota de crédito para una venta dada que
      * se encuentre en uno de los estados proporcionados.
@@ -38,5 +37,26 @@ public interface CreditNoteRepository extends JpaRepository<CreditNote, Integer>
      * @return true si se encuentra al menos una, false en caso contrario.
      */
     boolean existsBySale_SaleIdAndCreditNoteStatusIn(Integer saleId, List<String> statuses);
+
+    /**
+     * Busca todas las notas de crédito y las ordena por fecha de creación descendente.
+     * Se usará para el filtro ?sortBy=date.
+     */
+    List<CreditNote> findAllByOrderByCreditNoteDateDesc();
+
+    /**
+     * Busca todas las notas de crédito, ordenadas primero por estado personalizado
+     * (PENDIENTE, APLICADA, ANULADA) y luego por fecha de creación descendente.
+     * Se usará como filtro por defecto (?sortBy=status).
+     */
+    @Query("SELECT cn FROM CreditNote cn ORDER BY " +
+            "CASE cn.creditNoteStatus " +
+            "  WHEN 'PENDIENTE' THEN 1 " +
+            "  WHEN 'APLICADA'  THEN 2 " +
+            "  WHEN 'ANULADA'   THEN 3 " +
+            "  ELSE 4 " +
+            "END, " +
+            "cn.creditNoteDate DESC")
+    List<CreditNote> findAllOrderByStatusAndCreditNoteDate();
 
 }

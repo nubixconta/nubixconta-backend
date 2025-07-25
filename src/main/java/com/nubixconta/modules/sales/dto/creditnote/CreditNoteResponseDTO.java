@@ -5,9 +5,6 @@ import com.nubixconta.modules.sales.dto.sales.SaleSummaryDTO;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
