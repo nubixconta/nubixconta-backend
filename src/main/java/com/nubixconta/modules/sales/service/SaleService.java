@@ -78,20 +78,21 @@ public class SaleService {
                 .orElseThrow(() -> new NotFoundException("Venta con ID " + id + " no encontrada"));
         return modelMapper.map(sale, SaleResponseDTO.class);
     }
+
     /**
-     * Busca todas las ventas con estado 'APLICADA' para un cliente específico.
-     * Este método es utilizado para encontrar las ventas que pueden tener notas de crédito asociadas.
+     * Busca las ventas de un cliente que son válidas para la creación de una nota de crédito.
+     * Una venta es válida si está 'APLICADA' y no tiene una nota de crédito activa ('PENDIENTE' o 'APLICADA').
      *
      * @param clientId El ID del cliente.
-     * @return Una lista de SaleResponseDTO con las ventas aplicadas del cliente.
+     * @return Una lista de SaleResponseDTO con las ventas elegibles.
      */
-    public List<SaleResponseDTO> findAppliedSalesByClientId(Integer clientId) {
-        // Llamamos al nuevo método del repositorio, pasando el ID del cliente
-        // y el estado "APLICADA" de forma explícita.
-        List<Sale> appliedSales = saleRepository.findByCustomer_ClientIdAndSaleStatus(clientId, "APLICADA");
+    // Nombre del método cambiado de findAppliedSalesByClientId a uno más descriptivo.
+    public List<SaleResponseDTO> findSalesAvailableForCreditNote(Integer clientId) {
+        // Llamamos al nuevo método del repositorio que contiene toda la lógica.
+        List<Sale> availableSales = saleRepository.findSalesAvailableForCreditNote(clientId);
 
-        // Reutilizamos el mismo patrón de mapeo a DTO.
-        return appliedSales.stream()
+        // El mapeo a DTO sigue siendo el mismo.
+        return availableSales.stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
                 .collect(Collectors.toList());
     }

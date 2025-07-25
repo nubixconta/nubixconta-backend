@@ -60,16 +60,17 @@ public class SaleController {
     }
 
     /**
-     * Busca y devuelve todas las ventas en estado 'APLICADA' para un cliente específico.
-     * Útil, por ejemplo, para cuando se necesita crear una nota de crédito y se debe
-     * seleccionar una de las ventas válidas (aplicadas) de ese cliente.
+     * Busca y devuelve las ventas de un cliente que están disponibles para crear una nota de crédito.
+     * Filtra las ventas que ya tienen una nota de crédito activa (PENDIENTE o APLICADA).
      *
-     * @param clientId El ID del cliente, extraído de la ruta de la URL.
-     * @return Una lista de SaleResponseDTO.
+     * @param clientId El ID del cliente.
+     * @return Una lista de SaleResponseDTO con las ventas elegibles.
      */
-    @GetMapping("/customer/{clientId}/applied")
-    public ResponseEntity<List<SaleResponseDTO>> getAppliedSalesByCustomer(@PathVariable Integer clientId) {
-        List<SaleResponseDTO> sales = saleService.findAppliedSalesByClientId(clientId);
+    // La ruta ahora es más clara sobre lo que devuelve.
+    @GetMapping("/customer/{clientId}/available-for-credit-note")
+    public ResponseEntity<List<SaleResponseDTO>> getSalesAvailableForCreditNote(@PathVariable Integer clientId) {
+        // Llama al nuevo método del servicio.
+        List<SaleResponseDTO> sales = saleService.findSalesAvailableForCreditNote(clientId);
         return ResponseEntity.ok(sales);
     }
     /**
