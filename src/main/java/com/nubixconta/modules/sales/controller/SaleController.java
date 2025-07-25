@@ -24,12 +24,22 @@ public class SaleController {
     private final SaleService saleService;
 
     /**
-     * Obtener todas las ventas registradas.
-     * Devuelve una lista de SaleResponseDTO.
+     * Obtener todas las ventas registradas con un ordenamiento específico.
+     * @param sortBy (opcional) Criterio de ordenamiento.
+     *               - 'status' (default): Agrupa por PENDIENTE, APLICADA, ANULADA y luego ordena por fecha.
+     *               - 'date': Ordena estrictamente por fecha de emisión descendente.
+     * @return Una lista de SaleResponseDTO ordenadas según el criterio.
      */
     @GetMapping
-    public ResponseEntity<List<SaleResponseDTO>> getAllSales() {
-        List<SaleResponseDTO> sales = saleService.findAll();
+    public ResponseEntity<List<SaleResponseDTO>> getAllSales(
+            @RequestParam(name = "sortBy", defaultValue = "status") String sortBy
+    ) {
+        // Valida que el valor de sortBy sea uno de los permitidos para evitar comportamientos inesperados.
+        if (!"status".equalsIgnoreCase(sortBy) && !"date".equalsIgnoreCase(sortBy)) {
+            throw new BadRequestException("Valor de 'sortBy' no válido. Use 'status' o 'date'.");
+        }
+
+        List<SaleResponseDTO> sales = saleService.findAll(sortBy);
         return ResponseEntity.ok(sales);
     }
 
@@ -46,6 +56,20 @@ public class SaleController {
     @GetMapping("/status/{status}")
     public ResponseEntity<List<SaleResponseDTO>> getSalesByStatus(@PathVariable String status) {
         List<SaleResponseDTO> sales = saleService.findByStatus(status);
+        return ResponseEntity.ok(sales);
+    }
+
+    /**
+     * Busca y devuelve todas las ventas en estado 'APLICADA' para un cliente específico.
+     * Útil, por ejemplo, para cuando se necesita crear una nota de crédito y se debe
+     * seleccionar una de las ventas válidas (aplicadas) de ese cliente.
+     *
+     * @param clientId El ID del cliente, extraído de la ruta de la URL.
+     * @return Una lista de SaleResponseDTO.
+     */
+    @GetMapping("/customer/{clientId}/applied")
+    public ResponseEntity<List<SaleResponseDTO>> getAppliedSalesByCustomer(@PathVariable Integer clientId) {
+        List<SaleResponseDTO> sales = saleService.findAppliedSalesByClientId(clientId);
         return ResponseEntity.ok(sales);
     }
     /**

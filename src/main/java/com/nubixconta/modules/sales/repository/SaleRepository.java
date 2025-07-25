@@ -23,4 +23,25 @@ public interface SaleRepository extends JpaRepository<Sale, Integer>{
 
     List<Sale> findAllByOrderByIssueDateDesc();
 
+    @Query("SELECT s FROM Sale s ORDER BY " +
+            "CASE s.saleStatus " +
+            "  WHEN 'PENDIENTE' THEN 1 " +
+            "  WHEN 'APLICADA'  THEN 2 " +
+            "  WHEN 'ANULADA'   THEN 3 " +
+            "  ELSE 4 " +
+            "END, " +
+            "s.issueDate DESC")
+    List<Sale> findAllOrderByStatusAndIssueDate();
+
+    /**
+     * Busca todas las ventas de un cliente específico que coincidan con un estado determinado.
+     * Spring Data JPA genera la consulta:
+     * "SELECT s FROM Sale s WHERE s.customer.clientId = ?1 AND s.saleStatus = ?2"
+     *
+     * @param clientId El ID del cliente a buscar.
+     * @param saleStatus El estado de la venta (ej. "APLICADA").
+     * @return Una lista de ventas que cumplen ambos criterios.
+     */
+    List<Sale> findByCustomer_ClientIdAndSaleStatus(Integer clientId, String saleStatus);
+
 }

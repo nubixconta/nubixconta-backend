@@ -44,11 +44,28 @@ public class SaleService {
     private final CustomerRepository customerRepository;
 
     /**
-     * Retorna todas las ventas existentes, ordenadas por fecha de emisión descendente.
+     * Retorna todas las ventas existentes, aplicando un ordenamiento específico.
+     * @param sortBy El criterio de ordenamiento. "status" para agrupar por estado (default),
+     *               "date" para ordenar solo por fecha.
+     * @return Lista de SaleResponseDTO ordenadas.
      */
-    public List<SaleResponseDTO> findAll() {
-        // Llama al nuevo método que garantiza el orden
-        return saleRepository.findAllByOrderByIssueDateDesc().stream()
+    public List<SaleResponseDTO> findAll(String sortBy) { // Ahora acepta un parámetro
+        List<Sale> sales;
+
+        // "status" es el modo por defecto que agrupa.
+        if ("status".equalsIgnoreCase(sortBy)) {
+            sales = saleRepository.findAllOrderByStatusAndIssueDate();
+        }
+        // "date" es el modo anterior que ordena solo por fecha.
+        else if ("date".equalsIgnoreCase(sortBy)) {
+            sales = saleRepository.findAllByOrderByIssueDateDesc();
+        }
+        // Por si envían otro valor, mantenemos el orden por fecha como un fallback seguro.
+        else {
+            sales = saleRepository.findAllByOrderByIssueDateDesc();
+        }
+
+        return sales.stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
                 .collect(Collectors.toList());
     }
@@ -60,6 +77,23 @@ public class SaleService {
         Sale sale = saleRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Venta con ID " + id + " no encontrada"));
         return modelMapper.map(sale, SaleResponseDTO.class);
+    }
+    /**
+     * Busca todas las ventas con estado 'APLICADA' para un cliente específico.
+     * Este método es utilizado para encontrar las ventas que pueden tener notas de crédito asociadas.
+     *
+     * @param clientId El ID del cliente.
+     * @return Una lista de SaleResponseDTO con las ventas aplicadas del cliente.
+     */
+    public List<SaleResponseDTO> findAppliedSalesByClientId(Integer clientId) {
+        // Llamamos al nuevo método del repositorio, pasando el ID del cliente
+        // y el estado "APLICADA" de forma explícita.
+        List<Sale> appliedSales = saleRepository.findByCustomer_ClientIdAndSaleStatus(clientId, "APLICADA");
+
+        // Reutilizamos el mismo patrón de mapeo a DTO.
+        return appliedSales.stream()
+                .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
+                .collect(Collectors.toList());
     }
 
     public List<SaleResponseDTO> findByStatus(String status) {
