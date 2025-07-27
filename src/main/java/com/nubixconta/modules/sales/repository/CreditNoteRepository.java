@@ -18,7 +18,7 @@ public interface CreditNoteRepository extends JpaRepository<CreditNote, Integer>
 
     // Buscar por rango de fechas y, opcionalmente, por estado
     @Query("SELECT n FROM CreditNote n WHERE " +
-            "n.creditNoteDate >= :start AND n.creditNoteDate <= :end " +
+            "n.issueDate >= :start AND n.issueDate <= :end " +
             "AND (:status IS NULL OR n.creditNoteStatus = :status)")
     List<CreditNote> findByDateRangeAndStatus(
             @Param("start") LocalDateTime start,
@@ -42,7 +42,7 @@ public interface CreditNoteRepository extends JpaRepository<CreditNote, Integer>
      * Busca todas las notas de crédito y las ordena por fecha de creación descendente.
      * Se usará para el filtro ?sortBy=date.
      */
-    List<CreditNote> findAllByOrderByCreditNoteDateDesc();
+    List<CreditNote> findAllByOrderByIssueDateDesc();
 
     /**
      * Busca todas las notas de crédito, ordenadas primero por estado personalizado
@@ -56,7 +56,7 @@ public interface CreditNoteRepository extends JpaRepository<CreditNote, Integer>
             "  WHEN 'ANULADA'   THEN 3 " +
             "  ELSE 4 " +
             "END, " +
-            "cn.creditNoteDate DESC")
+            "cn.issueDate DESC")
     List<CreditNote> findAllOrderByStatusAndCreditNoteDate();
 
 }

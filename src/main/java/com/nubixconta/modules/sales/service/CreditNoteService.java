@@ -55,7 +55,7 @@ public class CreditNoteService {
             creditNotes = creditNoteRepository.findAllOrderByStatusAndCreditNoteDate();
         } else {
             // Por defecto o si sortBy es "date", ordena solo por fecha
-            creditNotes = creditNoteRepository.findAllByOrderByCreditNoteDateDesc();
+            creditNotes = creditNoteRepository.findAllByOrderByIssueDateDesc();
         }
 
         // El resto del método no cambia
@@ -165,6 +165,7 @@ public class CreditNoteService {
         CreditNote newCreditNote = new CreditNote();
         newCreditNote.setDocumentNumber(dto.getDocumentNumber());
         newCreditNote.setDescription(dto.getDescription());
+        newCreditNote.setIssueDate(dto.getIssueDate());
         newCreditNote.setSale(sale);
         newCreditNote.setCreditNoteStatus("PENDIENTE"); // Estado inicial por defecto
 
@@ -211,7 +212,9 @@ public class CreditNoteService {
         if (dto.getDescription() != null) {
             creditNote.setDescription(dto.getDescription());
         }
-
+        if (dto.getIssueDate() != null) {
+            creditNote.setIssueDate(dto.getIssueDate());
+        }
         // 3. Sincronizar detalles Y recalcular/validar totales si se proporciona la lista de detalles
         if (dto.getDetails() != null) {
             if (dto.getDetails().isEmpty()) {
@@ -336,7 +339,7 @@ public class CreditNoteService {
         if (!"PENDIENTE".equals(creditNote.getCreditNoteStatus())) {
             throw new BusinessRuleException("Solo se pueden aplicar notas de crédito en estado PENDIENTE. Estado actual: " + creditNote.getCreditNoteStatus());
         }
-
+        creditNote.setIssueDate(LocalDateTime.now()); // Oficializar la fecha al aplicar.
         // 2. Delegar la lógica de inventario al InventoryService
         // Esta es la operación de DEVOLUCIÓN, por lo que el stock AUMENTA.
         inventoryService.processCreditNoteApplication(creditNote);

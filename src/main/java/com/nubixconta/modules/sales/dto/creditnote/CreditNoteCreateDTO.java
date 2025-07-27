@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,6 +24,9 @@ public class CreditNoteCreateDTO {
     @Size(max = 255, message = "La descripcion puede tener máximo 255 caracteres")
     @Column(name = "description", length = 255)
     private String description;
+
+    @NotNull(message = "La fecha de emisión es obligatoria")
+    private LocalDateTime issueDate;
 
 
     @NotNull(message = "La venta asociada es obligatoria")
