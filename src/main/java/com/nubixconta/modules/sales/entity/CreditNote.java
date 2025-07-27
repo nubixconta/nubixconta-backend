@@ -41,9 +41,13 @@ public class CreditNote {
     @Column(name = "credit_note_status", length = 10, nullable = false)
     private String creditNoteStatus;
 
+    @NotNull(message = "La fecha de emisión de la nota de crédito es obligatoria")
+    @Column(name = "issue_date", nullable = false)
+    private LocalDateTime issueDate;
+
     @CreationTimestamp
-    @Column(name = "credit_note_date", nullable = false, updatable = false)
-    private LocalDateTime creditNoteDate;
+    @Column(name = "creation_date", nullable = false, updatable = false)
+    private LocalDateTime creationDate;
 
     @UpdateTimestamp
     @Column(name = "update_date")

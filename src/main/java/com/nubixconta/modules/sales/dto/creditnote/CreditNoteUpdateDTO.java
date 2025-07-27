@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,7 +20,7 @@ public class CreditNoteUpdateDTO {
 
     @Size(max = 255, message = "La descripcion puede tener máximo 255 caracteres")
     private String description;
-
+    private LocalDateTime issueDate;
     private BigDecimal totalAmount;
     // --- ¡AÑADIR ESTOS DOS CAMPOS NUEVOS! ---
     private BigDecimal subtotalAmount;
