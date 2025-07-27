@@ -74,6 +74,22 @@ public class SaleController {
         return ResponseEntity.ok(sales);
     }
     /**
+     * Realiza una búsqueda combinada de ventas por rango de fechas y/o criterios de cliente.
+     * Todos los parámetros son opcionales.
+     */
+    @GetMapping("/report")
+    public ResponseEntity<List<SaleResponseDTO>> searchSalesCombined(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String customerName,
+            @RequestParam(required = false) String customerLastName
+    ) {
+        List<SaleResponseDTO> sales = saleService.findByCombinedCriteria(
+                startDate, endDate, customerName, customerLastName
+        );
+        return ResponseEntity.ok(sales);
+    }
+    /**
      * Crear una nueva venta junto con sus detalles.
      * Se valida:
      *  - Que el cliente exista

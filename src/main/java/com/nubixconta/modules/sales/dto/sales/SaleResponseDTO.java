@@ -20,7 +20,6 @@ public class SaleResponseDTO {
     private String documentNumber;
     private String saleStatus;
     private LocalDateTime issueDate;
-    private String saleType;
     private BigDecimal totalAmount;
     // --- ¡AÑADIR ESTOS DOS CAMPOS NUEVOS! ---
     private BigDecimal subtotalAmount;

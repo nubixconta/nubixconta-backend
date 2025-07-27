@@ -25,9 +25,6 @@ public class SaleCreateDTO {
         @NotNull(message = "La fecha de emisión es obligatoria")
         private LocalDateTime issueDate;
 
-        @NotBlank(message = "El tipo de venta es obligatorio")
-        @Size(max = 10, message = "Máximo 10 caracteres")
-        private String saleType;
 
         @NotNull(message = "El monto total es obligatorio")
         @Digits(integer = 10, fraction = 2, message = "Debe tener hasta 10 dígitos y 2 decimales")
