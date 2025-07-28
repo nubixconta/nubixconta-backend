@@ -3,6 +3,7 @@ import com.nubixconta.modules.administration.dto.company.CompanyCreateDTO;
 import com.nubixconta.modules.administration.dto.company.CompanyResponseDTO;
 import com.nubixconta.modules.administration.dto.company.CompanyUpdateDTO;
 import com.nubixconta.modules.administration.entity.Company;
+import com.nubixconta.modules.administration.entity.User;
 import com.nubixconta.modules.administration.service.CompanyService;
 import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
@@ -21,6 +22,7 @@ public class CompanyController {
     private final CompanyService companyService;
     private final ModelMapper modelMapper;
 
+
     @Autowired
     public CompanyController(CompanyService companyService,ModelMapper modelMapper) {
         this.companyService = companyService;
@@ -38,12 +40,25 @@ public class CompanyController {
 
     }
 
-    @GetMapping("/assigned") // Empresas con companyStatus = true
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getCompanyById(@PathVariable Integer id) {
+        try {
+            Company company = companyService.getCompanyById(id);
+            CompanyResponseDTO companyDTO = modelMapper.map(company, CompanyResponseDTO.class);
+            return ResponseEntity.ok(companyDTO);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    //Controlador para listar todas las empresas activas
+    @GetMapping("/active") // Empresas con companyStatus = true
     public ResponseEntity<List<CompanyResponseDTO>> getAssignedCompanies() {
         List<CompanyResponseDTO> companies = companyService.getCompaniesByStatus(true);
         return ResponseEntity.ok(companies);
     }
-    @GetMapping("/unassigned") // Empresas con companyStatus = false
+    //Controlador para listar todas las empreas inactivas
+    @GetMapping("/inactive") // Empresas con companyStatus = false
     public ResponseEntity<List<CompanyResponseDTO>> getUnassignedCompanies() {
         List<CompanyResponseDTO> companies = companyService.getCompaniesByStatus(false);
         return ResponseEntity.ok(companies);

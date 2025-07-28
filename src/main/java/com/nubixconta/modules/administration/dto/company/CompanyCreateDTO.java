@@ -1,9 +1,7 @@
 package com.nubixconta.modules.administration.dto.company;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.nubixconta.modules.accounting.entity.Account;
-import com.nubixconta.modules.administration.entity.User;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -14,10 +12,9 @@ import java.time.LocalDateTime;
 public class CompanyCreateDTO {
 
 
-    @NotNull(message = "El usuario es obligatorio")
+
     private Integer userId;
 
-    @NotNull(message = "La cuenta es obligatorio")
     private Integer accountId;
 
     @NotNull(message = "El nombre es obligatorio")
@@ -33,12 +30,14 @@ public class CompanyCreateDTO {
     @Size(max = 14, message = "El NRC no puede tener más de 14 caracteres")
     private String companyNrc;
 
-    @NotNull(message = "El estado de la empresa es obligatorio")
-    private Boolean companyStatus;
-
-    @NotNull(message = "El estado activo es obligatorio")
-    private Boolean activeStatus;
-
     @NotNull(message = "La fecha de creación es obligatoria")
     private LocalDateTime creationDate;
+
+    @Size(max = 512, message = "El turn no puede superar los 512 caracteres")
+    @NotNull(message = "El turn es obligatorio")
+    private String turnCompany;
+
+    @NotNull(message = "La address es obligatoria")
+    @Size(max = 100, message = "La dirección puede tener máximo 50 caracteres")
+    private String address;
 }
