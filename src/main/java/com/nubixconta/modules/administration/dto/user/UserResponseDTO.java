@@ -10,6 +10,7 @@ public class UserResponseDTO {
 
     private String firstName;
 
+    private Integer id;
 
     private String lastName;
 

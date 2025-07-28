@@ -47,6 +47,10 @@ public class CompanyService {
     if (companyRepository.existsByCompanyName(dto.getCompanyName())) {
         throw new IllegalArgumentException("El nombre de empresa ya está registrado.");
     }
+        // Validación: No se pueden registrar DUI y NIT simultáneamente
+        if (dto.getCompanyDui() != null && dto.getCompanyNit() != null) {
+            throw new IllegalArgumentException("No se puede registrar una empresa con DUI y NIT a la vez. Debe ser uno o el otro.");
+        }
 
     if (dto.getCompanyDui() != null && companyRepository.existsByCompanyDui(dto.getCompanyDui())) {
         throw new IllegalArgumentException("El DUI ya está registrado.");
@@ -59,28 +63,35 @@ public class CompanyService {
     if (dto.getCompanyNrc() != null && companyRepository.existsByCompanyNrc(dto.getCompanyNrc())) {
         throw new IllegalArgumentException("El NRC ya está registrado.");
     }
-
+/*
         // Validación de consistencia entre activeStatus y companyStatus
         if (Boolean.FALSE.equals(dto.getActiveStatus()) && Boolean.TRUE.equals(dto.getCompanyStatus())) {
             throw new IllegalArgumentException("Una empresa inactiva no puede estar asignada (companyStatus = true).");
         }
 
-
+*/
         Company company = new Company();
     company.setCompanyName(dto.getCompanyName());
     company.setCompanyDui(dto.getCompanyDui());
     company.setCompanyNit(dto.getCompanyNit());
     company.setCompanyNrc(dto.getCompanyNrc());
-    company.setCompanyStatus(dto.getCompanyStatus());
-    company.setActiveStatus(dto.getActiveStatus());
     company.setCreationDate(dto.getCreationDate());
+    company.setTurnCompany(dto.getTurnCompany());
+    company.setAddress(dto.getAddress());
     company.setAccountId(dto.getAccountId());
+/*
+        // Nueva validación: no se puede asignar empresa (companyStatus=true) sin usuario
+        if (dto.getUserId() == null && Boolean.TRUE.equals(dto.getCompanyStatus())) {
+            throw new IllegalArgumentException("No se puede asignar la empresa si no hay un usuario asociado (companyStatus = true).");
+        }
 
+ */
     // Asignar relación con usuario
-    User user = userRepository.findById(dto.getUserId())
-            .orElseThrow(() -> new EntityNotFoundException("Usuario indicado no encontrado"));
-    company.setUser(user);
-
+        if (dto.getUserId() != null) {
+            User user = userRepository.findById(dto.getUserId())
+                    .orElseThrow(() -> new EntityNotFoundException("Usuario indicado no encontrado"));
+            company.setUser(user);
+        }
 
     // Guardar empresa
     Company saved = companyRepository.save(company);
@@ -102,6 +113,7 @@ public class CompanyService {
                 .map(company -> modelMapper.map(company, CompanyResponseDTO.class))
                 .toList();
     }
+    //Metodo para listar todas las empresas activas
     public List<CompanyResponseDTO> getCompaniesByStatus(boolean status) {
         List<Company> companies = companyRepository.findByactiveStatus(status);
         return companies.stream()
@@ -189,9 +201,34 @@ public class CompanyService {
                     .append(" a ").append(dto.getCompanyNrc()).append(". ");
             company.setCompanyNrc(dto.getCompanyNrc());
         }
+
+        //  LÓGICA PARA GIRO
+        if (dto.getTurnCompany() != null && !dto.getTurnCompany().equals(company.getTurnCompany())) {
+            cambios.append("El giro cambió de ").append(company.getTurnCompany())
+                    .append(" a ").append(dto.getTurnCompany()).append(". ");
+            company.setTurnCompany(dto.getTurnCompany());
+        }
+
+        // LÓGICA PARA DIRECCIÓN
+        if (dto.getAddress() != null && !dto.getAddress().equals(company.getAddress())) {
+            cambios.append("La dirección cambió de ").append(company.getAddress())
+                    .append(" a ").append(dto.getAddress()).append(". ");
+            company.setAddress(dto.getAddress());
+        }
+
         // Validación de consistencia entre activeStatus y companyStatus
         if (Boolean.FALSE.equals(dto.getActiveStatus()) && Boolean.TRUE.equals(dto.getCompanyStatus())) {
             throw new IllegalArgumentException("Una empresa inactiva no puede estar asignada (companyStatus = true).");
+        }
+
+        // Validación: si se quiere asignar (companyStatus = true), debe tener usuario asignado
+        if (Boolean.TRUE.equals(dto.getCompanyStatus())) {
+            boolean usuarioAsignado =
+                    dto.getUserId() != null || company.getUser() != null;
+
+            if (!usuarioAsignado) {
+                throw new IllegalArgumentException("Una empresa asignada debe tener un usuario responsable.");
+            }
         }
 
         if (dto.getCompanyStatus() != null && !dto.getCompanyStatus().equals(company.getCompanyStatus())) {
@@ -225,11 +262,24 @@ public class CompanyService {
             company.setAccountId(dto.getAccountId());
         }
 
-        if (dto.getUserId() != null && !dto.getUserId().equals(company.getUser().getId())) {
+        if (dto.getUserId() != null &&
+                (company.getUser() == null || !dto.getUserId().equals(company.getUser().getId()))) {
+
             User user = userRepository.findById(dto.getUserId())
                     .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
-            cambios.append("Responsable cambiado de ID ")
-                    .append(company.getUser().getId()).append(" a ").append(user.getId()).append(". ");
+
+            if (company.getUser() != null) {
+                cambios.append("Responsable cambiado de ID ")
+                        .append(company.getUser().getId())
+                        .append(" a ")
+                        .append(user.getId())
+                        .append(". ");
+            } else {
+                cambios.append("Responsable asignado ")
+                        .append(user.getFirstName()+user.getLastName())
+                        .append(". ");
+            }
+
             company.setUser(user);
         }
 
@@ -250,5 +300,10 @@ public class CompanyService {
 
     public List<Company> getCompaniesByUserName(String userName) {
         return companyRepository.findByUser_UserName(userName);
+    }
+
+    public Company getCompanyById(Integer id) {
+        return companyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Empresa no encontrado con ID: " + id));
     }
 }

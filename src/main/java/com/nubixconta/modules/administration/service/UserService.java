@@ -142,8 +142,8 @@ public class UserService {
     }
 
     //Trae a todos los usuarios asistentes
-    public List<UserResponseDTO> getUserByAssistant(boolean role) {
-        List<User> users = userRepository.findByRole(role);
+    public List<UserResponseDTO> getUserByAssistant(boolean role, Boolean status) {
+        List<User> users = userRepository.findByRoleAndStatus(role,status);
         return users.stream()
                 .map(user -> modelMapper.map(user, UserResponseDTO.class))
                 .toList();

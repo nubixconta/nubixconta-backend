@@ -35,5 +35,6 @@ public class UserUpdateDTO {
 
     private Boolean status;
 
+    private Boolean role;
 
 }
