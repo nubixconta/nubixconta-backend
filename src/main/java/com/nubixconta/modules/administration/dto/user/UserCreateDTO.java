@@ -39,8 +39,5 @@ public class UserCreateDTO {
 
     private Boolean status;
 
-    @NotNull(message = "El estado es obligatorio")
-    private Boolean role;
-
 }
 
