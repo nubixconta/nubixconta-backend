@@ -15,7 +15,12 @@ import lombok.Data;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users",
+uniqueConstraints = {
+@UniqueConstraint(columnNames = {"first_name", "last_name"}),
+@UniqueConstraint(columnNames = {"user_name"}),
+@UniqueConstraint(columnNames = {"email"})
+       })
 @Data
 public class User {
 
