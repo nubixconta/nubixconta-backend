@@ -29,7 +29,7 @@ public class CustomerService {
 
     // Obtener todos los clientes activos
     public List<CustomerResponseDTO> findAll() {
-        return customerRepository.findByStatusTrue().stream().map(
+        return customerRepository.findByStatusTrueOrderByCreationDateDesc().stream().map(
                 c -> modelMapper.map(c, CustomerResponseDTO.class))
                 .collect(Collectors.toList());
     }
@@ -80,23 +80,7 @@ public class CustomerService {
         Customer existing = customerRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Cliente con ID " + id + " no encontrado"));
 
-        // Guardamos el tipo de persona original para comparar si cambió
-        PersonType originalPersonType = existing.getPersonType();
         modelMapper.map(dto, existing);
-        PersonType newPersonType = existing.getPersonType();
-
-        // --- LÓGICA DE LIMPIEZA SI EL TIPO DE PERSONA CAMBIÓ ---
-        if (newPersonType != originalPersonType) {
-            // Si cambió a NATURAL, limpiamos los campos de JURIDICA
-            if (newPersonType == PersonType.NATURAL) {
-                existing.setCustomerNit(null);
-            }
-            // Si cambió a JURIDICA, limpiamos los campos de NATURAL
-            else if (newPersonType == PersonType.JURIDICA) {
-                existing.setCustomerDui(null);
-                existing.setCustomerLastName(null);
-            }
-        }
 
         // Llamamos a nuestro validador centralizado con el estado final de la entidad
         validateCustomerBusinessRules(existing);
