@@ -53,8 +53,4 @@ public class JwtUtil {
 
         throw new RuntimeException("Token JWT no encontrado o inválido");
     }
-
-
-
-
 }
