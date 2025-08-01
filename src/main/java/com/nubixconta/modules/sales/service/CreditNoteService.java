@@ -2,7 +2,7 @@ package com.nubixconta.modules.sales.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
-import com.nubixconta.modules.accounting.service.AccountingService;
+import com.nubixconta.modules.accounting.service.SalesAccountingService;
 import com.nubixconta.modules.inventory.entity.Product;
 import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.inventory.service.ProductService;
@@ -36,7 +36,7 @@ public class CreditNoteService {
     private final ProductService productService;
     private final ModelMapper modelMapper;
     private final InventoryService inventoryService;
-    private final AccountingService accountingService;
+    private final SalesAccountingService salesAccountingService;
     private final CustomerRepository customerRepository;
 
 
@@ -345,7 +345,7 @@ public class CreditNoteService {
         inventoryService.processCreditNoteApplication(creditNote);
 
         // 3. (Futuro) Aquí se llamaría a la lógica contable.
-        accountingService.createEntriesForCreditNoteApplication(creditNote);
+        salesAccountingService.createEntriesForCreditNoteApplication(creditNote);
 
         // --- NUEVA LÓGICA DE AJUSTE DE SALDO ---
         Customer customer = creditNote.getSale().getCustomer();
@@ -379,7 +379,7 @@ public class CreditNoteService {
         inventoryService.processCreditNoteCancellation(creditNote);
 
         // 3. Revertir la lógica contable.
-        accountingService.deleteEntriesForCreditNoteCancellation(creditNote);
+        salesAccountingService.deleteEntriesForCreditNoteCancellation(creditNote);
         // --- INICIO DE LA LÓGICA DE REVERSIÓN DE SALDO ---
         Customer customer = creditNote.getSale().getCustomer();
         // Sumamos de nuevo el monto de la NC al saldo, porque la anulación de la NC

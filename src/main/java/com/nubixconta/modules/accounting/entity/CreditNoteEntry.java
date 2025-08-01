@@ -26,9 +26,10 @@ public class CreditNoteEntry {
     @JoinColumn(name = "credit_note_id", nullable = false)
     private CreditNote creditNote;
 
+    // --- ¡CAMBIO CRÍTICO! Se reemplaza la relación a Account por Catalog ---
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
+    @JoinColumn(name = "id_catalog", nullable = false)
+    private Catalog catalog;
 
     @Column(name = "debe", precision = 12, scale = 2, nullable = false)
     private BigDecimal debe = BigDecimal.ZERO;

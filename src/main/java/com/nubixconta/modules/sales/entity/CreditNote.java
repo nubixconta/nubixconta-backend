@@ -1,5 +1,6 @@
 package com.nubixconta.modules.sales.entity;
 
+import com.nubixconta.modules.administration.entity.Company;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -59,6 +60,14 @@ public class CreditNote {
     // El JoinColumn ya no necesita 'unique = true'.
     @JoinColumn(name = "sale_id", nullable = false)
     private Sale sale;
+
+    // --- ¡NUEVA RELACIÓN AÑADIDA! ---
+    // Enlaza esta Nota de Crédito con la Empresa.
+    // Al igual que en Venta, esto es el punto de partida para el aislamiento de datos.
+    @NotNull(message = "La empresa es obligatoria")
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
 
     // --- ¡AÑADIR ESTOS TRES CAMPOS NUEVOS! ---

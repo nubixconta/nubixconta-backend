@@ -1,6 +1,7 @@
 package com.nubixconta.modules.sales.entity;
 
 
+import com.nubixconta.modules.administration.entity.Company;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -29,6 +30,13 @@ public class Sale {
     @JoinColumn(name = "client_id", nullable = false)
     private Customer customer;
 
+    // --- ¡NUEVA RELACIÓN AÑADIDA! ---
+    // Enlaza esta Venta con la Empresa que la está realizando.
+    // Esto es CRUCIAL para que toda la lógica multi-tenant funcione.
+    @NotNull(message = "La empresa es obligatoria")
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     @NotBlank(message = "El número de documento es obligatorio")
     @Size(max = 20, message = "El número de documento puede tener máximo 20 caracteres")

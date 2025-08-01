@@ -1,6 +1,6 @@
 package com.nubixconta.modules.sales.service;
 
-import com.nubixconta.modules.accounting.service.AccountingService;
+import com.nubixconta.modules.accounting.service.SalesAccountingService;
 import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.sales.dto.customer.CustomerResponseDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
@@ -40,7 +40,7 @@ public class SaleService {
     private final ProductService productService;
     private final ModelMapper modelMapper;
     private final InventoryService inventoryService;
-    private final AccountingService accountingService;
+    private final SalesAccountingService salesAccountingService;
     private final CustomerRepository customerRepository;
 
     /**
@@ -425,7 +425,7 @@ public class SaleService {
         inventoryService.processSaleApplication(sale);
 
         // 5. Generar asiento contable
-        accountingService.createEntriesForSaleApplication(sale);
+        salesAccountingService.createEntriesForSaleApplication(sale);
 
         // 6. Actualizar el estado de la venta
         sale.setSaleStatus("APLICADA");
@@ -452,7 +452,7 @@ public class SaleService {
         inventoryService.processSaleCancellation(sale);
 
         // 4. Revertir la partida contable
-        accountingService.deleteEntriesForSaleCancellation(sale);
+        salesAccountingService.deleteEntriesForSaleCancellation(sale);
 
         // --- NUEVA LÓGICA DE REVERSIÓN DE SALDO ---
         Customer customer = sale.getCustomer();
