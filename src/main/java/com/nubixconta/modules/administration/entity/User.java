@@ -78,7 +78,12 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
+    private List<AccessLog> accessLogs;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Customer> customers;
+
     @PrePersist
     protected void onCreate() {
         if (status == null) {
