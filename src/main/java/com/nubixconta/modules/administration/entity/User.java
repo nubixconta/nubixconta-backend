@@ -15,7 +15,12 @@ import lombok.Data;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users",
+uniqueConstraints = {
+@UniqueConstraint(columnNames = {"first_name", "last_name"}),
+@UniqueConstraint(columnNames = {"user_name"}),
+@UniqueConstraint(columnNames = {"email"})
+       })
 @Data
 public class User {
 
@@ -53,7 +58,7 @@ public class User {
     @Column(length = 255)
     private String photo;
 
-    @NotNull(message = "El estado es obligatorio")
+
     @Column(name="user_status")
     private Boolean status;
 
@@ -73,6 +78,16 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
+    private List<AccessLog> accessLogs;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Customer> customers;
 
+    @PrePersist
+    protected void onCreate() {
+        if (status == null) {
+            status = true; // Estableciendo a true (usuario se encuentra en estado activo por defecto)
+        }
+    }
 }

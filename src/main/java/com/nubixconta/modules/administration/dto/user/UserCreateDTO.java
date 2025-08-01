@@ -36,11 +36,8 @@ public class UserCreateDTO {
     @Size(max = 255, message = "El url de la photo no puede tener mas de 255 caracteres")
     private String photo;
 
-    @NotNull(message = "El estado es obligatorio")
-    private Boolean status;
 
-    @NotNull(message = "El estado es obligatorio")
-    private Boolean role;
+    private Boolean status;
 
 }
 

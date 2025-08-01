@@ -45,9 +45,38 @@ public class UserService {
             throw new IllegalArgumentException("El correo electrónico ya está registrado.");
         }
 
+        // Validar unicidad del userName
+        if (userRepository.existsByUserName(userdto.getUserName())) {
+            throw new IllegalArgumentException("El nombre de usuario ya está en uso.");
+        }
+
+        if (userRepository.existsByFirstNameAndLastName(userdto.getFirstName(), userdto.getLastName())) {
+            throw new IllegalArgumentException("Ya existe un usuario con el mismo nombre y apellido.");
+        }
+
+        // --- Lógica de roles y límites ---
+        long totalUsers = userRepository.count();
+        boolean isAdminUser = false; // Por defecto, no es admin
+
+        if (totalUsers == 0) {
+            // Si no hay usuarios, este será el administrador
+            isAdminUser = true;
+        } else {
+            // Si ya hay al menos un usuario (potencialmente el admin),
+            // verificamos el límite de asistentes
+            long nonAdminUserCount = userRepository.countByRole(false);
+            if (nonAdminUserCount >= 5) {
+                throw new IllegalStateException("Se ha alcanzado el número máximo de usuarios asistentes (5).");
+            }
+            // Si no es el primer usuario y no se ha alcanzado el límite de asistentes,
+            // este usuario será un asistente (role = false)
+            isAdminUser = false;
+        }
+        // --- Fin de la lógica de roles y límites ---
+
         User user = modelMapper.map(userdto, User.class);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-
+        user.setRole(isAdminUser);
         User saved = userRepository.save(user);
 
         // Solo registrar bitácora si NO es el primer usuario
@@ -142,8 +171,8 @@ public class UserService {
     }
 
     //Trae a todos los usuarios asistentes
-    public List<UserResponseDTO> getUserByAssistant(boolean role) {
-        List<User> users = userRepository.findByRole(role);
+    public List<UserResponseDTO> getUserByAssistant(boolean role, Boolean status) {
+        List<User> users = userRepository.findByRoleAndStatus(role,status);
         return users.stream()
                 .map(user -> modelMapper.map(user, UserResponseDTO.class))
                 .toList();

@@ -10,6 +10,7 @@ public class UserResponseDTO {
 
     private String firstName;
 
+    private Integer id;
 
     private String lastName;
 
@@ -20,7 +21,4 @@ public class UserResponseDTO {
     private String photo;
 
     private Boolean status;
-    
-
-
 }

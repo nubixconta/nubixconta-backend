@@ -12,7 +12,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer>{
             + "AND ( :name IS NULL OR :name = '' OR LOWER(c.customerName) LIKE LOWER(CONCAT('%', :name, '%')) ) "
             + "AND ( :lastName IS NULL OR :lastName = '' OR LOWER(c.customerLastName) LIKE LOWER(CONCAT('%', :lastName, '%')) ) "
             + "AND ( :dui IS NULL OR :dui = '' OR c.customerDui = :dui ) "
-            + "AND ( :nit IS NULL OR :nit = '' OR c.customerNit = :nit )")
+            + "AND ( :nit IS NULL OR :nit = '' OR c.customerNit = :nit )"
+            + "ORDER BY c.creationDate DESC")
+
     List<Customer> searchActive(
             @Param("name") String name,
             @Param("lastName") String lastName,
@@ -22,7 +24,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer>{
 
     // Buscar clientes DESACTIVADOS (sin filtro de búsqueda, solo lista)
     List<Customer> findByStatusFalse();
-    List<Customer> findByStatusTrue();
+    List<Customer> findByStatusTrueOrderByCreationDateDesc();
 
     // --- ¡AÑADIR ESTOS MÉTODOS! ---
     boolean existsByCustomerDui(String dui);

@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 public class SaleUpdateDTO {
     private String documentNumber;
     private LocalDateTime issueDate;
-    private String saleType;
     private BigDecimal totalAmount;
     // --- ¡AÑADIR ESTOS DOS CAMPOS NUEVOS! ---
     private BigDecimal subtotalAmount;

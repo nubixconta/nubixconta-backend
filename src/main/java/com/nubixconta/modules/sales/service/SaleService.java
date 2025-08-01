@@ -109,6 +109,30 @@ public class SaleService {
     }
 
     /**
+     * Busca ventas utilizando una combinación de filtros opcionales.
+     * @param startDate Fecha de inicio opcional.
+     * @param endDate Fecha de fin opcional.
+     * @param customerName Nombre del cliente opcional.
+     * @param customerLastName Apellido del cliente opcional.
+     * @return Lista de SaleResponseDTO que coinciden con los filtros.
+     */
+    public List<SaleResponseDTO> findByCombinedCriteria(
+            LocalDate startDate, LocalDate endDate, String customerName, String customerLastName
+    ) {
+        // Convierte LocalDate a LocalDateTime para la consulta, manejando los límites del día.
+        LocalDateTime startDateTime = (startDate != null) ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
+
+        List<Sale> sales = saleRepository.findByCombinedCriteria(
+                startDateTime, endDateTime, customerName, customerLastName
+        );
+
+        return sales.stream()
+                .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Crea una nueva venta a partir de un DTO. Válida existencia de cliente y productos/servicios.
      */
     @Transactional
@@ -179,7 +203,6 @@ public class SaleService {
         newSale.setDocumentNumber(dto.getDocumentNumber());
         newSale.setSaleStatus("PENDIENTE");
         newSale.setIssueDate(dto.getIssueDate());
-        newSale.setSaleType(dto.getSaleType());
         newSale.setSubtotalAmount(dto.getSubtotalAmount());
         newSale.setVatAmount(dto.getVatAmount());
         newSale.setTotalAmount(dto.getTotalAmount());
@@ -234,7 +257,7 @@ public class SaleService {
     public List<SaleResponseDTO> findByIssueDateBetween(LocalDate start, LocalDate end) {
         LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
-        return saleRepository.findByIssueDateBetween(startDateTime, endDateTime)
+        return saleRepository.findByIssueDateBetweenOrderByIssueDateDesc(startDateTime, endDateTime)
                 .stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
                 .collect(Collectors.toList());
@@ -315,7 +338,6 @@ public class SaleService {
         // Esto es más seguro que un mapeo general.
         if (dto.getDocumentNumber() != null) sale.setDocumentNumber(dto.getDocumentNumber());
         if (dto.getIssueDate() != null) sale.setIssueDate(dto.getIssueDate());
-        if (dto.getSaleType() != null) sale.setSaleType(dto.getSaleType());
         if (dto.getTotalAmount() != null) sale.setTotalAmount(dto.getTotalAmount());
         if (dto.getSaleDescription() != null) sale.setSaleDescription(dto.getSaleDescription());
 

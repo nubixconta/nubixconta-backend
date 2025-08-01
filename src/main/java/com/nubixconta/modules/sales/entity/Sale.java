@@ -44,10 +44,6 @@ public class Sale {
     @Column(name = "issue_date", nullable = false)
     private LocalDateTime issueDate;
 
-    @NotBlank(message = "El tipo de venta es obligatorio")
-    @Size(max = 10, message = "El tipo puede tener máximo 10 caracteres")
-    @Column(name = "sale_type", length = 10, nullable = false)
-    private String saleType;
 
     @NotNull(message = "El monto total es obligatorio")
     @Digits(integer = 10, fraction = 2, message = "El monto total debe tener hasta 10 dígitos y 2 decimales")

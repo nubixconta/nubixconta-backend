@@ -9,9 +9,12 @@ import java.util.List;
 public interface SaleRepository extends JpaRepository<Sale, Integer>{
     // TODO: Agregar métodos personalizados si se necesitan
     //  ya que JpaRepository trae ya metodos para manipular la bd
-    // Buscar ventas por rango de fechas de emisión
-    @Query("SELECT s FROM Sale s WHERE s.issueDate >= :start AND s.issueDate <= :end")
-    List<Sale> findByIssueDateBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    /**
+     * Busca ventas por rango de fechas y las ordena por fecha de emisión descendente (la más nueva primero).
+     * Spring Data JPA genera la consulta automáticamente gracias al nombre del método.
+     * Consulta generada: "SELECT s FROM Sale s WHERE s.issueDate BETWEEN :start AND :end ORDER BY s.issueDate DESC"
+     */
+    List<Sale> findByIssueDateBetweenOrderByIssueDateDesc(LocalDateTime start, LocalDateTime end);
 
 
     @Query("SELECT s FROM Sale s WHERE s.customer.clientId IN :customerIds")
@@ -53,5 +56,29 @@ public interface SaleRepository extends JpaRepository<Sale, Integer>{
     @Query("SELECT s FROM Sale s WHERE s.customer.clientId = :clientId AND s.saleStatus = 'APLICADA' " +
             "AND NOT EXISTS (SELECT 1 FROM CreditNote cn WHERE cn.sale = s AND cn.creditNoteStatus IN ('PENDIENTE', 'APLICADA'))")
     List<Sale> findSalesAvailableForCreditNote(@Param("clientId") Integer clientId);
+
+    /**
+     * Busca ventas APLICADAS combinando múltiples criterios opcionales y las ordena por fecha de emisión.
+     * Este es el método definitivo para el reporte de ventas.
+     * @param startDate Fecha de inicio del rango (puede ser null).
+     * @param endDate Fecha de fin del rango (puede ser null).
+     * @param customerName Nombre del cliente (puede ser null, busca coincidencias parciales).
+     * @param customerLastName Apellido del cliente (puede ser null, busca coincidencias parciales).
+     * @return Una lista de ventas APLICADAS que cumplen con todos los criterios y están ordenadas por fecha descendente.
+     */
+    @Query(value = "SELECT s.* FROM sale s JOIN customer c ON s.client_id = c.client_id WHERE " +
+            "s.sale_status = 'APLICADA' AND " +
+            "s.issue_date >= COALESCE(:startDate, s.issue_date) AND " +
+            "s.issue_date <= COALESCE(:endDate, s.issue_date) AND " +
+            "COALESCE(LOWER(CAST(c.customer_name AS VARCHAR)), '') LIKE LOWER(CONCAT('%', COALESCE(:customerName, ''), '%')) AND " +
+            "COALESCE(LOWER(CAST(c.customer_last_name AS VARCHAR)), '') LIKE LOWER(CONCAT('%', COALESCE(:customerLastName, ''), '%')) " +
+            "ORDER BY s.issue_date DESC",
+            nativeQuery = true)
+    List<Sale> findByCombinedCriteria(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("customerName") String customerName,
+            @Param("customerLastName") String customerLastName
+    );
 
 }
