@@ -306,4 +306,28 @@ public class CompanyService {
         return companyRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Empresa no encontrado con ID: " + id));
     }
+
+    /**
+     * Verifica si un usuario tiene permiso para acceder a una empresa específica.
+     * Esta lógica es crucial para el nuevo endpoint /select-company.
+     * Contiene la regla especial: si el usuario es administrador (role=true), siempre tiene permiso.
+     *
+     * @param userId El ID del usuario que intenta acceder.
+     * @param companyId El ID de la empresa a la que se intenta acceder.
+     * @return true si el usuario tiene permiso, false en caso contrario.
+     */
+    public boolean isUserAssignedToCompany(Integer userId, Integer companyId) {
+        // Obtenemos el usuario de la base de datos para verificar su rol.
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario con ID " + userId + " no encontrado durante la verificación de permisos."));
+
+        // REGLA CLAVE: Si el usuario tiene el rol de administrador, se le concede acceso automáticamente.
+        if (user.getRole()) {
+            return true;
+        }
+
+        // Si no es un administrador, aplicamos la regla estándar:
+        // verificamos si existe una asignación directa en la base de datos.
+        return companyRepository.existsByIdAndUser_Id(companyId, userId);
+    }
 }
