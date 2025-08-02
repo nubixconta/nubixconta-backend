@@ -1,6 +1,7 @@
 package com.nubixconta.modules.sales.service;
 
 import com.nubixconta.modules.accounting.service.SalesAccountingService;
+import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.sales.dto.customer.CustomerResponseDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
@@ -11,6 +12,8 @@ import com.nubixconta.modules.sales.repository.SaleRepository;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.nubixconta.modules.administration.entity.Company;
+import com.nubixconta.security.TenantContext;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
@@ -42,6 +45,14 @@ public class SaleService {
     private final InventoryService inventoryService;
     private final SalesAccountingService salesAccountingService;
     private final CustomerRepository customerRepository;
+    private final CompanyRepository companyRepository;
+
+    // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
+    private Integer getCompanyIdFromContext() {
+        return TenantContext.getCurrentTenant()
+                .orElseThrow(() -> new BusinessRuleException("No se ha seleccionado una empresa en el contexto."));
+    }
+
 
     /**
      * Retorna todas las ventas existentes, aplicando un ordenamiento específico.
@@ -50,19 +61,20 @@ public class SaleService {
      * @return Lista de SaleResponseDTO ordenadas.
      */
     public List<SaleResponseDTO> findAll(String sortBy) { // Ahora acepta un parámetro
+        Integer companyId = getCompanyIdFromContext();
         List<Sale> sales;
 
         // "status" es el modo por defecto que agrupa.
         if ("status".equalsIgnoreCase(sortBy)) {
-            sales = saleRepository.findAllOrderByStatusAndIssueDate();
+            sales =saleRepository.findAllByCompanyIdOrderByStatusAndIssueDate(companyId);
         }
         // "date" es el modo anterior que ordena solo por fecha.
         else if ("date".equalsIgnoreCase(sortBy)) {
-            sales = saleRepository.findAllByOrderByIssueDateDesc();
+            sales = saleRepository.findByCompany_IdOrderByIssueDateDesc(companyId);
         }
         // Por si envían otro valor, mantenemos el orden por fecha como un fallback seguro.
         else {
-            sales = saleRepository.findAllByOrderByIssueDateDesc();
+            sales = saleRepository.findByCompany_IdOrderByIssueDateDesc(companyId);
         }
 
         return sales.stream()
@@ -88,8 +100,10 @@ public class SaleService {
      */
     // Nombre del método cambiado de findAppliedSalesByClientId a uno más descriptivo.
     public List<SaleResponseDTO> findSalesAvailableForCreditNote(Integer clientId) {
+        Integer companyId = getCompanyIdFromContext();
+        customerService.findById(clientId);
         // Llamamos al nuevo método del repositorio que contiene toda la lógica.
-        List<Sale> availableSales = saleRepository.findSalesAvailableForCreditNote(clientId);
+        List<Sale> availableSales = saleRepository.findSalesAvailableForCreditNote(companyId, clientId);
 
         // El mapeo a DTO sigue siendo el mismo.
         return availableSales.stream()
@@ -98,11 +112,8 @@ public class SaleService {
     }
 
     public List<SaleResponseDTO> findByStatus(String status) {
-        // Para evitar problemas con mayúsculas/minúsculas, convertimos la entrada a mayúsculas.
-        // Esto asume que los estados en tu base de datos están en mayúsculas.
-        List<Sale> sales = saleRepository.findBySaleStatus(status.toUpperCase());
-
-        // Reutilizamos el mismo patrón de mapeo que ya usas en otros métodos.
+        Integer companyId = getCompanyIdFromContext();
+        List<Sale> sales = saleRepository.findByCompany_IdAndSaleStatus(companyId, status.toUpperCase());
         return sales.stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
                 .collect(Collectors.toList());
@@ -119,13 +130,12 @@ public class SaleService {
     public List<SaleResponseDTO> findByCombinedCriteria(
             LocalDate startDate, LocalDate endDate, String customerName, String customerLastName
     ) {
+        Integer companyId = getCompanyIdFromContext();
         // Convierte LocalDate a LocalDateTime para la consulta, manejando los límites del día.
         LocalDateTime startDateTime = (startDate != null) ? startDate.atStartOfDay() : null;
         LocalDateTime endDateTime = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
 
-        List<Sale> sales = saleRepository.findByCombinedCriteria(
-                startDateTime, endDateTime, customerName, customerLastName
-        );
+        List<Sale> sales = saleRepository.findByCombinedCriteria(companyId, startDateTime, endDateTime, customerName, customerLastName);
 
         return sales.stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
@@ -137,8 +147,9 @@ public class SaleService {
      */
     @Transactional
     public SaleResponseDTO createSale(SaleCreateDTO dto) {
+        Integer companyId = getCompanyIdFromContext();
         // Validación de unicidad de número de documento
-        if (saleRepository.existsByDocumentNumber(dto.getDocumentNumber())) {
+        if (saleRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe una venta con el número de documento: " + dto.getDocumentNumber());
         }
         // --- VALIDACIÓN DE DUPLICADOS EN DTO (Buena práctica, la mantenemos) ---
@@ -196,10 +207,13 @@ public class SaleService {
 
         // 1. Buscar entidades dependientes
         Customer customer = customerService.findEntityById(dto.getClientId());
+        //Obtener la referencia a la empresa.
+        Company companyRef = companyRepository.getReferenceById(companyId);
 
         // 2. Crear la entidad Venta y poblarla MANUALMENTE desde el DTO
         Sale newSale = new Sale();
         newSale.setCustomer(customer);
+        newSale.setCompany(companyRef);
         newSale.setDocumentNumber(dto.getDocumentNumber());
         newSale.setSaleStatus("PENDIENTE");
         newSale.setIssueDate(dto.getIssueDate());
@@ -255,9 +269,11 @@ public class SaleService {
      * Retorna una lista de ventas emitidas dentro del rango de fechas proporcionado.
      */
     public List<SaleResponseDTO> findByIssueDateBetween(LocalDate start, LocalDate end) {
+        // 1. Obtener el contexto de la empresa.
+        Integer companyId = getCompanyIdFromContext();
         LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
-        return saleRepository.findByIssueDateBetweenOrderByIssueDateDesc(startDateTime, endDateTime)
+        return saleRepository.findByCompany_IdAndIssueDateBetweenOrderByIssueDateDesc(companyId, startDateTime, endDateTime)
                 .stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
                 .collect(Collectors.toList());
@@ -280,23 +296,26 @@ public class SaleService {
     //metodo para actualizar una venta con sus detalles, se rige con los campos del dtoUpdate
     @Transactional
     public SaleResponseDTO updateSalePartial(Integer id, SaleUpdateDTO dto) {
-        // 1. Buscar la venta que vamos a actualizar
+        // 1. Obtener el contexto de la empresa.
+        Integer companyId = getCompanyIdFromContext();
+
+        // 2. Buscar la venta que vamos a actualizar
         Sale sale = saleRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Venta con ID " + id + " no encontrada"));
 
-        // 2. Validar unicidad del número de documento (esta parte está perfecta)
+        // 3. Validar unicidad del número de documento (esta parte está perfecta)
         if (dto.getDocumentNumber() != null &&
                 !dto.getDocumentNumber().equals(sale.getDocumentNumber()) &&
-                saleRepository.existsByDocumentNumber(dto.getDocumentNumber())) {
+                saleRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe otra venta con el número de documento: " + dto.getDocumentNumber());
         }
-        //3. REGLA DE NEGOCIO: Solo se pueden editar ventas PENDIENTES.
+        //4. REGLA DE NEGOCIO: Solo se pueden editar ventas PENDIENTES.
         if (!"PENDIENTE".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException("Solo se pueden editar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
         }
         // --- INICIO DE LA VALIDACIÓN FINANCIERA COMPLETA ---
 
-        // 4. Si se envían detalles, se deben enviar también los totales y se validará todo.
+        // 5. Si se envían detalles, se deben enviar también los totales y se validará todo.
         if (dto.getSaleDetails() != null) {
             if (dto.getSubtotalAmount() == null || dto.getVatAmount() == null || dto.getTotalAmount() == null) {
                 throw new BusinessRuleException("Si se modifican los detalles, se deben enviar los nuevos valores de subtotalAmount, vatAmount y totalAmount.");
@@ -491,6 +510,10 @@ public class SaleService {
         // Si es producto, buscar y asociar la entidad real (no un DTO)
         if (hasProduct) {
             Product product = productService.findEntityById(dto.getProductId());
+            // VALIDACIÓN ADICIONAL DE CONSISTENCIA: Asegurar que el producto pertenece a la misma empresa que la venta
+            if (!product.getCompany().getId().equals(sale.getCompany().getId())) {
+                throw new BusinessRuleException("Error de consistencia interna: El producto '" + product.getProductName() + "' no pertenece a la empresa de la venta.");
+            }
             detail.setProduct(product);
         }
 
@@ -499,6 +522,8 @@ public class SaleService {
     public List<SaleResponseDTO> findByCustomerSearch(
             String name, String lastName, String dui, String nit
     ) {
+        // 1. Obtener el contexto de la empresa. Esto se usará en ambas búsquedas.
+        Integer companyId = getCompanyIdFromContext();
         List<CustomerResponseDTO> customers = customerService.searchActive(name, lastName, dui, nit);
         if (customers.isEmpty()) {
             return List.of();
@@ -506,7 +531,7 @@ public class SaleService {
         List<Integer> customerIds = customers.stream()
                 .map(CustomerResponseDTO::getClientId) // <-- Cambiado aquí
                 .toList();
-        return saleRepository.findByCustomerIds(customerIds).stream()
+        return saleRepository.findByCompanyIdAndCustomerIds(companyId,customerIds).stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
                 .collect(Collectors.toList());
     }

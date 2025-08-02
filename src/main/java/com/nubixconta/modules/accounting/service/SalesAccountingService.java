@@ -15,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +36,7 @@ public class SalesAccountingService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void createEntriesForSaleApplication(Sale sale) {
+
         // 1. --- ¡CAMBIO CRÍTICO! Obtener el contexto de la empresa desde la venta. ---
         Company company = sale.getCompany();
         if (company == null) {
@@ -46,8 +46,6 @@ public class SalesAccountingService {
 
         // 2. --- ¡CAMBIO CRÍTICO! Usar el nuevo servicio de configuración. ---
         // Se busca el 'Catalog' (la activación), no la 'Account' directamente.
-        Catalog productIncomeCatalog = configService.findCatalogBySettingKey("PRODUCT_INCOME_ACCOUNT", companyId);
-        Catalog serviceIncomeCatalog = configService.findCatalogBySettingKey("SERVICE_INCOME_ACCOUNT", companyId);
         Catalog vatCatalog = configService.findCatalogBySettingKey("VAT_DEBIT_ACCOUNT", companyId);
         Catalog customerCatalog = configService.findCatalogBySettingKey("DEFAULT_CUSTOMER_ACCOUNT", companyId);
 
@@ -70,9 +68,13 @@ public class SalesAccountingService {
 
         // 3. --- ¡CAMBIO CRÍTICO! El método helper ahora recibe un objeto 'Catalog'. ---
         if (totalProductSubtotal.compareTo(BigDecimal.ZERO) > 0) {
+            Catalog productIncomeCatalog = configService.findCatalogBySettingKey("PRODUCT_INCOME_ACCOUNT", companyId);
             entries.add(createSaleEntry(sale, productIncomeCatalog, BigDecimal.ZERO, totalProductSubtotal, description));
         }
         if (totalServiceSubtotal.compareTo(BigDecimal.ZERO) > 0) {
+            // Esta línea ahora solo se ejecuta si la venta REALMENTE contiene servicios.
+            // Esto soluciona el bug para la Empresa B.
+            Catalog serviceIncomeCatalog = configService.findCatalogBySettingKey("SERVICE_INCOME_ACCOUNT", companyId);
             entries.add(createSaleEntry(sale, serviceIncomeCatalog, BigDecimal.ZERO, totalServiceSubtotal, description));
         }
         if (totalVat != null && totalVat.compareTo(BigDecimal.ZERO) > 0) {
@@ -101,8 +103,6 @@ public class SalesAccountingService {
         Integer companyId = company.getId();
 
         // 2. Usar el servicio de configuración.
-        Catalog productIncomeCatalog = configService.findCatalogBySettingKey("PRODUCT_INCOME_ACCOUNT", companyId);
-        Catalog serviceIncomeCatalog = configService.findCatalogBySettingKey("SERVICE_INCOME_ACCOUNT", companyId);
         Catalog vatCatalog = configService.findCatalogBySettingKey("VAT_DEBIT_ACCOUNT", companyId);
         Catalog customerCatalog = configService.findCatalogBySettingKey("DEFAULT_CUSTOMER_ACCOUNT", companyId);
 
@@ -125,9 +125,12 @@ public class SalesAccountingService {
 
         // 3. El método helper recibe 'Catalog'.
         if (totalProductSubtotal.compareTo(BigDecimal.ZERO) > 0) {
+            Catalog productIncomeCatalog = configService.findCatalogBySettingKey("PRODUCT_INCOME_ACCOUNT", companyId);
             entries.add(createCreditNoteEntry(creditNote, productIncomeCatalog, totalProductSubtotal, BigDecimal.ZERO, description));
         }
         if (totalServiceSubtotal.compareTo(BigDecimal.ZERO) > 0) {
+            // De nuevo, esta línea solo se ejecuta si la NC contiene servicios.
+            Catalog serviceIncomeCatalog = configService.findCatalogBySettingKey("SERVICE_INCOME_ACCOUNT", companyId);
             entries.add(createCreditNoteEntry(creditNote, serviceIncomeCatalog, totalServiceSubtotal, BigDecimal.ZERO, description));
         }
         if (totalVat != null && totalVat.compareTo(BigDecimal.ZERO) > 0) {

@@ -10,5 +10,7 @@ import java.util.List;
 
 @Repository
 public interface InventoryMovementRepository extends JpaRepository<InventoryMovement, Integer> {
-    List<InventoryMovement> findByDateBetween(LocalDateTime startDate, LocalDateTime endDate);
+    // La búsqueda por rango de fechas ahora debe estar acotada a una empresa.
+    List<InventoryMovement> findByCompany_IdAndDateBetween(Integer companyId, LocalDateTime startDate, LocalDateTime endDate);
+
 }

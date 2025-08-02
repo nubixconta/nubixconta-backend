@@ -10,46 +10,36 @@ import java.util.List;
 
 public interface CreditNoteRepository extends JpaRepository<CreditNote, Integer> {
 
-    // Buscar todas las notas de crédito de una venta específica
-    List<CreditNote> findBySale_SaleId(Integer saleId);
+    // =========================================================================================
+    // == INICIO DE CÓDIGO MODIFICADO: Consultas "Tenant-Aware"
+    // =========================================================================================
 
-    // Buscar por estado exacto (APLICADA, PENDIENTE, ANULADA)
-    List<CreditNote> findByCreditNoteStatus(String status);
+    // Comprueba si un número de documento ya existe DENTRO de una empresa específica.
+    boolean existsByCompany_IdAndDocumentNumber(Integer companyId, String documentNumber);
 
-    // Buscar por rango de fechas y, opcionalmente, por estado
-    @Query("SELECT n FROM CreditNote n WHERE " +
-            "n.issueDate >= :start AND n.issueDate <= :end " +
+    // Búsquedas acotadas a la empresa.
+    List<CreditNote> findByCompany_IdAndSale_SaleId(Integer companyId, Integer saleId);
+    List<CreditNote> findByCompany_IdAndCreditNoteStatus(Integer companyId, String status);
+
+    // La búsqueda por rango de fechas y estado ahora también requiere el companyId.
+    @Query("SELECT n FROM CreditNote n WHERE n.company.id = :companyId " +
+            "AND n.issueDate >= :start AND n.issueDate <= :end " +
             "AND (:status IS NULL OR n.creditNoteStatus = :status)")
-    List<CreditNote> findByDateRangeAndStatus(
+    List<CreditNote> findByCompanyIdAndDateRangeAndStatus(
+            @Param("companyId") Integer companyId,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
             @Param("status") String status
     );
 
-    // Método para validar unicidad del número de documento
-    boolean existsByDocumentNumber(String documentNumber);
+    // La verificación de existencia ahora también debe estar acotada a la empresa.
+    boolean existsByCompany_IdAndSale_SaleIdAndCreditNoteStatusIn(Integer companyId, Integer saleId, List<String> statuses);
 
-    /**
-     * Verifica si existe al menos una nota de crédito para una venta dada que
-     * se encuentre en uno de los estados proporcionados.
-     * @param saleId El ID de la venta a verificar.
-     * @param statuses La lista de estados a buscar (ej. ["PENDIENTE", "APLICADA"]).
-     * @return true si se encuentra al menos una, false en caso contrario.
-     */
-    boolean existsBySale_SaleIdAndCreditNoteStatusIn(Integer saleId, List<String> statuses);
+    // La ordenación por fecha ahora está acotada a la empresa.
+    List<CreditNote> findByCompany_IdOrderByIssueDateDesc(Integer companyId);
 
-    /**
-     * Busca todas las notas de crédito y las ordena por fecha de creación descendente.
-     * Se usará para el filtro ?sortBy=date.
-     */
-    List<CreditNote> findAllByOrderByIssueDateDesc();
-
-    /**
-     * Busca todas las notas de crédito, ordenadas primero por estado personalizado
-     * (PENDIENTE, APLICADA, ANULADA) y luego por fecha de creación descendente.
-     * Se usará como filtro por defecto (?sortBy=status).
-     */
-    @Query("SELECT cn FROM CreditNote cn ORDER BY " +
+    // La ordenación por estado ahora está acotada a la empresa.
+    @Query("SELECT cn FROM CreditNote cn WHERE cn.company.id = :companyId ORDER BY " +
             "CASE cn.creditNoteStatus " +
             "  WHEN 'PENDIENTE' THEN 1 " +
             "  WHEN 'APLICADA'  THEN 2 " +
@@ -57,6 +47,9 @@ public interface CreditNoteRepository extends JpaRepository<CreditNote, Integer>
             "  ELSE 4 " +
             "END, " +
             "cn.issueDate DESC")
-    List<CreditNote> findAllOrderByStatusAndCreditNoteDate();
+    List<CreditNote> findAllByCompanyIdOrderByStatusAndCreditNoteDate(@Param("companyId") Integer companyId);
 
+    // =========================================================================================
+    // == FIN DE CÓDIGO MODIFICADO
+    // =========================================================================================
 }
