@@ -35,54 +35,32 @@ public class ChangeHistoryController {
     }
 
     /**
-     * Obtiene todas las entradas de un usuario, o si se envían 'start' y 'end',
-     * solo las de ese rango.
+     * Obtiene todas las entradas de la bitácora, opcionalmente filtradas por un rango de fechas.
      */
+    @GetMapping("/by-dates")
+    public ResponseEntity<List<ChangeHistoryResponseDTO>> getChangesByDateRange(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime start,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime end) {
+
+        List<ChangeHistoryResponseDTO> result = changeHistoryService.getChangesByDateRange(start, end);
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<ChangeHistory>> getChangesByUser(
+    public ResponseEntity<List<ChangeHistoryResponseDTO>> getChangesByUser(
             @PathVariable Integer userId,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime start,
-
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime end) {
 
-        List<ChangeHistory> result;
-        if (start != null && end != null) {
-            result = changeHistoryService.getChangesByUserAndDateBetween(userId, start, end);
-        } else {
-            result = changeHistoryService.getAllChangesByUserOrdered(userId);
-        }
+        List<ChangeHistoryResponseDTO> result = changeHistoryService.getChangesByUserFiltered(userId, start, end);
         return ResponseEntity.ok(result);
-    }
-
-    /**
-     * Obtiene solo las entradas de un usuario que NO tienen empresa asociada.
-     */
-    @GetMapping("/user/{userId}/without-company")
-    public ResponseEntity<List<ChangeHistory>> getChangesWithoutCompany(
-            @PathVariable Integer userId) {
-
-        List<ChangeHistory> result = changeHistoryService.getChangesWithoutCompany(userId);
-        return ResponseEntity.ok(result);
-    }
-
-    /**
-     * Obtiene todas las entradas en un rango de fechas, independientemente de usuario.
-     */
-    @GetMapping("/dates")
-    public ResponseEntity<List<ChangeHistory>> getByDateRange(
-            @RequestParam
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime start,
-            @RequestParam
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime end) {
-
-        return ResponseEntity.ok(
-                changeHistoryService.getByDateRange(start, end)
-        );
     }
 }

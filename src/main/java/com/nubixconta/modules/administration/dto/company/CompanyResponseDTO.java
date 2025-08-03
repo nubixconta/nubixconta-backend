@@ -17,5 +17,6 @@ public class CompanyResponseDTO {
     private LocalDateTime creationDate;
     private String address;
     private String turnCompany;
+    private String imageUrl;
 
 }

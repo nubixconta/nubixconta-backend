@@ -9,6 +9,8 @@ import com.nubixconta.modules.administration.dto.AccessLog.AccessLogResponseDTO;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +27,36 @@ public class AccessLogService {
 
     @Autowired
     private ModelMapper modelMapper;
+
+    /**
+     * Obtiene registros de acceso filtrados por usuario, rango de fechas, o ambos.
+     * Los parámetros son opcionales y se pueden combinar.
+     *
+     * @param userId El ID del usuario. Opcional.
+     * @param startDate La fecha de inicio del rango. Opcional.
+     * @param endDate La fecha de fin del rango. Opcional.
+     * @return Una lista de AccessLogResponseDTO filtrada.
+     */
+    public List<AccessLogResponseDTO> getFilteredAccessLogs(Integer userId, LocalDate startDate, LocalDate endDate) {
+        List<AccessLog> accessLogs;
+
+        LocalDateTime startDateTime = (startDate != null) ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = (endDate != null) ? endDate.atTime(23, 59, 59) : null;
+
+        if (userId != null && startDate != null && endDate != null) {
+            accessLogs = accessLogRepository.findByUser_IdAndDateStartBetween(userId, startDateTime, endDateTime);
+        } else if (userId != null) {
+            accessLogs = accessLogRepository.findByUser_Id(userId);
+        } else if (startDate != null && endDate != null) {
+            accessLogs = accessLogRepository.findByDateStartBetween(startDateTime, endDateTime);
+        } else {
+            accessLogs = accessLogRepository.findAll();
+        }
+
+        return toDTOList(accessLogs);
+    }
+
+
 
     /**
      * Registra el inicio de sesión de un usuario.

@@ -43,4 +43,7 @@ public class CompanyUpdateDTO {
 
     private Boolean activeStatus;
 
+    @Size(max = 255, message = "La url de la imagen puede tener máximo 255 caracteres")
+    private String imageUrl;
+
 }

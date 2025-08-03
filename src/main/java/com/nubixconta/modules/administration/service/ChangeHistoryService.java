@@ -84,55 +84,6 @@ public class ChangeHistoryService {
         changeHistoryRepository.save(history);
     }
 
-    /**
-     * Recupera los cambios “globales” de un usuario:
-     * sólo aquellos donde company IS NULL, ordenados por fecha DESC.
-     *
-     * @param userId ID del usuario
-     * @return lista de ChangeHistory
-     */
-    public List<ChangeHistory> getGlobalChangesByUser(Integer userId) {
-        return changeHistoryRepository
-                .findByUserIdAndCompanyIsNullOrderByDateDesc(userId);
-    }
-
-    /**
-     * Recupera todos los cambios de un usuario (con o sin empresa).
-     * Si necesitas ordenarlos, puedes pasar un Sort:
-     * por ejemplo Sort.by("date").descending().
-     *
-     * @param userId ID del usuario
-     * @return lista de ChangeHistory
-     */
-    public List<ChangeHistory> getAllChangesByUser(Integer userId) {
-        return changeHistoryRepository.findByUserId(userId);
-    }
-
-    /**
-     * Alternativa: recuperar todos los cambios con orden explícito
-     */
-    public List<ChangeHistory> getAllChangesByUserOrdered(Integer userId) {
-        return changeHistoryRepository.findByUserId(
-            userId, Sort.by("date").descending()
-        );
-    }
-
-    /**
-     * Entradas de un usuario SIN empresa asociada, ordenadas por fecha descendente
-     */
-    public List<ChangeHistory> getChangesWithoutCompany(Integer userId) {
-        return changeHistoryRepository.findByUserIdAndCompanyIsNullOrderByDateDesc(userId);
-    }
-
-    /**
-     * Entradas de un usuario dentro de un rango de fechas
-     */
-    public List<ChangeHistory> getChangesByUserAndDateBetween(Integer userId,
-                                                                LocalDateTime start,
-                                                                LocalDateTime end) {
-        return changeHistoryRepository.findByUserIdAndDateBetween(userId, start, end);
-    }
-
     public List<ChangeHistoryResponseDTO> getAllHistoryResponses() {
         List<ChangeHistory> historyList = changeHistoryRepository.findAll();
 
@@ -156,12 +107,70 @@ public class ChangeHistoryService {
         }).collect(Collectors.toList());
     }
 
+    /**
+     * Obtiene las entradas de la bitácora para un rango de fechas.
+     */
+    public List<ChangeHistoryResponseDTO> getChangesByDateRange(
+            LocalDateTime start, LocalDateTime end) {
+
+        List<ChangeHistory> historyList;
+
+        if (start != null && end != null) {
+            // Asume que tienes un método en el repositorio que hace esto.
+            historyList = changeHistoryRepository.findByDateBetween(start, end);
+        } else {
+            // Si no hay fechas, obtiene todo.
+            historyList = changeHistoryRepository.findAll(Sort.by("date").descending());
+        }
+
+        // Convierte la lista de entidades a una lista de DTOs
+        return historyList.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
 
     /**
-     * Todas las entradas en un rango de fechas, sin importar el usuario
+     * Busca las entradas de la bitácora para un usuario específico,
+     * opcionalmente dentro de un rango de fechas.
+     * Devuelve una lista de DTOs para incluir los nombres de usuario y empresa.
      */
-    public List<ChangeHistory> getByDateRange(LocalDateTime start,
-                                                LocalDateTime end) {
-        return changeHistoryRepository.findByDateBetween(start, end);
+    public List<ChangeHistoryResponseDTO> getChangesByUserFiltered(
+            Integer userId, LocalDateTime start, LocalDateTime end) {
+
+        List<ChangeHistory> historyList;
+
+        if (start != null && end != null) {
+            // Llama al método existente que filtra por usuario y rango de fechas
+            historyList = changeHistoryRepository.findByUserIdAndDateBetween(userId, start, end);
+        } else {
+            // Llama al método existente que obtiene todos los cambios del usuario ordenados
+            historyList = changeHistoryRepository.findByUserId(userId, Sort.by("date").descending());
+        }
+
+        // Convierte la lista de entidades a una lista de DTOs
+        return historyList.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
+    private ChangeHistoryResponseDTO convertToDto(ChangeHistory history) {
+        ChangeHistoryResponseDTO dto = new ChangeHistoryResponseDTO();
+
+        // Obtiene el nombre completo del usuario
+        User user = history.getUser();
+        dto.setUserFullName(user.getFirstName() + " " + user.getLastName());
+
+        // Obtiene el nombre de la empresa si existe
+        Company company = history.getCompany();
+        dto.setCompanyName(company != null ? company.getCompanyName() : "Sin empresa");
+
+        // Otros campos de la bitácora
+        dto.setModuleName(history.getModuleName());
+        dto.setDate(history.getDate());
+        dto.setActionPerformed(history.getActionPerformed());
+
+        return dto;
+    }
+
+
 }
