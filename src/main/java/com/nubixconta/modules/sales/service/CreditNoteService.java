@@ -2,7 +2,9 @@ package com.nubixconta.modules.sales.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
-import com.nubixconta.modules.accounting.service.AccountingService;
+import com.nubixconta.modules.accounting.service.SalesAccountingService;
+import com.nubixconta.modules.administration.entity.Company;
+import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.inventory.entity.Product;
 import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.inventory.service.ProductService;
@@ -11,6 +13,7 @@ import com.nubixconta.modules.sales.entity.*;
 import com.nubixconta.modules.sales.repository.CreditNoteRepository;
 import com.nubixconta.modules.sales.repository.CustomerRepository;
 import com.nubixconta.modules.sales.repository.SaleRepository;
+import com.nubixconta.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
@@ -36,10 +39,15 @@ public class CreditNoteService {
     private final ProductService productService;
     private final ModelMapper modelMapper;
     private final InventoryService inventoryService;
-    private final AccountingService accountingService;
+    private final SalesAccountingService salesAccountingService;
     private final CustomerRepository customerRepository;
+    private final CompanyRepository companyRepository;
 
-
+    // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
+    private Integer getCompanyIdFromContext() {
+        return TenantContext.getCurrentTenant()
+                .orElseThrow(() -> new BusinessRuleException("No se ha seleccionado una empresa en el contexto."));
+    }
 
     /**
      * Retorna todas las notas de crédito, aplicando un ordenamiento específico.
@@ -47,22 +55,19 @@ public class CreditNoteService {
      *               "date" para ordenar solo por fecha.
      * @return Lista de CreditNoteResponseDTO ordenadas.
      */
-    public List<CreditNoteResponseDTO> findAll(String sortBy) { // Modificado para aceptar el parámetro
+    public List<CreditNoteResponseDTO> findAll(String sortBy) {
+        Integer companyId = getCompanyIdFromContext();
         List<CreditNote> creditNotes;
-
         if ("status".equalsIgnoreCase(sortBy)) {
-            // Llama a la nueva consulta compleja para ordenar por estado y luego fecha
-            creditNotes = creditNoteRepository.findAllOrderByStatusAndCreditNoteDate();
+            creditNotes = creditNoteRepository.findAllByCompanyIdOrderByStatusAndCreditNoteDate(companyId);
         } else {
-            // Por defecto o si sortBy es "date", ordena solo por fecha
-            creditNotes = creditNoteRepository.findAllByOrderByIssueDateDesc();
+            creditNotes = creditNoteRepository.findByCompany_IdOrderByIssueDateDesc(companyId);
         }
-
-        // El resto del método no cambia
         return creditNotes.stream()
                 .map(cn -> modelMapper.map(cn, CreditNoteResponseDTO.class))
                 .collect(Collectors.toList());
     }
+
 
     /**
      * Busca una nota de crédito por su ID y la retorna como DTO.
@@ -78,14 +83,18 @@ public class CreditNoteService {
      */
     @Transactional
     public CreditNoteResponseDTO createCreditNote(CreditNoteCreateDTO dto) {
+        Integer companyId = getCompanyIdFromContext();
         // 1. Validar unicidad del número de documento
-        if (creditNoteRepository.existsByDocumentNumber(dto.getDocumentNumber())) {
+        if (creditNoteRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe una nota de crédito con el número de documento: " + dto.getDocumentNumber());
         }
         // 2. Buscar la venta asociada
         Sale sale = saleRepository.findById(dto.getSaleId())
                 .orElseThrow(() -> new NotFoundException("La venta con ID " + dto.getSaleId() + " no fue encontrada."));
-
+        // 3. VALIDACIÓN DE SEGURIDAD CRÍTICA: Asegurar que la venta pertenece a la empresa actual.
+        if (!sale.getCompany().getId().equals(companyId)) {
+            throw new BusinessRuleException("Acción no permitida: La venta asociada no pertenece a la empresa seleccionada.");
+        }
         // 3. REGLA 1: Validar que la venta esté en estado APLICADA.
         if (!"APLICADA".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException(
@@ -96,7 +105,7 @@ public class CreditNoteService {
 
         // 4. REGLA 2: Validar que no exista ya una nota de crédito ACTIVA para esta venta.
         List<String> activeStatuses = List.of("PENDIENTE", "APLICADA");
-        if (creditNoteRepository.existsBySale_SaleIdAndCreditNoteStatusIn(sale.getSaleId(), activeStatuses)) {
+        if (creditNoteRepository.existsByCompany_IdAndSale_SaleIdAndCreditNoteStatusIn(companyId, sale.getSaleId(), activeStatuses)) {
             throw new BusinessRuleException("Ya existe una nota de crédito activa (en estado PENDIENTE o APLICADA) para esta venta.");
         }
 
@@ -163,6 +172,8 @@ public class CreditNoteService {
 
         // 4. Construir la entidad principal manualmente
         CreditNote newCreditNote = new CreditNote();
+        Company companyRef = companyRepository.getReferenceById(companyId);
+        newCreditNote.setCompany(companyRef);
         newCreditNote.setDocumentNumber(dto.getDocumentNumber());
         newCreditNote.setDescription(dto.getDescription());
         newCreditNote.setIssueDate(dto.getIssueDate());
@@ -204,7 +215,7 @@ public class CreditNoteService {
         // 2. Actualizar campos simples de la cabecera
         if (dto.getDocumentNumber() != null) {
             if (!dto.getDocumentNumber().equals(creditNote.getDocumentNumber()) &&
-                    creditNoteRepository.existsByDocumentNumber(dto.getDocumentNumber())) {
+                    creditNoteRepository.existsByCompany_IdAndDocumentNumber(creditNote.getCompany().getId(), dto.getDocumentNumber())) {
                 throw new BusinessRuleException("El número de documento " + dto.getDocumentNumber() + " ya está en uso.");
             }
             creditNote.setDocumentNumber(dto.getDocumentNumber());
@@ -306,24 +317,51 @@ public class CreditNoteService {
 
     // --- Métodos de búsqueda ---
 
+    /**
+     * Busca notas de crédito por el ID de la venta asociada, DENTRO DE LA EMPRESA ACTUAL.
+     */
     public List<CreditNoteResponseDTO> findBySaleId(Integer saleId) {
-        return creditNoteRepository.findBySale_SaleId(saleId).stream()
+        // 1. Obtener el contexto de la empresa.
+        Integer companyId = getCompanyIdFromContext();
+
+        // 2. Antes de buscar las NC, es una buena práctica de seguridad verificar que la venta
+        //    en sí misma pertenece a la empresa actual. El findById de SaleRepository ya está protegido.
+        saleRepository.findById(saleId)
+                .orElseThrow(() -> new NotFoundException("Venta con ID " + saleId + " no encontrada."));
+
+        // 3. Llamar al método del repositorio que ahora es "tenant-aware".
+        return creditNoteRepository.findByCompany_IdAndSale_SaleId(companyId, saleId).stream()
                 .map(cn -> modelMapper.map(cn, CreditNoteResponseDTO.class))
                 .collect(Collectors.toList());
     }
 
+
+    /**
+     * Busca notas de crédito por su estado, DENTRO DE LA EMPRESA ACTUAL.
+     */
     public List<CreditNoteResponseDTO> findByStatus(String status) {
-        return creditNoteRepository.findByCreditNoteStatus(status).stream()
+        // 1. Obtener el contexto de la empresa.
+        Integer companyId = getCompanyIdFromContext();
+
+        // 2. Llamar al método del repositorio que ahora es "tenant-aware".
+        return creditNoteRepository.findByCompany_IdAndCreditNoteStatus(companyId, status).stream()
                 .map(cn -> modelMapper.map(cn, CreditNoteResponseDTO.class))
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Busca notas de crédito por rango de fechas y opcionalmente por estado, DENTRO DE LA EMPRESA ACTUAL.
+     */
     public List<CreditNoteResponseDTO> findByDateRangeAndStatus(LocalDate start, LocalDate end, String status) {
+        // 1. Obtener el contexto de la empresa.
+        Integer companyId = getCompanyIdFromContext();
+
         LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
         String finalStatus = (status != null && !status.isBlank()) ? status : null;
 
-        return creditNoteRepository.findByDateRangeAndStatus(startDateTime, endDateTime, finalStatus).stream()
+        // 2. Llamar al método del repositorio que ahora es "tenant-aware".
+        return creditNoteRepository.findByCompanyIdAndDateRangeAndStatus(companyId, startDateTime, endDateTime, finalStatus).stream()
                 .map(cn -> modelMapper.map(cn, CreditNoteResponseDTO.class))
                 .collect(Collectors.toList());
     }
@@ -345,7 +383,7 @@ public class CreditNoteService {
         inventoryService.processCreditNoteApplication(creditNote);
 
         // 3. (Futuro) Aquí se llamaría a la lógica contable.
-        accountingService.createEntriesForCreditNoteApplication(creditNote);
+        salesAccountingService.createEntriesForCreditNoteApplication(creditNote);
 
         // --- NUEVA LÓGICA DE AJUSTE DE SALDO ---
         Customer customer = creditNote.getSale().getCustomer();
@@ -379,7 +417,7 @@ public class CreditNoteService {
         inventoryService.processCreditNoteCancellation(creditNote);
 
         // 3. Revertir la lógica contable.
-        accountingService.deleteEntriesForCreditNoteCancellation(creditNote);
+        salesAccountingService.deleteEntriesForCreditNoteCancellation(creditNote);
         // --- INICIO DE LA LÓGICA DE REVERSIÓN DE SALDO ---
         Customer customer = creditNote.getSale().getCustomer();
         // Sumamos de nuevo el monto de la NC al saldo, porque la anulación de la NC

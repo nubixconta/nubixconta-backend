@@ -39,8 +39,6 @@ public class CustomerUpdateDTO {
     @Size(max = 100)
     private String businessActivity;
 
-    private PersonType personType;
-
 
     private Boolean appliesWithholding;
 

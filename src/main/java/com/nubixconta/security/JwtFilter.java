@@ -32,13 +32,30 @@ public class JwtFilter extends OncePerRequestFilter {
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                         userName, null, Collections.emptyList());
                 SecurityContextHolder.getContext().setAuthentication(auth);
+
+                // Después de autenticar al usuario, intentamos obtener el company_id del token.
+                // El método .ifPresent() ejecutará el código solo si el Optional no está vacío.
+                // Si el token es genérico (sin company_id), esta línea simplemente no hará nada.
+                JwtUtil.extractCompanyId(token).ifPresent(TenantContext::setCurrentTenant);
+
             } catch (Exception e) {
+                // Buena práctica: si el token es inválido, asegurarse de que el contexto de seguridad esté limpio.
+                SecurityContextHolder.clearContext();
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
+
         }
 
-        filterChain.doFilter(request, response);
+        try {
+            // Permite que la petición continúe hacia el controlador.
+            filterChain.doFilter(request, response);
+        } finally {
+            // CRÍTICO: Al final de la petición (incluso si hubo un error),
+            // limpiamos el TenantContext. Esto previene que el company_id
+            // se filtre a la siguiente petición que podría ser de otro usuario.
+            TenantContext.clear();
+        }
     }
 
 }
