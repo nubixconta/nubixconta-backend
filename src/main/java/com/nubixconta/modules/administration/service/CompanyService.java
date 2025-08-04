@@ -78,7 +78,8 @@ public class CompanyService {
     company.setCreationDate(dto.getCreationDate());
     company.setTurnCompany(dto.getTurnCompany());
     company.setAddress(dto.getAddress());
-    company.setAccountId(dto.getAccountId());
+    company.setImageUrl(dto.getImageUrl());
+
 /*
         // Nueva validación: no se puede asignar empresa (companyStatus=true) sin usuario
         if (dto.getUserId() == null && Boolean.TRUE.equals(dto.getCompanyStatus())) {
@@ -99,8 +100,7 @@ public class CompanyService {
     // Bitácora
         changeHistoryService.logChange(
                 "Administración",
-                "Se creó la empresa " + saved.getCompanyName(),
-                null
+                "Se creó la empresa " + saved.getCompanyName()
         );
 
     return saved;
@@ -143,21 +143,7 @@ public class CompanyService {
             return cb.and(predicates.toArray(new Predicate[0]));
         });
     }
-    //Metodo para actualizar la empresa
-    public Company updateCompany(Integer id, Company updatedCompany) {
-        return companyRepository.findById(id).map(existing -> {
-            existing.setCompanyName(updatedCompany.getCompanyName());
-            existing.setCompanyDui(updatedCompany.getCompanyDui());
-            existing.setCompanyNit(updatedCompany.getCompanyNit());
-            existing.setCompanyNrc(updatedCompany.getCompanyNrc());
-            existing.setAccountId(updatedCompany.getAccountId());
-            existing.setCompanyStatus(updatedCompany.getCompanyStatus());
-            existing.setCreationDate(updatedCompany.getCreationDate());
-            existing.setUser(updatedCompany.getUser());
 
-            return companyRepository.save(existing);
-        }).orElseThrow(() -> new RuntimeException("Empresa no encontrada con id: " + id));
-    }
 
     public Company patchCompany(Integer id, CompanyUpdateDTO dto) {
         Company company = companyRepository.findById(id)
@@ -257,10 +243,14 @@ public class CompanyService {
             company.setActiveStatus(dto.getActiveStatus());
         }
 
-        // Este campo no genera historial (como pediste)
-        if (dto.getAccountId() != null) {
-            company.setAccountId(dto.getAccountId());
+
+
+        if (dto.getImageUrl() != null && !dto.getImageUrl().equals(company.getImageUrl())) {
+            cambios.append("La imagen de la empresa cambio ");
+            company.setImageUrl(dto.getImageUrl());
         }
+
+
 
         if (dto.getUserId() != null &&
                 (company.getUser() == null || !dto.getUserId().equals(company.getUser().getId()))) {
@@ -289,8 +279,7 @@ public class CompanyService {
         if (!cambios.isEmpty()) {
             changeHistoryService.logChange(
                     "Administración",
-                    cambios.toString(),
-                    null
+                    cambios.toString()
             );
         }
 
@@ -300,6 +289,12 @@ public class CompanyService {
 
     public List<Company> getCompaniesByUserName(String userName) {
         return companyRepository.findByUser_UserName(userName);
+    }
+
+
+    public List<Company> getCompaniesByUserId(Integer userId) {
+        // Llama al método del repositorio para filtrar por el ID del usuario
+        return companyRepository.findByUser_Id(userId);
     }
 
     public Company getCompanyById(Integer id) {

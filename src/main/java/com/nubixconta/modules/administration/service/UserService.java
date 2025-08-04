@@ -83,8 +83,7 @@ public class UserService {
         if (userRepository.count() > 1) {
             changeHistoryService.logChange(
                     "Administración",
-                    "Se creó el usuario " + saved.getFirstName() + " " + saved.getLastName(),
-                    null
+                    "Se creó el usuario " + saved.getFirstName() + " " + saved.getLastName()
             );
         }
 
@@ -147,7 +146,7 @@ public class UserService {
 
         // Contraseña
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
-            cambios.append("La contraseña fue actualizada. ");
+            cambios.append("La contraseña del usuario " + user.getUserName() + " fue actualizada. ");
             user.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
 
@@ -156,8 +155,7 @@ public class UserService {
         if (!cambios.isEmpty()) {
             changeHistoryService.logChange(
                     "Administración",
-                    cambios.toString(),
-                    null // Si deseas relacionarlo con alguna empresa, puedes pasar el ID aquí
+                    cambios.toString()
             );
         }
 

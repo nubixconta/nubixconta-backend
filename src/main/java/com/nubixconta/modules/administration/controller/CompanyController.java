@@ -70,9 +70,6 @@ public class CompanyController {
             @RequestParam(required = false) String userName,
             @RequestParam(required = false) Boolean status
     ) {
-        System.out.println("companyName = " + companyName);
-        System.out.println("userName = " + userName);
-        System.out.println("status = " + status);
 
         List<Company> results = companyService.searchCompanies(companyName, userName, status);
         return ResponseEntity.ok(results);
@@ -90,6 +87,12 @@ public class CompanyController {
     public ResponseEntity<List<Company>> getMyCompanies(Authentication authentication) {
         String userName = authentication.getName();
         List<Company> companies = companyService.getCompaniesByUserName(userName);
+        return ResponseEntity.ok(companies);
+    }
+    //Metodo para filtrar empresas por id del usuario
+    @GetMapping("/byUser/{userId}")
+    public ResponseEntity<List<Company>> getCompaniesByUserId(@PathVariable Integer userId) {
+        List<Company> companies = companyService.getCompaniesByUserId(userId);
         return ResponseEntity.ok(companies);
     }
 }

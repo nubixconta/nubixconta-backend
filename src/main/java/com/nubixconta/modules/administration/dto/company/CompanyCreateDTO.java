@@ -1,7 +1,4 @@
 package com.nubixconta.modules.administration.dto.company;
-
-import jakarta.persistence.Column;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -15,7 +12,6 @@ public class CompanyCreateDTO {
 
     private Integer userId;
 
-    private Integer accountId;
 
     @NotNull(message = "El nombre es obligatorio")
     @Size(max = 100, message = "El nombre no puede tener más de 100 caracteres")
@@ -40,4 +36,7 @@ public class CompanyCreateDTO {
     @NotNull(message = "La address es obligatoria")
     @Size(max = 100, message = "La dirección puede tener máximo 50 caracteres")
     private String address;
+
+    @Size(max = 255, message = "La url de la imagen puede tener máximo 255 caracteres")
+    private String imageUrl;
 }

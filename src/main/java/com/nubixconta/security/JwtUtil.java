@@ -86,7 +86,7 @@ public class JwtUtil {
     // =========================================================================================
     // == FIN DE CÓDIGO MODIFICADO Y AÑADIDO
     // =========================================================================================
-
+    //Decodifica el token
     public static Claims getClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())

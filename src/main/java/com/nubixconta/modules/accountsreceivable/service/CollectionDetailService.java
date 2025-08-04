@@ -164,8 +164,7 @@ public class CollectionDetailService {
         // Bitácora
         changeHistoryService.logChange(
                 "Cuentas por cobrar",
-                "Se realizo un cobro para el numero de documento " + ar.getSale().getDocumentNumber(),
-                null
+                "Se realizo un cobro para el numero de documento " + ar.getSale().getDocumentNumber()
         );
 
 

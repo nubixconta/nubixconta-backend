@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface CompanyRepository extends JpaRepository<Company, Integer>, JpaSpecificationExecutor<Company> {
     List<Company> findByUser_UserName(String userName);
+    List<Company> findByUser_Id(Integer userId);
     boolean existsByCompanyName(String companyName);
     boolean existsByCompanyDui(String companyDui);
     boolean existsByCompanyNit(String companyNit);

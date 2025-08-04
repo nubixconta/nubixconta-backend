@@ -16,8 +16,6 @@ public class CompanyUpdateDTO {
     @Min(value = 1, message = "El ID del usuario debe ser mayor que cero")
     private Integer userId;
 
-    @Min(value = 1, message = "El ID del usuario debe ser mayor que cero")
-    private Integer accountId;
 
     @Size(max = 100, message = "El nombre no puede tener más de 100 caracteres")
     private String companyName;
@@ -42,5 +40,8 @@ public class CompanyUpdateDTO {
 
 
     private Boolean activeStatus;
+
+    @Size(max = 255, message = "La url de la imagen puede tener máximo 255 caracteres")
+    private String imageUrl;
 
 }
