@@ -79,7 +79,7 @@ public class CompanyService {
     company.setTurnCompany(dto.getTurnCompany());
     company.setAddress(dto.getAddress());
     company.setImageUrl(dto.getImageUrl());
-    company.setAccountId(dto.getAccountId());
+
 /*
         // Nueva validación: no se puede asignar empresa (companyStatus=true) sin usuario
         if (dto.getUserId() == null && Boolean.TRUE.equals(dto.getCompanyStatus())) {
@@ -100,8 +100,7 @@ public class CompanyService {
     // Bitácora
         changeHistoryService.logChange(
                 "Administración",
-                "Se creó la empresa " + saved.getCompanyName(),
-                null
+                "Se creó la empresa " + saved.getCompanyName()
         );
 
     return saved;
@@ -244,10 +243,7 @@ public class CompanyService {
             company.setActiveStatus(dto.getActiveStatus());
         }
 
-        // Este campo no genera historial (como pediste)
-        if (dto.getAccountId() != null) {
-            company.setAccountId(dto.getAccountId());
-        }
+
 
         if (dto.getImageUrl() != null && !dto.getImageUrl().equals(company.getImageUrl())) {
             cambios.append("La imagen de la empresa cambio ");
@@ -283,8 +279,7 @@ public class CompanyService {
         if (!cambios.isEmpty()) {
             changeHistoryService.logChange(
                     "Administración",
-                    cambios.toString(),
-                    null
+                    cambios.toString()
             );
         }
 

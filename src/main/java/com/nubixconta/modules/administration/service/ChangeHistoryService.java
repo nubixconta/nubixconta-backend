@@ -9,14 +9,16 @@ import com.nubixconta.modules.administration.repository.ChangeHistoryRepository;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.administration.repository.UserRepository;
 import com.nubixconta.security.JwtUtil;
-import io.micrometer.common.lang.Nullable;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -65,8 +67,18 @@ public class ChangeHistoryService {
     }
 
     //Metodo para registrar un cambio en cualquier modulo
-    public void logChange(String moduleName, String actionPerformed, @Nullable Integer companyId) {
+    public void logChange(String moduleName, String actionPerformed) {
+        // 1. Obtener el ID del usuario autenticado del token.
         Integer authenticatedUserId = JwtUtil.extractCurrentUserId();
+
+        // 2. Extraer el token completo para poder obtener el companyId.
+        String bearerToken = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes())
+                .getRequest()
+                .getHeader("Authorization");
+
+        // 3. Extraer el companyId del token (si existe) utilizando el método ya creado.
+        //    El método devuelve un Optional para manejar la posibilidad de que el ID no esté.
+        Optional<Integer> companyIdOptional = JwtUtil.extractCompanyId(bearerToken.replace("Bearer ", ""));
 
         ChangeHistory history = new ChangeHistory();
         history.setUser(userRepository.findById(authenticatedUserId)
@@ -75,17 +87,22 @@ public class ChangeHistoryService {
         history.setActionPerformed(actionPerformed);
         history.setDate(LocalDateTime.now());
 
-        if (companyId != null) {
+        // 4. Si el companyId está presente en el token, se agrega al registro.
+        companyIdOptional.ifPresent(companyId -> {
             Company company = companyRepository.findById(companyId)
                     .orElseThrow(() -> new EntityNotFoundException("Empresa no encontrada"));
             history.setCompany(company);
-        }
+        });
 
         changeHistoryRepository.save(history);
     }
 
     public List<ChangeHistoryResponseDTO> getAllHistoryResponses() {
-        List<ChangeHistory> historyList = changeHistoryRepository.findAll();
+        // 1. Crear un objeto Sort para ordenar por el campo 'date' de forma descendente.
+        Sort sortByDateDesc = Sort.by("date").descending();
+
+        // 2. Usar el método findAll(Sort) del JpaRepository para obtener los datos ya ordenados.
+        List<ChangeHistory> historyList = changeHistoryRepository.findAll(sortByDateDesc);
 
         return historyList.stream().map(history -> {
             ChangeHistoryResponseDTO dto = new ChangeHistoryResponseDTO();

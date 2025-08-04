@@ -12,7 +12,6 @@ public class CompanyCreateDTO {
 
     private Integer userId;
 
-    private Integer accountId;
 
     @NotNull(message = "El nombre es obligatorio")
     @Size(max = 100, message = "El nombre no puede tener más de 100 caracteres")

@@ -8,6 +8,7 @@ import com.nubixconta.modules.administration.repository.UserRepository; // Impor
 import com.nubixconta.modules.administration.dto.AccessLog.AccessLogResponseDTO;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -37,20 +38,28 @@ public class AccessLogService {
      * @param endDate La fecha de fin del rango. Opcional.
      * @return Una lista de AccessLogResponseDTO filtrada.
      */
+
     public List<AccessLogResponseDTO> getFilteredAccessLogs(Integer userId, LocalDate startDate, LocalDate endDate) {
         List<AccessLog> accessLogs;
+
+        // Definimos el objeto Sort para ordenar por 'dateStart' de forma descendente.
+        Sort sortByDateStartDesc = Sort.by("dateStart").descending();
 
         LocalDateTime startDateTime = (startDate != null) ? startDate.atStartOfDay() : null;
         LocalDateTime endDateTime = (endDate != null) ? endDate.atTime(23, 59, 59) : null;
 
         if (userId != null && startDate != null && endDate != null) {
-            accessLogs = accessLogRepository.findByUser_IdAndDateStartBetween(userId, startDateTime, endDateTime);
+            // Se usa el método modificado del repositorio con el Sort.
+            accessLogs = accessLogRepository.findByUser_IdAndDateStartBetween(userId, startDateTime, endDateTime, sortByDateStartDesc);
         } else if (userId != null) {
-            accessLogs = accessLogRepository.findByUser_Id(userId);
+            // Se usa el método modificado del repositorio con el Sort.
+            accessLogs = accessLogRepository.findByUser_Id(userId, sortByDateStartDesc);
         } else if (startDate != null && endDate != null) {
-            accessLogs = accessLogRepository.findByDateStartBetween(startDateTime, endDateTime);
+            // Se usa el método modificado del repositorio con el Sort.
+            accessLogs = accessLogRepository.findByDateStartBetween(startDateTime, endDateTime, sortByDateStartDesc);
         } else {
-            accessLogs = accessLogRepository.findAll();
+            // Si no hay filtros, se usa findAll() que también acepta un Sort.
+            accessLogs = accessLogRepository.findAll(sortByDateStartDesc);
         }
 
         return toDTOList(accessLogs);

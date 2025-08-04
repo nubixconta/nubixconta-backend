@@ -26,8 +26,7 @@ public class Company {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(name = "account_id")
-    private Integer accountId;
+
 
     @NotNull(message = "El nombre es obligatorio")
     @Size(max = 100, message = "El companyName no puede tener mas de 50 caracteres")

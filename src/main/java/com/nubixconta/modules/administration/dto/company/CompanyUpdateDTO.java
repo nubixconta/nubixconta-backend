@@ -16,8 +16,6 @@ public class CompanyUpdateDTO {
     @Min(value = 1, message = "El ID del usuario debe ser mayor que cero")
     private Integer userId;
 
-    @Min(value = 1, message = "El ID del usuario debe ser mayor que cero")
-    private Integer accountId;
 
     @Size(max = 100, message = "El nombre no puede tener más de 100 caracteres")
     private String companyName;
