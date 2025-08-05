@@ -18,6 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import com.nubixconta.modules.accounting.dto.AccountingEntryLineDTO;
+import com.nubixconta.modules.accounting.dto.AccountingEntryResponseDTO;
+import com.nubixconta.common.exception.NotFoundException;
+import com.nubixconta.modules.sales.entity.Customer;
 
 /**
  * Servicio especializado en la lógica contable del módulo de Ventas.
@@ -187,5 +193,120 @@ public class SalesAccountingService {
         if (totalDebits.compareTo(totalCredits) != 0) {
             throw new IllegalStateException("Asiento de Nota de Crédito descuadrado. Debe: " + totalDebits + ", Haber: " + totalCredits);
         }
+    }
+
+    // --- INICIO DE CÓDIGO AÑADIDO ---
+    /**
+     * Obtiene el asiento contable formateado para una venta específica.
+     * @param saleId El ID de la venta.
+     * @return Un DTO con toda la información necesaria para la vista de React.
+     */
+    @Transactional(readOnly = true)
+    public AccountingEntryResponseDTO getEntryForSale(Integer saleId) {
+        // 1. Usar el método optimizado del repositorio para obtener todas las líneas del asiento.
+        List<SaleEntry> entries = saleEntryRepository.findBySaleIdWithDetails(saleId);
+        if (entries.isEmpty()) {
+            throw new NotFoundException("No se encontró asiento contable para la venta con ID: " + saleId);
+        }
+
+        // 2. Extraer información común de la primera línea del asiento.
+        SaleEntry firstEntry = entries.get(0);
+        Sale sale = firstEntry.getSale();
+        Customer customer = sale.getCustomer();
+
+        // 3. Mapear cada entidad de asiento a su DTO de línea.
+        List<AccountingEntryLineDTO> lines = entries.stream()
+                .map(entry -> new AccountingEntryLineDTO(
+                        entry.getCatalog().getAccount().getGeneratedCode(), // Asumiendo que el campo es 'accountNumber'
+                        entry.getCatalog().getAccount().getAccountName(),
+                        entry.getDebe(),
+                        entry.getHaber()
+                ))
+                .collect(Collectors.toList());
+
+        // 4. Calcular los totales del asiento.
+        BigDecimal totalDebits = lines.stream().map(AccountingEntryLineDTO::debit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredits = lines.stream().map(AccountingEntryLineDTO::credit).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 5. Construir y devolver el DTO de respuesta final.
+        return new AccountingEntryResponseDTO(
+                firstEntry.getId(),             // ID del asiento contable
+                sale.getDocumentNumber(),       // Número del documento padre (venta)
+                "Venta",                        // Tipo de documento
+                sale.getSaleStatus(),           // Estado de la venta
+                "Cliente",                      // Etiqueta del socio de negocio
+                formatPartnerName(customer),
+                firstEntry.getDate(),           // Fecha de generación del asiento
+                sale.getSaleDescription() != null ? sale.getSaleDescription() : "",// Descripción de la transacción
+                lines,                          // Lista de movimientos
+                totalDebits,                    // Total de débitos
+                totalCredits                    // Total de créditos
+        );
+    }
+
+    /**
+     * Obtiene el asiento contable formateado para una nota de crédito específica.
+     * @param creditNoteId El ID de la nota de crédito.
+     * @return Un DTO con toda la información necesaria para la vista de React.
+     */
+    @Transactional(readOnly = true)
+    public AccountingEntryResponseDTO getEntryForCreditNote(Integer creditNoteId) {
+        List<CreditNoteEntry> entries = creditNoteEntryRepository.findByCreditNoteIdWithDetails(creditNoteId);
+        if (entries.isEmpty()) {
+            throw new NotFoundException("No se encontró asiento contable para la nota de crédito con ID: " + creditNoteId);
+        }
+
+        CreditNoteEntry firstEntry = entries.get(0);
+        CreditNote creditNote = firstEntry.getCreditNote();
+        Customer customer = creditNote.getSale().getCustomer();
+
+        List<AccountingEntryLineDTO> lines = entries.stream()
+                .map(entry -> new AccountingEntryLineDTO(
+                        entry.getCatalog().getAccount().getGeneratedCode(),
+                        entry.getCatalog().getAccount().getAccountName(),
+                        entry.getDebe(),
+                        entry.getHaber()
+                ))
+                .collect(Collectors.toList());
+
+        BigDecimal totalDebits = lines.stream().map(AccountingEntryLineDTO::debit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredits = lines.stream().map(AccountingEntryLineDTO::credit).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new AccountingEntryResponseDTO(
+                firstEntry.getId(),             // ID del asiento contable
+                creditNote.getDocumentNumber(), // Número del documento padre (NC)
+                "Nota de Crédito",              // Tipo de documento
+                creditNote.getCreditNoteStatus(), // Estado de la NC
+                "Cliente",                      // Etiqueta del socio de negocio
+                formatPartnerName(customer), // <-- Usamos nuestro método seguro
+                firstEntry.getDate(),           // Fecha de generación del asiento
+                creditNote.getDescription() != null ? creditNote.getDescription() : "", // <-- Añadimos seguridad para la descripción también
+                lines,                          // Lista de movimientos
+                totalDebits,                    // Total de débitos
+                totalCredits                    // Total de créditos
+        );
+    }
+    // --- FIN DE CÓDIGO AÑADIDO ---
+
+
+    /**
+     * Método privado de ayuda para formatear el nombre del cliente de forma segura.
+     * Evita que se añada " null" si el apellido no existe.
+     * @param customer El objeto del cliente.
+     * @return El nombre completo formateado.
+     */
+    private String formatPartnerName(Customer customer) {
+        if (customer == null) {
+            return ""; // Caso de seguridad
+        }
+        String firstName = customer.getCustomerName();
+        String lastName = customer.getCustomerLastName();
+
+        // Si el apellido es nulo o está en blanco, devuelve solo el nombre.
+        if (lastName == null || lastName.isBlank()) {
+            return firstName;
+        }
+        // Si no, devuelve nombre y apellido.
+        return firstName + " " + lastName;
     }
 }
