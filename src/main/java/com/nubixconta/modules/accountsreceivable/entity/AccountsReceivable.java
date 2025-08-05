@@ -1,5 +1,6 @@
 package com.nubixconta.modules.accountsreceivable.entity;
 
+import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.sales.entity.Sale;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
@@ -25,6 +26,12 @@ public class AccountsReceivable {
     @NotNull(message = "La venta es obligatoria")
     @Column(name = "sale_id", nullable = false)
     private Integer saleId;
+
+    // --- ¡Añadido el campo de la empresa! ---
+    @NotNull(message = "La empresa es obligatoria")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "sale_id", insertable = false, updatable = false)
