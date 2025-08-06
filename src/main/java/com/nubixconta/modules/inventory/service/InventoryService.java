@@ -153,11 +153,24 @@ public class InventoryService {
     }
 
     /**
-     * Devuelve una lista completa de todos los movimientos de inventario.
+     * Devuelve una lista de todos los movimientos de inventario, con ordenamiento personalizable.
+     * @param sortBy Criterio de ordenamiento: "status" (default) o "date".
+     * @return Lista de MovementResponseDTO ordenados.
      */
     @Transactional(readOnly = true)
-    public List<MovementResponseDTO> findAllMovements() {
-        return movementRepository.findAll().stream()
+    public List<MovementResponseDTO> findAllMovements(String sortBy) { // Acepta el nuevo parámetro
+        Integer companyId = getCompanyIdFromContext();
+        List<InventoryMovement> movements;
+
+        // Lógica de selección de ordenamiento, idéntica a tu servicio de Ventas.
+        if ("status".equalsIgnoreCase(sortBy)) {
+            movements = movementRepository.findAllByCompanyIdOrderByStatusAndDate(companyId);
+        } else {
+            // "date" o cualquier otro valor (o nulo) será el fallback seguro.
+            movements = movementRepository.findByCompany_IdOrderByDateDesc(companyId);
+        }
+
+        return movements.stream()
                 .map(MovementResponseDTO::fromEntity)
                 .collect(Collectors.toList());
     }

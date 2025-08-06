@@ -23,14 +23,18 @@ public class InventoryMovementController {
 
     private final InventoryService inventoryService;
 
+
     /**
-     * Endpoint para obtener la lista COMPLETA de todos los movimientos de inventario.
+     * Endpoint para obtener la lista de todos los movimientos de inventario.
+     * Acepta un parámetro opcional 'sortBy' para cambiar el orden.
+     * - sortBy=status (default): Ordena por PENDIENTE > APLICADA > ANULADA, y luego por fecha.
+     * - sortBy=date: Ordena solo por fecha descendente.
      */
     @GetMapping
-    public ResponseEntity<List<MovementResponseDTO>> findAllMovements() {
-        List<MovementResponseDTO> movements = inventoryService.findAllMovements();
-        // Envolvemos la lista en un ResponseEntity con estado 200 OK.
-        // El método .ok() es un atajo para ResponseEntity.status(HttpStatus.OK).
+    public ResponseEntity<List<MovementResponseDTO>> findAllMovements(
+            @RequestParam(defaultValue = "status") String sortBy // El valor por defecto es "status"
+    ) {
+        List<MovementResponseDTO> movements = inventoryService.findAllMovements(sortBy);
         return ResponseEntity.ok(movements);
     }
 
