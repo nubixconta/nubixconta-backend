@@ -11,7 +11,9 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import com.nubixconta.modules.accounting.dto.AccountingEntryResponseDTO;
+import com.nubixconta.modules.accounting.service.SalesAccountingService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
@@ -22,6 +24,8 @@ import java.util.List;
 public class SaleController {
 
     private final SaleService saleService;
+    // Inyección del servicio de contabilidad a través del constructor de Lombok.
+    private final SalesAccountingService salesAccountingService;
 
     /**
      * Obtener todas las ventas registradas con un ordenamiento específico.
@@ -175,4 +179,19 @@ public class SaleController {
     public SaleResponseDTO cancelSale(@PathVariable Integer id) {
         return saleService.cancelSale(id);
     }
+
+    // --- INICIO DE CÓDIGO AÑADIDO ---
+    /**
+     * Endpoint para obtener el asiento contable asociado a una venta específica.
+     * La ruta está anidada bajo la venta para seguir las convenciones RESTful.
+     * @param id El ID de la venta.
+     * @return Un ResponseEntity con el DTO del asiento contable.
+     */
+    @GetMapping("/{id}/accounting-entry")
+    @PreAuthorize("hasAuthority('READ_SALE')") // Asegura el endpoint con el permiso adecuado.
+    public ResponseEntity<AccountingEntryResponseDTO> getSaleAccountingEntry(@PathVariable Integer id) {
+        AccountingEntryResponseDTO entryDto = salesAccountingService.getEntryForSale(id);
+        return ResponseEntity.ok(entryDto);
+    }
+    // --- FIN DE CÓDIGO AÑADIDO ---
 }

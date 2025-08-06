@@ -6,6 +6,8 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+
 public interface SaleRepository extends JpaRepository<Sale, Integer>{
 
 
@@ -91,5 +93,7 @@ public interface SaleRepository extends JpaRepository<Sale, Integer>{
             @Param("customerName") String customerName,
             @Param("customerLastName") String customerLastName
     );
+    // Busca una venta por su ID y el ID de la empresa.
+    Optional<Sale> findBySaleIdAndCompanyId(Integer saleId, Integer companyId);
 
 }

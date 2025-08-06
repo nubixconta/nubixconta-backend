@@ -2,12 +2,14 @@ package com.nubixconta.modules.accountsreceivable.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.nubixconta.modules.accounting.entity.CollectionEntry;
+import com.nubixconta.modules.administration.entity.Company;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import org.hibernate.annotations.Filter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,6 +19,7 @@ import java.util.List;
 @Entity
 @Table(name = "collection_detail")
 @Data
+@Filter(name = "tenantFilter", condition = "company_id = :companyId")
 public class CollectionDetail {
 
     @Id
@@ -33,6 +36,14 @@ public class CollectionDetail {
 
     @Column(name = "account_id")
     private Integer accountId;
+
+    // --- ¡NUEVA RELACIÓN AÑADIDA! ---
+    // Enlaza este Cobro con la Empresa que la está realizando.
+    // Esto es CRUCIAL para que toda la lógica multi-tenant funcione.
+    @NotNull(message = "La empresa es obligatoria")
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     @NotNull(message = "La referencia es obligatoria")
     @Size(max = 30, message = "La referencia no puede tener mas de 30 caracteres")
@@ -62,7 +73,7 @@ public class CollectionDetail {
 
     @NotNull(message = "La fecha es obligatorio")
     @Column(name = "collection_detail_date")
-    private LocalDateTime CollectionDetailDate;
+    private LocalDateTime collectionDetailDate;
 
     @NotNull(message = "El módulo es obligatorio")
     @Size(max = 30, message = "La el modulo no puede tener mas de 30 caracteres")
