@@ -58,7 +58,7 @@ public class ProductController {
             throw new BadRequestException("Debe enviar al menos un criterio de búsqueda.");
         }
 
-        List<ProductResponseDTO> result = productService.searchActive(id, code, name);
+        List<ProductResponseDTO> result = productService.searchActive( code, name);
         if (result.isEmpty()) {
             return ResponseEntity.ok(Map.of("message", "No se encontraron productos con los criterios proporcionados."));
         }

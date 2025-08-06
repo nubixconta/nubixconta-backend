@@ -15,11 +15,13 @@ public interface ProductRepository extends JpaRepository<Product, Integer>{
     // Busca un producto por su código DENTRO de una empresa específica.
     Optional<Product> findByCompany_IdAndProductCode(Integer companyId, String productCode);
 
+    // CORREGIDO: Usando 'ProductName' para el ordenamiento.
+    List<Product> findByCompany_IdOrderByProductNameAsc(Integer companyId);
     // Busca productos activos DENTRO de una empresa específica.
-    List<Product> findByCompany_IdAndProductStatusTrue(Integer companyId);
+    List<Product> findByCompany_IdAndProductStatusTrueOrderByProductNameAsc(Integer companyId);
 
-    // Busca productos inactivos DENTRO de una empresa específica.
-    List<Product> findByCompany_IdAndProductStatusFalse(Integer companyId);
+    // CORREGIDO: Usando 'ProductStatusFalse' y 'ProductName' para el ordenamiento.
+    List<Product> findByCompany_IdAndProductStatusFalseOrderByProductNameAsc(Integer companyId);
 
     // Comprueba si un código de producto existe DENTRO de una empresa específica.
     boolean existsByCompany_IdAndProductCode(Integer companyId, String productCode);
@@ -28,13 +30,13 @@ public interface ProductRepository extends JpaRepository<Product, Integer>{
     boolean existsByCompany_IdAndProductCodeAndIdProductNot(Integer companyId, String productCode, Integer idProduct);
 
     // La búsqueda compleja ahora también requiere el companyId para el aislamiento.
-    @Query("SELECT p FROM Product p WHERE p.company.id = :companyId AND p.productStatus = true "
-            + "AND (:id IS NULL OR p.idProduct = :id) "
-            + "AND (:code IS NULL OR LOWER(p.productCode) LIKE LOWER(CONCAT('%', :code, '%'))) "
-            + "AND (:name IS NULL OR LOWER(p.productName) LIKE LOWER(CONCAT('%', :name, '%')))")
+    @Query(value = "SELECT * FROM product p " +
+            "WHERE p.company_id = :companyId AND p.product_status = true " +
+            "AND (:code IS NULL OR :code = '' OR p.product_code ILIKE :code) " +
+            "AND (CAST(:name AS TEXT) IS NULL OR :name = '' OR p.product_name ILIKE :name)",
+            nativeQuery = true)
     List<Product> searchActive(
             @Param("companyId") Integer companyId,
-            @Param("id") Integer id,
             @Param("code") String code,
             @Param("name") String name
     );
