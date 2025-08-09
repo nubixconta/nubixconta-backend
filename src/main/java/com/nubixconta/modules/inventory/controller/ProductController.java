@@ -21,9 +21,7 @@ public class ProductController {
     @GetMapping
     public ResponseEntity<?> getAllProducts() {
         List<ProductResponseDTO> products = productService.findAll();
-        if (products.isEmpty()) {
-            return ResponseEntity.ok(Map.of("message", "No hay productos registrados."));
-        }
+
         return ResponseEntity.ok(products);
     }
 
@@ -31,9 +29,7 @@ public class ProductController {
     @GetMapping("/active")
     public ResponseEntity<?> getActiveProducts() {
         List<ProductResponseDTO> products = productService.findActive();
-        if (products.isEmpty()) {
-            return ResponseEntity.ok(Map.of("message", "No hay productos activos registrados."));
-        }
+
         return ResponseEntity.ok(products);
     }
 
@@ -41,9 +37,7 @@ public class ProductController {
     @GetMapping("/inactive")
     public ResponseEntity<?> getInactiveProducts() {
         List<ProductResponseDTO> products = productService.findInactive();
-        if (products.isEmpty()) {
-            return ResponseEntity.ok(Map.of("message", "No hay productos inactivos registrados."));
-        }
+
         return ResponseEntity.ok(products);
     }
 
@@ -59,9 +53,6 @@ public class ProductController {
         }
 
         List<ProductResponseDTO> result = productService.searchActive( code, name);
-        if (result.isEmpty()) {
-            return ResponseEntity.ok(Map.of("message", "No se encontraron productos con los criterios proporcionados."));
-        }
         return ResponseEntity.ok(result);
     }
 
