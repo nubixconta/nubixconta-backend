@@ -10,7 +10,9 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import com.nubixconta.modules.accounting.dto.AccountingEntryResponseDTO;
+import com.nubixconta.modules.accounting.service.SalesAccountingService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
@@ -21,7 +23,8 @@ import java.util.List;
 public class CreditNoteController {
 
     private final CreditNoteService creditNoteService;
-
+    // Inyección del servicio de contabilidad a través del constructor de Lombok.
+    private final SalesAccountingService salesAccountingService;
     /**
      * Obtener todas las notas de crédito con un ordenamiento específico.
      * @param sortBy (opcional) Criterio de ordenamiento.
@@ -102,4 +105,18 @@ public class CreditNoteController {
         CreditNoteResponseDTO cancelledNote = creditNoteService.cancelCreditNote(id);
         return ResponseEntity.ok(cancelledNote);
     }
+
+    // --- INICIO DE CÓDIGO AÑADIDO ---
+    /**
+     * Endpoint para obtener el asiento contable asociado a una nota de crédito específica.
+     * @param id El ID de la nota de crédito.
+     * @return Un ResponseEntity con el DTO del asiento contable.
+     */
+    @GetMapping("/{id}/accounting-entry")
+    @PreAuthorize("hasAuthority('READ_CREDIT_NOTE')") // Asegura el endpoint con el permiso adecuado.
+    public ResponseEntity<AccountingEntryResponseDTO> getCreditNoteAccountingEntry(@PathVariable Integer id) {
+        AccountingEntryResponseDTO entryDto = salesAccountingService.getEntryForCreditNote(id);
+        return ResponseEntity.ok(entryDto);
+    }
+    // --- FIN DE CÓDIGO AÑADIDO ---
 }

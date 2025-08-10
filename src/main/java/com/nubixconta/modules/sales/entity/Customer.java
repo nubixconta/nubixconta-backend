@@ -9,24 +9,40 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-
+import com.nubixconta.modules.administration.entity.Company;
+import org.hibernate.annotations.Filter; // <-- NUEVO IMPORT
+import org.hibernate.annotations.FilterDef; // <-- NUEVO IMPORT
+import org.hibernate.annotations.ParamDef; // <-- NUEVO IMPORT
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+
+// Se mueven las restricciones de unicidad aquí para que sean compuestas con el company_id.
+// Esto permite que diferentes empresas tengan un cliente con el mismo NIT/DUI/NCR.
+@Table(name = "customer", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"company_id", "customer_dui"}),
+        @UniqueConstraint(columnNames = {"company_id", "customer_nit"}),
+        @UniqueConstraint(columnNames = {"company_id", "ncr"})
+})
 @Entity
-@Table(name = "customer")
 @Getter
 @Setter
 @NoArgsConstructor
+
+// 2. Se aplica dicho filtro a esta entidad. Hibernate añadirá automáticamente la condición
+//    "company_id = ?" a todas las consultas sobre esta entidad si el filtro está activo.
+@Filter(name = "tenantFilter", condition = "company_id = :companyId")
 public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "client_id")
     private Integer clientId;
 
+    // SE AÑADE LA RELACIÓN CON Company.
+    // Esta es la relación clave para el aislamiento de datos.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     @NotBlank(message = "El nombre es obligatorio")
     @Size(max = 50, message = "El nombre puede tener máximo 50 caracteres")
@@ -40,16 +56,16 @@ public class Customer {
 
 
     @Size(max = 10)
-    @Column(name = "customer_dui", length = 10, unique = true) // <-- AÑADIR UNIQUE
+    @Column(name = "customer_dui", length = 10,unique = true)
     private String customerDui;
 
     @Size(max = 17)
-    @Column(name = "customer_nit", length = 17, unique = true) // <-- AÑADIR UNIQUE
+    @Column(name = "customer_nit", length = 17,unique = true)
     private String customerNit;
 
     @NotBlank(message = "El NCR es obligatorio") // <-- ¡AÑADIR @NotBlank!
     @Size(max = 14, message = "El NCR puede tener máximo 14 caracteres")
-    @Column(name = "ncr",nullable = false, length = 14, unique = true) // <-- AÑADIR UNIQUE
+    @Column(name = "ncr",nullable = false, length = 14,unique = true) // <-- AÑADIR UNIQUE
     private String ncr;
 
     @NotBlank(message = "La dirección es obligatoria")
@@ -60,12 +76,12 @@ public class Customer {
     @NotBlank(message = "El email es obligatorio")
     @Size(max = 30, message = "El email puede tener máximo 30 caracteres")
     @Email(message = "El email debe tener un formato válido")
-    @Column(name = "email", length = 30, nullable = false)
+    @Column(name = "email", length = 30, nullable = false,unique = true)
     private String email;
 
     @NotBlank(message = "El teléfono es obligatorio")
     @Size(max = 8, message = "El teléfono puede tener máximo 8 caracteres")
-    @Column(name = "phone", length = 8, nullable = false)
+    @Column(name = "phone", length = 8, nullable = false,unique = true)
     private String phone;
 
     @NotNull(message = "El número de días de crédito es obligatorio")

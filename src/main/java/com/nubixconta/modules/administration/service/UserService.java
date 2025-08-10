@@ -2,9 +2,7 @@ package com.nubixconta.modules.administration.service;
 
 
 import com.nubixconta.modules.administration.dto.company.CompanyResponseDTO;
-import com.nubixconta.modules.administration.dto.user.UserCreateDTO;
-import com.nubixconta.modules.administration.dto.user.UserResponseDTO;
-import com.nubixconta.modules.administration.dto.user.UserUpdateDTO;
+import com.nubixconta.modules.administration.dto.user.*;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.entity.User;
 import com.nubixconta.modules.administration.repository.UserRepository;
@@ -83,12 +81,41 @@ public class UserService {
         if (userRepository.count() > 1) {
             changeHistoryService.logChange(
                     "Administración",
-                    "Se creó el usuario " + saved.getFirstName() + " " + saved.getLastName(),
-                    null
+                    "Se creó el usuario " + saved.getFirstName() + " " + saved.getLastName()
             );
         }
 
         return saved;
+    }
+    /**
+     * Permite al administrador cambiar su propia contraseña.
+     */
+    @Transactional
+    public User changeAdminPassword(Integer adminId, String oldPassword, String newPassword) {
+        User adminUser = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("Administrador no encontrado."));
+
+        // 1. Validar la contraseña antigua del administrador
+        if (!passwordEncoder.matches(oldPassword, adminUser.getPassword())) {
+            throw new IllegalArgumentException("La contraseña anterior es incorrecta.");
+        }
+
+        // 2. Validar que la nueva contraseña cumpla con los requisitos de seguridad
+        if (!isStrongPassword(newPassword)) {
+            throw new IllegalArgumentException("La nueva contraseña debe contener al menos 8 caracteres, una mayúscula, un número y un símbolo.");
+        }
+
+        // 3. Codificar y guardar la nueva contraseña
+        adminUser.setPassword(passwordEncoder.encode(newPassword));
+        User updatedUser = userRepository.save(adminUser);
+
+        // 4. Registrar el cambio en la bitácora
+        changeHistoryService.logChange(
+                "Administración",
+                "La contraseña del administrador " + adminUser.getUserName() + " fue actualizada."
+        );
+
+        return updatedUser;
     }
 
 
@@ -145,23 +172,96 @@ public class UserService {
             user.setStatus(dto.getStatus());
         }
 
-        // Contraseña
-        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
-            cambios.append("La contraseña fue actualizada. ");
-            user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        }
 
         User saved = userRepository.save(user);
 
         if (!cambios.isEmpty()) {
             changeHistoryService.logChange(
                     "Administración",
-                    cambios.toString(),
-                    null // Si deseas relacionarlo con alguna empresa, puedes pasar el ID aquí
+                    cambios.toString()
             );
         }
 
         return saved;
+    }
+
+    /**
+     * Permite al administrador cambiar su propia contraseña.
+     */
+    @Transactional
+    public User changeAdminPassword(Integer adminId, ChangePasswordDTO dto) {
+        User adminUser = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("Administrador no encontrado."));
+
+        if (!passwordEncoder.matches(dto.getOldPassword(), adminUser.getPassword())) {
+            throw new IllegalArgumentException("La contraseña anterior es incorrecta.");
+        }
+
+        if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
+            throw new IllegalArgumentException("La nueva contraseña y su confirmación no coinciden.");
+        }
+
+        if (!isStrongPassword(dto.getNewPassword())) {
+            throw new IllegalArgumentException("La nueva contraseña debe contener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.");
+        }
+
+        adminUser.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        User updatedUser = userRepository.save(adminUser);
+
+        changeHistoryService.logChange(
+                "Administración",
+                "La contraseña del administrador " + adminUser.getUserName() + " fue actualizada."
+        );
+
+        return updatedUser;
+    }
+
+    /**
+     * Permite al administrador cambiar la contraseña de un asistente.
+     */
+    @Transactional
+    public User resetUserPasswordByAdmin(Integer userId, Integer adminId, AdminResetPasswordDTO dto) {
+        User adminUser = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("Administrador no encontrado."));
+
+        if (!adminUser.getRole()) { // Valida si el usuario autenticado es realmente un administrador
+            throw new SecurityException("Permiso denegado. Solo los administradores pueden realizar esta acción.");
+        }
+
+        if (!passwordEncoder.matches(dto.getAdminPassword(), adminUser.getPassword())) {
+            throw new IllegalArgumentException("Contraseña de administrador incorrecta.");
+        }
+
+        if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
+            throw new IllegalArgumentException("La nueva contraseña y su confirmación no coinciden.");
+        }
+
+        if (!isStrongPassword(dto.getNewPassword())) {
+            throw new IllegalArgumentException("La nueva contraseña debe contener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.");
+        }
+
+        User userToUpdate = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuario asistente no encontrado."));
+
+        userToUpdate.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        User updatedUser = userRepository.save(userToUpdate);
+
+        changeHistoryService.logChange(
+                "Administración",
+                "El administrador " + adminUser.getUserName() + " actualizó la contraseña del usuario " + userToUpdate.getUserName() + "."
+        );
+
+        return updatedUser;
+    }
+
+
+    /**
+     * Método auxiliar para validar la fortaleza de la contraseña.
+     */
+    private boolean isStrongPassword(String password) {
+        // Expresión regular para validar: al menos 8 caracteres, 1 mayúscula, 1 minúscula, 1 número, 1 símbolo.
+        String regex = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#&()–[{}]:;',?/*~$^+=<>]).{8,100}$";
+        return password.matches(regex);
     }
 
 

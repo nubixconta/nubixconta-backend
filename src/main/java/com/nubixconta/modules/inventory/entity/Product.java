@@ -1,29 +1,39 @@
 package com.nubixconta.modules.inventory.entity;
 
 import jakarta.persistence.*;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-
+import com.nubixconta.modules.administration.entity.Company;
+import org.hibernate.annotations.*;
 import java.time.LocalDateTime;
 
+@Table(name = "product", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"company_id", "product_code"})
+})
 @Entity
-@Table(name = "product")
 @Getter
 @Setter
 @NoArgsConstructor
+@Filter(name = "tenantFilter", condition = "company_id = :companyId")
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_product")
     private Integer idProduct;
 
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
     @NotBlank(message = "El código de producto es obligatorio")
     @Size(max = 10, message = "El código de producto puede tener máximo 10 caracteres")
-    @Column(name = "product_code", length = 10, unique = true, nullable = false)
+    @Column(name = "product_code", length = 10, nullable = false)
     private String productCode;
 
     @NotBlank(message = "El nombre del producto es obligatorio")

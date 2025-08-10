@@ -30,12 +30,14 @@ public class CustomerController {
         return ResponseEntity.ok(customerService.findById(id));
     }
 
-    // Crear nuevo cliente (validado y asociado a usuario autenticado)
+    /**
+     * MODIFICADO: Se elimina el parámetro HttpServletRequest.
+     * El servicio ahora obtiene toda la información de contexto necesaria (companyId)
+     * de forma segura desde el TenantContext, haciendo el controlador más limpio.
+     */
     @PostMapping
-    public ResponseEntity<CustomerResponseDTO> createCustomer(
-            @Valid @RequestBody CustomerCreateDTO dto,
-            HttpServletRequest request) {
-        CustomerResponseDTO created = customerService.save(dto, request);
+    public ResponseEntity<CustomerResponseDTO> createCustomer(@Valid @RequestBody CustomerCreateDTO dto) {
+        CustomerResponseDTO created = customerService.save(dto);
         return ResponseEntity.status(201).body(created);
     }
 

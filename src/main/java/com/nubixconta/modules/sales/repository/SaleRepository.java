@@ -6,27 +6,37 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+
 public interface SaleRepository extends JpaRepository<Sale, Integer>{
-    // TODO: Agregar métodos personalizados si se necesitan
-    //  ya que JpaRepository trae ya metodos para manipular la bd
+
+
+
+
+
     /**
-     * Busca ventas por rango de fechas y las ordena por fecha de emisión descendente (la más nueva primero).
-     * Spring Data JPA genera la consulta automáticamente gracias al nombre del método.
-     * Consulta generada: "SELECT s FROM Sale s WHERE s.issueDate BETWEEN :start AND :end ORDER BY s.issueDate DESC"
+     * Busca todas las ventas que pertenecen a una lista de IDs de clientes, pero restringido
+     * a una empresa específica para garantizar el aislamiento de datos.
+     *
+     * @param companyId El ID de la empresa activa en el contexto.
+     * @param customerIds Una lista de IDs de clientes para buscar.
+     * @return Una lista de ventas que cumplen ambos criterios.
      */
-    List<Sale> findByIssueDateBetweenOrderByIssueDateDesc(LocalDateTime start, LocalDateTime end);
+    @Query("SELECT s FROM Sale s WHERE s.company.id = :companyId AND s.customer.clientId IN :customerIds")
+    List<Sale> findByCompanyIdAndCustomerIds(@Param("companyId") Integer companyId, @Param("customerIds") List<Integer> customerIds);
+
+    boolean existsByCompany_IdAndDocumentNumber(Integer companyId, String documentNumber);
 
 
-    @Query("SELECT s FROM Sale s WHERE s.customer.clientId IN :customerIds")
-    List<Sale> findByCustomerIds(@Param("customerIds") List<Integer> customerIds);
 
-    boolean existsByDocumentNumber(String documentNumber);
+    // Búsquedas acotadas a la empresa
+    List<Sale> findByCompany_IdAndIssueDateBetweenOrderByIssueDateDesc(Integer companyId, LocalDateTime start, LocalDateTime end);
+    List<Sale> findByCompany_IdAndSaleStatus(Integer companyId, String saleStatus);
+    List<Sale> findByCompany_IdOrderByIssueDateDesc(Integer companyId);
 
-    List<Sale> findBySaleStatus(String saleStatus);
 
-    List<Sale> findAllByOrderByIssueDateDesc();
-
-    @Query("SELECT s FROM Sale s ORDER BY " +
+    // La consulta de ordenamiento por estado también debe estar acotada a la empresa.
+    @Query("SELECT s FROM Sale s WHERE s.company.id = :companyId ORDER BY " +
             "CASE s.saleStatus " +
             "  WHEN 'PENDIENTE' THEN 1 " +
             "  WHEN 'APLICADA'  THEN 2 " +
@@ -34,7 +44,8 @@ public interface SaleRepository extends JpaRepository<Sale, Integer>{
             "  ELSE 4 " +
             "END, " +
             "s.issueDate DESC")
-    List<Sale> findAllOrderByStatusAndIssueDate();
+    List<Sale> findAllByCompanyIdOrderByStatusAndIssueDate(@Param("companyId") Integer companyId);
+
 
     /**
      * Busca todas las ventas de un cliente específico que coincidan con un estado determinado.
@@ -45,7 +56,7 @@ public interface SaleRepository extends JpaRepository<Sale, Integer>{
      * @param saleStatus El estado de la venta (ej. "APLICADA").
      * @return Una lista de ventas que cumplen ambos criterios.
      */
-    List<Sale> findByCustomer_ClientIdAndSaleStatus(Integer clientId, String saleStatus);
+    List<Sale> findByCompany_IdAndCustomer_ClientIdAndSaleStatus(Integer companyId,Integer clientId, String saleStatus);
 
     /**
      * Busca ventas aplicadas de un cliente que no tienen una nota de crédito activa (PENDIENTE o APLICADA).
@@ -53,9 +64,9 @@ public interface SaleRepository extends JpaRepository<Sale, Integer>{
      * @param clientId El ID del cliente.
      * @return Una lista de ventas válidas para una nota de crédito.
      */
-    @Query("SELECT s FROM Sale s WHERE s.customer.clientId = :clientId AND s.saleStatus = 'APLICADA' " +
+    @Query("SELECT s FROM Sale s WHERE s.company.id = :companyId AND s.customer.clientId = :clientId AND s.saleStatus = 'APLICADA' " +
             "AND NOT EXISTS (SELECT 1 FROM CreditNote cn WHERE cn.sale = s AND cn.creditNoteStatus IN ('PENDIENTE', 'APLICADA'))")
-    List<Sale> findSalesAvailableForCreditNote(@Param("clientId") Integer clientId);
+    List<Sale> findSalesAvailableForCreditNote(@Param("companyId") Integer companyId, @Param("clientId") Integer clientId);
 
     /**
      * Busca ventas APLICADAS combinando múltiples criterios opcionales y las ordena por fecha de emisión.
@@ -67,6 +78,7 @@ public interface SaleRepository extends JpaRepository<Sale, Integer>{
      * @return Una lista de ventas APLICADAS que cumplen con todos los criterios y están ordenadas por fecha descendente.
      */
     @Query(value = "SELECT s.* FROM sale s JOIN customer c ON s.client_id = c.client_id WHERE " +
+            "s.company_id = :companyId AND " +
             "s.sale_status = 'APLICADA' AND " +
             "s.issue_date >= COALESCE(:startDate, s.issue_date) AND " +
             "s.issue_date <= COALESCE(:endDate, s.issue_date) AND " +
@@ -75,10 +87,13 @@ public interface SaleRepository extends JpaRepository<Sale, Integer>{
             "ORDER BY s.issue_date DESC",
             nativeQuery = true)
     List<Sale> findByCombinedCriteria(
+            @Param("companyId") Integer companyId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             @Param("customerName") String customerName,
             @Param("customerLastName") String customerLastName
     );
+    // Busca una venta por su ID y el ID de la empresa.
+    Optional<Sale> findBySaleIdAndCompanyId(Integer saleId, Integer companyId);
 
 }

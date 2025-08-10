@@ -19,6 +19,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import com.nubixconta.security.TenantContext;
+import org.springframework.stereotype.Service;
+import com.nubixconta.modules.administration.entity.Company;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,6 +35,11 @@ public class InventoryService {
 
     private final InventoryMovementRepository movementRepository;
     private final ProductRepository productRepository;
+
+    private Integer getCompanyIdFromContext() {
+        return TenantContext.getCurrentTenant()
+                .orElseThrow(() -> new BusinessRuleException("No se ha seleccionado una empresa en el contexto."));
+    }
 
     /**
      * Procesa la afectación de inventario cuando una VENTA es APLICADA.
@@ -56,7 +64,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, sale, null);
+                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, sale, null,sale.getCompany());
             }
         }
     }
@@ -75,7 +83,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, sale, null);
+                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, sale, null,sale.getCompany());
             }
         }
     }
@@ -94,7 +102,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, null, creditNote);
+                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, null, creditNote,creditNote.getCompany());
             }
         }
     }
@@ -117,7 +125,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, null, creditNote);
+                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, null, creditNote,creditNote.getCompany());
             }
         }
     }
@@ -127,6 +135,7 @@ public class InventoryService {
      */
     @Transactional
     public MovementResponseDTO createManualMovement(ManualMovementCreateDTO dto) {
+        Integer companyId = getCompanyIdFromContext();
         Product product = productRepository.findById(dto.getProductId())
                 .orElseThrow(() -> new NotFoundException("Producto con ID " + dto.getProductId() + " no encontrado."));
 
@@ -137,17 +146,31 @@ public class InventoryService {
         movement.setDescription(dto.getDescription());
         movement.setStatus(MovementStatus.PENDIENTE);
         movement.setStockAfterMovement(product.getStockQuantity());
+        movement.setCompany(product.getCompany());
 
         InventoryMovement savedMovement = movementRepository.save(movement);
         return MovementResponseDTO.fromEntity(savedMovement);
     }
 
     /**
-     * Devuelve una lista completa de todos los movimientos de inventario.
+     * Devuelve una lista de todos los movimientos de inventario, con ordenamiento personalizable.
+     * @param sortBy Criterio de ordenamiento: "status" (default) o "date".
+     * @return Lista de MovementResponseDTO ordenados.
      */
     @Transactional(readOnly = true)
-    public List<MovementResponseDTO> findAllMovements() {
-        return movementRepository.findAll().stream()
+    public List<MovementResponseDTO> findAllMovements(String sortBy) { // Acepta el nuevo parámetro
+        Integer companyId = getCompanyIdFromContext();
+        List<InventoryMovement> movements;
+
+        // Lógica de selección de ordenamiento, idéntica a tu servicio de Ventas.
+        if ("status".equalsIgnoreCase(sortBy)) {
+            movements = movementRepository.findAllByCompanyIdOrderByStatusAndDateWithDetails(companyId);
+        } else {
+            // "date" o cualquier otro valor (o nulo) será el fallback seguro.
+            movements = movementRepository.findByCompanyIdOrderByDateDescWithDetails(companyId);
+        }
+
+        return movements.stream()
                 .map(MovementResponseDTO::fromEntity)
                 .collect(Collectors.toList());
     }
@@ -157,9 +180,13 @@ public class InventoryService {
      */
     @Transactional(readOnly = true)
     public List<MovementResponseDTO> findMovementsByDateRange(LocalDate startDate, LocalDate endDate) {
+        Integer companyId = getCompanyIdFromContext();
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
-        return movementRepository.findByDateBetween(startDateTime, endDateTime).stream()
+        // --- CAMBIO: Se llama al nuevo método con 'WithDetails' ---
+        List<InventoryMovement> movements = movementRepository.findByCompanyIdAndDateBetweenWithDetails(companyId, startDateTime, endDateTime);
+
+        return movements.stream()
                 .map(MovementResponseDTO::fromEntity)
                 .collect(Collectors.toList());
     }
@@ -295,8 +322,9 @@ public class InventoryService {
     /**
      * Método helper privado para crear y guardar el registro de movimiento.
      */
-    private void createMovementRecord(Product product, Integer quantity, MovementType type, Integer stockAfter, Sale sale, CreditNote creditNote) {
+    private void createMovementRecord(Product product, Integer quantity, MovementType type, Integer stockAfter, Sale sale, CreditNote creditNote, Company company) {
         InventoryMovement movement = new InventoryMovement();
+        movement.setCompany(company);
         movement.setProduct(product);
         movement.setQuantity(quantity);
         movement.setMovementType(type);

@@ -1,23 +1,31 @@
 package com.nubixconta.modules.sales.entity;
 
 
+import com.nubixconta.modules.administration.entity.Company;
 import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-
+import org.hibernate.annotations.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.HashSet;
+
+@Table(name="sale", uniqueConstraints = {
+        // El número de documento ahora debe ser único solo dentro de la misma empresa.
+        @UniqueConstraint(columnNames = {"company_id", "document_number"})
+})
 @Entity
-@Table(name="sale")
 @Getter
 @Setter
 @NoArgsConstructor
+@Filter(name = "tenantFilter", condition = "company_id = :companyId")
 public class Sale {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,10 +37,17 @@ public class Sale {
     @JoinColumn(name = "client_id", nullable = false)
     private Customer customer;
 
+    // --- ¡NUEVA RELACIÓN AÑADIDA! ---
+    // Enlaza esta Venta con la Empresa que la está realizando.
+    // Esto es CRUCIAL para que toda la lógica multi-tenant funcione.
+    @NotNull(message = "La empresa es obligatoria")
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     @NotBlank(message = "El número de documento es obligatorio")
     @Size(max = 20, message = "El número de documento puede tener máximo 20 caracteres")
-    @Column(name = "document_number", length = 20, nullable = false,unique = true)
+    @Column(name = "document_number", length = 20, nullable = false)
     private String documentNumber;
 
     @NotBlank(message = "El estado de la venta es obligatorio")

@@ -1,15 +1,19 @@
 package com.nubixconta.modules.inventory.service;
 
+import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
 import com.nubixconta.modules.inventory.dto.product.*;
 import com.nubixconta.modules.inventory.entity.Product;
+import com.nubixconta.modules.administration.entity.Company;
+import com.nubixconta.modules.administration.repository.CompanyRepository;
+import com.nubixconta.security.TenantContext;
 import com.nubixconta.modules.inventory.repository.ProductRepository;
 import org.modelmapper.ModelMapper;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.stereotype.Service;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,21 +22,30 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ModelMapper modelMapper;
+    private final CompanyRepository companyRepository;
+
+    private Integer getCompanyIdFromContext() {
+        return TenantContext.getCurrentTenant()
+                .orElseThrow(() -> new BusinessRuleException("No se ha seleccionado una empresa en el contexto."));
+    }
 
     public List<ProductResponseDTO> findAll() {
-        return productRepository.findAll().stream()
+        Integer companyId = getCompanyIdFromContext();
+        return productRepository.findByCompany_IdOrderByProductNameAsc(companyId).stream()
                 .map(p -> modelMapper.map(p, ProductResponseDTO.class))
                 .collect(Collectors.toList());
     }
 
     public List<ProductResponseDTO> findActive() {
-        return productRepository.findByProductStatusTrue().stream()
+        Integer companyId = getCompanyIdFromContext();
+        return productRepository.findByCompany_IdAndProductStatusTrueOrderByProductNameAsc(companyId).stream()
                 .map(p -> modelMapper.map(p, ProductResponseDTO.class))
                 .collect(Collectors.toList());
     }
 
     public List<ProductResponseDTO> findInactive() {
-        return productRepository.findByProductStatusFalse().stream()
+        Integer companyId = getCompanyIdFromContext();
+        return productRepository.findByCompany_IdAndProductStatusFalseOrderByProductNameAsc(companyId).stream()
                 .map(p -> modelMapper.map(p, ProductResponseDTO.class))
                 .collect(Collectors.toList());
     }
@@ -44,16 +57,24 @@ public class ProductService {
     }
 
     public ProductResponseDTO findByProductCode(String code) {
-        Product product = productRepository.findByProductCode(code)
+        Integer companyId = getCompanyIdFromContext();
+        Product product = productRepository.findByCompany_IdAndProductCode(companyId, code)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado con código: " + code));
         return modelMapper.map(product, ProductResponseDTO.class);
     }
 
-    public List<ProductResponseDTO> searchActive(Integer id, String code, String name) {
+    public List<ProductResponseDTO> searchActive( String code, String name) {
+        Integer companyId = getCompanyIdFromContext();
+        String effectiveCode = (code != null && !code.isBlank()) ? code : null;
+        String effectiveName = (name != null && !name.isBlank()) ? name : null;
+        // Si vamos a buscar por nombre, añadimos los wildcards '%' aquí, en Java.
+        if (effectiveName != null) {
+            effectiveName = "%" + effectiveName + "%";
+        }
         List<Product> result = productRepository.searchActive(
-                id,
-                (code != null && !code.isBlank()) ? code : null,
-                (name != null && !name.isBlank()) ? name : null
+                companyId,
+                effectiveCode,
+                effectiveName
         );
         return result.stream()
                 .map(p -> modelMapper.map(p, ProductResponseDTO.class))
@@ -61,17 +82,38 @@ public class ProductService {
     }
     @Transactional
     public ProductResponseDTO create(ProductCreateDTO dto) {
+        Integer companyId = getCompanyIdFromContext();
+
+        // Validación de unicidad DENTRO de la empresa
+        if(productRepository.existsByCompany_IdAndProductCode(companyId, dto.getProductCode())) {
+            throw new BusinessRuleException("El código de producto '" + dto.getProductCode() + "' ya existe para esta empresa.");
+        }
+
         Product product = modelMapper.map(dto, Product.class);
         product.setIdProduct(null);
         product.setProductStatus(true); // por defecto activo
+
+        // Asignar la empresa del contexto al nuevo producto
+        Company companyRef = companyRepository.getReferenceById(companyId);
+        product.setCompany(companyRef);
+
         Product saved = productRepository.save(product);
         return modelMapper.map(saved, ProductResponseDTO.class);
     }
     @Transactional
     public ProductResponseDTO update(Integer id, ProductUpdateDTO dto) {
+        // findById ya está protegido por el filtro de Hibernate
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + id));
-        modelMapper.map(dto, product); // Solo sobrescribe campos no nulos
+
+        // Validación de unicidad al actualizar DENTRO de la empresa
+        if (dto.getProductCode() != null && !dto.getProductCode().equals(product.getProductCode())) {
+            if(productRepository.existsByCompany_IdAndProductCodeAndIdProductNot(product.getCompany().getId(), dto.getProductCode(), id)) {
+                throw new BusinessRuleException("El código de producto '" + dto.getProductCode() + "' ya existe para esta empresa.");
+            }
+        }
+
+        modelMapper.map(dto, product);
         Product updated = productRepository.save(product);
         return modelMapper.map(updated, ProductResponseDTO.class);
     }

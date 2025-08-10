@@ -5,24 +5,42 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ProductRepository extends JpaRepository<Product, Integer>{
-    Optional<Product> findByProductCode(String productCode);
+    // =========================================================================================
+    // == INICIO DE CÓDIGO MODIFICADO: Métodos "Tenant-Aware"
+    // =========================================================================================
+    // Busca un producto por su código DENTRO de una empresa específica.
+    Optional<Product> findByCompany_IdAndProductCode(Integer companyId, String productCode);
 
-    List<Product> findByProductStatusTrue();
-    List<Product> findByProductStatusFalse();
+    // CORREGIDO: Usando 'ProductName' para el ordenamiento.
+    List<Product> findByCompany_IdOrderByProductNameAsc(Integer companyId);
+    // Busca productos activos DENTRO de una empresa específica.
+    List<Product> findByCompany_IdAndProductStatusTrueOrderByProductNameAsc(Integer companyId);
 
-    // Búsqueda solo en productos activos
-    @Query("SELECT p FROM Product p WHERE p.productStatus = true "
-            + "AND (:id IS NULL OR p.idProduct = :id) "
-            + "AND (:code IS NULL OR LOWER(p.productCode) LIKE LOWER(CONCAT('%', :code, '%'))) "
-            + "AND (:name IS NULL OR LOWER(p.productName) LIKE LOWER(CONCAT('%', :name, '%')))")
+    // CORREGIDO: Usando 'ProductStatusFalse' y 'ProductName' para el ordenamiento.
+    List<Product> findByCompany_IdAndProductStatusFalseOrderByProductNameAsc(Integer companyId);
+
+    // Comprueba si un código de producto existe DENTRO de una empresa específica.
+    boolean existsByCompany_IdAndProductCode(Integer companyId, String productCode);
+
+    // Comprueba si un código de producto existe DENTRO de una empresa, excluyendo un ID de producto.
+    boolean existsByCompany_IdAndProductCodeAndIdProductNot(Integer companyId, String productCode, Integer idProduct);
+
+    // La búsqueda compleja ahora también requiere el companyId para el aislamiento.
+    @Query(value = "SELECT * FROM product p " +
+            "WHERE p.company_id = :companyId AND p.product_status = true " +
+            "AND (:code IS NULL OR :code = '' OR p.product_code ILIKE :code) " +
+            "AND (CAST(:name AS TEXT) IS NULL OR :name = '' OR p.product_name ILIKE :name)",
+            nativeQuery = true)
     List<Product> searchActive(
-            @Param("id") Integer id,
+            @Param("companyId") Integer companyId,
             @Param("code") String code,
             @Param("name") String name
     );
+    // =========================================================================================
+    // == FIN DE CÓDIGO MODIFICADO
+    // =========================================================================================
 }

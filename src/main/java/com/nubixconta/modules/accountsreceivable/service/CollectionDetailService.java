@@ -1,14 +1,18 @@
 package com.nubixconta.modules.accountsreceivable.service;
 
+import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailCreateDTO;
 import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailUpdateDTO;
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import com.nubixconta.modules.accountsreceivable.repository.AccountsReceivableRepository;
 import com.nubixconta.modules.accountsreceivable.repository.CollectionDetailRepository;
+import com.nubixconta.modules.administration.entity.Company;
+import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.administration.service.ChangeHistoryService;
 import com.nubixconta.modules.sales.entity.Sale;
 import com.nubixconta.modules.sales.repository.SaleRepository;
+import com.nubixconta.security.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,21 +25,34 @@ import java.util.Optional;
 
 @Service
 public class CollectionDetailService {
+
     private final CollectionDetailRepository repository;
     private final SaleRepository saleRepository;
     private ChangeHistoryService changeHistoryService;
+    private final CompanyRepository companyRepository;
+
     @Autowired
     private AccountsReceivableRepository accountsReceivableRepository;
     public CollectionDetailService(CollectionDetailRepository repository,
                                    SaleRepository saleRepository,
-                                   ChangeHistoryService changeHistoryService) {
+                                   ChangeHistoryService changeHistoryService,
+                                   CompanyRepository companyRepository) {
         this.repository = repository;
         this.saleRepository = saleRepository;
         this.changeHistoryService = changeHistoryService;
+        this.companyRepository = companyRepository;
     }
 
+    // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
+    private Integer getCompanyIdFromContext() {
+        return TenantContext.getCurrentTenant()
+                .orElseThrow(() -> new BusinessRuleException("No se ha seleccionado una empresa en el contexto."));
+    }
+
+    //Metoo para traer todos los cobros filtrados por empresa
     public List<CollectionDetail> findAll() {
-        return repository.findAll();
+        Integer companyId = getCompanyIdFromContext();
+        return repository.findByCompanyId(companyId);
     }
 
     public Optional<CollectionDetail> findById(Integer id) {
@@ -43,7 +60,9 @@ public class CollectionDetailService {
     }
     //Metodo para filtrar por fechas
     public List<CollectionDetail> findByDateRange(LocalDateTime start, LocalDateTime end) {
-        return repository.findByDateRange(start, end);
+        Integer companyId = getCompanyIdFromContext();
+        // Llamar al nuevo método del repositorio.
+        return repository.findByCompanyIdAndCollectionDetailDateBetween(companyId, start, end);
     }
 
     public CollectionDetail save(CollectionDetail detail) {
@@ -116,22 +135,27 @@ public class CollectionDetailService {
     @Transactional
     public CollectionDetail registerPayment(CollectionDetailCreateDTO dto) {
         Integer saleId = dto.getSaleId();
+        Integer companyId = getCompanyIdFromContext();
+
+        Sale sale = saleRepository.findBySaleIdAndCompanyId(saleId, companyId)
+                .orElseThrow(() -> new EntityNotFoundException("Venta no encontrada o no pertenece a la empresa actual."));
 
         // Buscar o crear automáticamente la cuenta por cobrar
-        var ar = accountsReceivableRepository.findBySaleId(saleId)
+        var ar = accountsReceivableRepository.findBySaleIdAndCompanyId(saleId, companyId)
                 .orElseGet(() -> {
-                    Sale sale = saleRepository.findById(saleId)
-                            .orElseThrow(() -> new EntityNotFoundException("Venta no encontrada"));
+                    // Si no existe, crear una nueva instancia.
                     AccountsReceivable nuevo = new AccountsReceivable();
                     nuevo.setSaleId(saleId);
                     nuevo.setSale(sale);
                     nuevo.setBalance(BigDecimal.ZERO);
                     nuevo.setModuleType("Cuentas por cobrar");
+                    nuevo.setCompany(sale.getCompany());
                     return accountsReceivableRepository.save(nuevo);
                 });
 
         if (ar.getSale() == null) {
-            ar = accountsReceivableRepository.findById(ar.getId()).orElseThrow();
+            ar = accountsReceivableRepository.findByIdAndCompanyId(ar.getId(), companyId)
+                    .orElseThrow(() -> new EntityNotFoundException("AccountsReceivable no encontrado."));
         }
 
         BigDecimal montoTotalVenta = ar.getSale().getTotalAmount();
@@ -146,9 +170,13 @@ public class CollectionDetailService {
         ar.setBalance(saldoActual.add(abonoNuevo));
         accountsReceivableRepository.save(ar);
 
+        //Obtener la referencia a la empresa.
+        Company companyRef = companyRepository.getReferenceById(companyId);
+
         // Crear CollectionDetail desde DTO
         CollectionDetail detail = new CollectionDetail();
         detail.setAccountReceivable(ar);
+        detail.setCompany(companyRef);
         detail.setAccountId(dto.getAccountId());
         detail.setReference(dto.getReference());
         detail.setPaymentMethod(dto.getPaymentMethod());
@@ -161,11 +189,11 @@ public class CollectionDetailService {
         CollectionDetail saved = repository.save(detail);
         recalcularBalancePorReceivableId(ar.getId());
 
-        // Bitácora
+        // Bitácora de cambios
         changeHistoryService.logChange(
                 "Cuentas por cobrar",
-                "Se realizo un cobro para el numero de documento " + ar.getSale().getDocumentNumber(),
-                null
+                "Se realizo un cobro para el numero de documento " + ar.getSale().getDocumentNumber()
+                + "A la empresa " + companyRef.getCompanyName()
         );
 
 
@@ -179,7 +207,8 @@ public class CollectionDetailService {
                 .orElseThrow(() -> new RuntimeException("AccountsReceivable no encontrado"));
 
         // Obtener solo los abonos que NO estén anulados
-        List<CollectionDetail> abonos = repository.findByAccountReceivableId(receivableId).stream()
+        Integer companyId = getCompanyIdFromContext();
+        List<CollectionDetail> abonos = repository.findByAccountReceivableIdAndCompanyId(receivableId,companyId).stream()
                 .filter(detalle -> !"ANULADO".equalsIgnoreCase(detalle.getPaymentStatus()))
                 .toList();
 

@@ -1,24 +1,32 @@
 package com.nubixconta.modules.sales.entity;
 
+import com.nubixconta.modules.administration.entity.Company;
 import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-
+import org.hibernate.annotations.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
+
+@Table(name = "credit_note", uniqueConstraints = {
+        // El número de documento ahora debe ser único solo dentro de la misma empresa.
+        @UniqueConstraint(columnNames = {"company_id", "document_number"})
+})
 @Entity
-@Table(name = "credit_note")
 // REEMPLAZAMOS @Data por anotaciones específicas y seguras
 @Getter
 @Setter
 @NoArgsConstructor
+@Filter(name = "tenantFilter", condition = "company_id = :companyId")
 public class CreditNote {
 
     @Id
@@ -28,7 +36,7 @@ public class CreditNote {
 
     @NotBlank(message = "El número de documento es obligatorio")
     @Size(max = 20, message = "El número de documento puede tener máximo 20 caracteres")
-    @Column(name = "document_number", length = 20, nullable = false, unique = true) // Sugerencia: añadir unique=true
+    @Column(name = "document_number", length = 20, nullable = false) // Sugerencia: añadir unique=true
     private String documentNumber;
 
     @NotBlank(message = "La descripcion es obligatorio")
@@ -59,6 +67,14 @@ public class CreditNote {
     // El JoinColumn ya no necesita 'unique = true'.
     @JoinColumn(name = "sale_id", nullable = false)
     private Sale sale;
+
+    // --- ¡NUEVA RELACIÓN AÑADIDA! ---
+    // Enlaza esta Nota de Crédito con la Empresa.
+    // Al igual que en Venta, esto es el punto de partida para el aislamiento de datos.
+    @NotNull(message = "La empresa es obligatoria")
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
 
     // --- ¡AÑADIR ESTOS TRES CAMPOS NUEVOS! ---

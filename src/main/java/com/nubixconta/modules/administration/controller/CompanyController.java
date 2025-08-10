@@ -51,6 +51,7 @@ public class CompanyController {
         }
     }
 
+
     //Controlador para listar todas las empresas activas
     @GetMapping("/active") // Empresas con companyStatus = true
     public ResponseEntity<List<CompanyResponseDTO>> getAssignedCompanies() {
@@ -63,6 +64,13 @@ public class CompanyController {
         List<CompanyResponseDTO> companies = companyService.getCompaniesByStatus(false);
         return ResponseEntity.ok(companies);
     }
+
+    //Controlador para listar todas las empresas activas y asignadas
+    @GetMapping("/active-assigned") // Empresas con companyStatus = true
+    public ResponseEntity<List<CompanyResponseDTO>> getCompaniesActiveAndAssigned() {
+        List<CompanyResponseDTO> companies = companyService.getCompaniesByActiveAndAssigned(true,true);
+        return ResponseEntity.ok(companies);
+    }
     //Metodo para filtrar por nombre del usuario de la empresa y por el estatus de la empresa
     @GetMapping("/search")
     public ResponseEntity<List<Company>> searchCompanies(
@@ -70,9 +78,6 @@ public class CompanyController {
             @RequestParam(required = false) String userName,
             @RequestParam(required = false) Boolean status
     ) {
-        System.out.println("companyName = " + companyName);
-        System.out.println("userName = " + userName);
-        System.out.println("status = " + status);
 
         List<Company> results = companyService.searchCompanies(companyName, userName, status);
         return ResponseEntity.ok(results);
@@ -90,6 +95,12 @@ public class CompanyController {
     public ResponseEntity<List<Company>> getMyCompanies(Authentication authentication) {
         String userName = authentication.getName();
         List<Company> companies = companyService.getCompaniesByUserName(userName);
+        return ResponseEntity.ok(companies);
+    }
+    //Metodo para filtrar empresas por id del usuario
+    @GetMapping("/byUser/{userId}")
+    public ResponseEntity<List<Company>> getCompaniesByUserId(@PathVariable Integer userId) {
+        List<Company> companies = companyService.getCompaniesByUserId(userId);
         return ResponseEntity.ok(companies);
     }
 }

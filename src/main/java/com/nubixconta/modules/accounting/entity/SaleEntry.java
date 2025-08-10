@@ -26,9 +26,13 @@ public class SaleEntry {
     @JoinColumn(name = "sale_id", nullable = false)
     private Sale sale;
 
+
+    // El asiento contable ahora apunta a la 'activación' específica (Catalog)
+    // en lugar de a la cuenta maestra (Account). Esto asegura la integridad.
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
+    @JoinColumn(name = "id_catalog", nullable = false)
+    private Catalog catalog;
+
 
     @Column(name = "debe", precision = 12, scale = 2, nullable = false)
     private BigDecimal debe = BigDecimal.ZERO;

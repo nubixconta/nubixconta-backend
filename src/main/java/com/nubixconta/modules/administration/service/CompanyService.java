@@ -78,7 +78,8 @@ public class CompanyService {
     company.setCreationDate(dto.getCreationDate());
     company.setTurnCompany(dto.getTurnCompany());
     company.setAddress(dto.getAddress());
-    company.setAccountId(dto.getAccountId());
+    company.setImageUrl(dto.getImageUrl());
+
 /*
         // Nueva validación: no se puede asignar empresa (companyStatus=true) sin usuario
         if (dto.getUserId() == null && Boolean.TRUE.equals(dto.getCompanyStatus())) {
@@ -99,8 +100,7 @@ public class CompanyService {
     // Bitácora
         changeHistoryService.logChange(
                 "Administración",
-                "Se creó la empresa " + saved.getCompanyName(),
-                null
+                "Se creó la empresa " + saved.getCompanyName()
         );
 
     return saved;
@@ -116,6 +116,13 @@ public class CompanyService {
     //Metodo para listar todas las empresas activas
     public List<CompanyResponseDTO> getCompaniesByStatus(boolean status) {
         List<Company> companies = companyRepository.findByactiveStatus(status);
+        return companies.stream()
+                .map(company -> modelMapper.map(company, CompanyResponseDTO.class))
+                .toList();
+    }
+    //Metodo para listar todas las empresas activas  y asignadas
+    public List<CompanyResponseDTO> getCompaniesByActiveAndAssigned(boolean activeStatus, Boolean companyStatus) {
+        List<Company> companies = companyRepository.findByActiveStatusAndCompanyStatus(activeStatus,companyStatus);
         return companies.stream()
                 .map(company -> modelMapper.map(company, CompanyResponseDTO.class))
                 .toList();
@@ -143,21 +150,7 @@ public class CompanyService {
             return cb.and(predicates.toArray(new Predicate[0]));
         });
     }
-    //Metodo para actualizar la empresa
-    public Company updateCompany(Integer id, Company updatedCompany) {
-        return companyRepository.findById(id).map(existing -> {
-            existing.setCompanyName(updatedCompany.getCompanyName());
-            existing.setCompanyDui(updatedCompany.getCompanyDui());
-            existing.setCompanyNit(updatedCompany.getCompanyNit());
-            existing.setCompanyNrc(updatedCompany.getCompanyNrc());
-            existing.setAccountId(updatedCompany.getAccountId());
-            existing.setCompanyStatus(updatedCompany.getCompanyStatus());
-            existing.setCreationDate(updatedCompany.getCreationDate());
-            existing.setUser(updatedCompany.getUser());
 
-            return companyRepository.save(existing);
-        }).orElseThrow(() -> new RuntimeException("Empresa no encontrada con id: " + id));
-    }
 
     public Company patchCompany(Integer id, CompanyUpdateDTO dto) {
         Company company = companyRepository.findById(id)
@@ -257,10 +250,14 @@ public class CompanyService {
             company.setActiveStatus(dto.getActiveStatus());
         }
 
-        // Este campo no genera historial (como pediste)
-        if (dto.getAccountId() != null) {
-            company.setAccountId(dto.getAccountId());
+
+
+        if (dto.getImageUrl() != null && !dto.getImageUrl().equals(company.getImageUrl())) {
+            cambios.append("La imagen de la empresa cambio ");
+            company.setImageUrl(dto.getImageUrl());
         }
+
+
 
         if (dto.getUserId() != null &&
                 (company.getUser() == null || !dto.getUserId().equals(company.getUser().getId()))) {
@@ -289,8 +286,7 @@ public class CompanyService {
         if (!cambios.isEmpty()) {
             changeHistoryService.logChange(
                     "Administración",
-                    cambios.toString(),
-                    null
+                    cambios.toString()
             );
         }
 
@@ -302,8 +298,38 @@ public class CompanyService {
         return companyRepository.findByUser_UserName(userName);
     }
 
+
+    public List<Company> getCompaniesByUserId(Integer userId) {
+        // Llama al método del repositorio para filtrar por el ID del usuario
+        return companyRepository.findByUser_Id(userId);
+    }
+
     public Company getCompanyById(Integer id) {
         return companyRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Empresa no encontrado con ID: " + id));
+    }
+
+    /**
+     * Verifica si un usuario tiene permiso para acceder a una empresa específica.
+     * Esta lógica es crucial para el nuevo endpoint /select-company.
+     * Contiene la regla especial: si el usuario es administrador (role=true), siempre tiene permiso.
+     *
+     * @param userId El ID del usuario que intenta acceder.
+     * @param companyId El ID de la empresa a la que se intenta acceder.
+     * @return true si el usuario tiene permiso, false en caso contrario.
+     */
+    public boolean isUserAssignedToCompany(Integer userId, Integer companyId) {
+        // Obtenemos el usuario de la base de datos para verificar su rol.
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario con ID " + userId + " no encontrado durante la verificación de permisos."));
+
+        // REGLA CLAVE: Si el usuario tiene el rol de administrador, se le concede acceso automáticamente.
+        if (user.getRole()) {
+            return true;
+        }
+
+        // Si no es un administrador, aplicamos la regla estándar:
+        // verificamos si existe una asignación directa en la base de datos.
+        return companyRepository.existsByIdAndUser_Id(companyId, userId);
     }
 }

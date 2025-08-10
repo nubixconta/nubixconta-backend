@@ -1,6 +1,7 @@
 package com.nubixconta.modules.sales.service;
 
-import com.nubixconta.modules.accounting.service.AccountingService;
+import com.nubixconta.modules.accounting.service.SalesAccountingService;
+import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.sales.dto.customer.CustomerResponseDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
@@ -11,6 +12,8 @@ import com.nubixconta.modules.sales.repository.SaleRepository;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.nubixconta.modules.administration.entity.Company;
+import com.nubixconta.security.TenantContext;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
@@ -40,8 +43,16 @@ public class SaleService {
     private final ProductService productService;
     private final ModelMapper modelMapper;
     private final InventoryService inventoryService;
-    private final AccountingService accountingService;
+    private final SalesAccountingService salesAccountingService;
     private final CustomerRepository customerRepository;
+    private final CompanyRepository companyRepository;
+
+    // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
+    private Integer getCompanyIdFromContext() {
+        return TenantContext.getCurrentTenant()
+                .orElseThrow(() -> new BusinessRuleException("No se ha seleccionado una empresa en el contexto."));
+    }
+
 
     /**
      * Retorna todas las ventas existentes, aplicando un ordenamiento específico.
@@ -50,19 +61,20 @@ public class SaleService {
      * @return Lista de SaleResponseDTO ordenadas.
      */
     public List<SaleResponseDTO> findAll(String sortBy) { // Ahora acepta un parámetro
+        Integer companyId = getCompanyIdFromContext();
         List<Sale> sales;
 
         // "status" es el modo por defecto que agrupa.
         if ("status".equalsIgnoreCase(sortBy)) {
-            sales = saleRepository.findAllOrderByStatusAndIssueDate();
+            sales =saleRepository.findAllByCompanyIdOrderByStatusAndIssueDate(companyId);
         }
         // "date" es el modo anterior que ordena solo por fecha.
         else if ("date".equalsIgnoreCase(sortBy)) {
-            sales = saleRepository.findAllByOrderByIssueDateDesc();
+            sales = saleRepository.findByCompany_IdOrderByIssueDateDesc(companyId);
         }
         // Por si envían otro valor, mantenemos el orden por fecha como un fallback seguro.
         else {
-            sales = saleRepository.findAllByOrderByIssueDateDesc();
+            sales = saleRepository.findByCompany_IdOrderByIssueDateDesc(companyId);
         }
 
         return sales.stream()
@@ -88,8 +100,10 @@ public class SaleService {
      */
     // Nombre del método cambiado de findAppliedSalesByClientId a uno más descriptivo.
     public List<SaleResponseDTO> findSalesAvailableForCreditNote(Integer clientId) {
+        Integer companyId = getCompanyIdFromContext();
+        customerService.findById(clientId);
         // Llamamos al nuevo método del repositorio que contiene toda la lógica.
-        List<Sale> availableSales = saleRepository.findSalesAvailableForCreditNote(clientId);
+        List<Sale> availableSales = saleRepository.findSalesAvailableForCreditNote(companyId, clientId);
 
         // El mapeo a DTO sigue siendo el mismo.
         return availableSales.stream()
@@ -98,11 +112,8 @@ public class SaleService {
     }
 
     public List<SaleResponseDTO> findByStatus(String status) {
-        // Para evitar problemas con mayúsculas/minúsculas, convertimos la entrada a mayúsculas.
-        // Esto asume que los estados en tu base de datos están en mayúsculas.
-        List<Sale> sales = saleRepository.findBySaleStatus(status.toUpperCase());
-
-        // Reutilizamos el mismo patrón de mapeo que ya usas en otros métodos.
+        Integer companyId = getCompanyIdFromContext();
+        List<Sale> sales = saleRepository.findByCompany_IdAndSaleStatus(companyId, status.toUpperCase());
         return sales.stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
                 .collect(Collectors.toList());
@@ -119,13 +130,12 @@ public class SaleService {
     public List<SaleResponseDTO> findByCombinedCriteria(
             LocalDate startDate, LocalDate endDate, String customerName, String customerLastName
     ) {
+        Integer companyId = getCompanyIdFromContext();
         // Convierte LocalDate a LocalDateTime para la consulta, manejando los límites del día.
         LocalDateTime startDateTime = (startDate != null) ? startDate.atStartOfDay() : null;
         LocalDateTime endDateTime = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
 
-        List<Sale> sales = saleRepository.findByCombinedCriteria(
-                startDateTime, endDateTime, customerName, customerLastName
-        );
+        List<Sale> sales = saleRepository.findByCombinedCriteria(companyId, startDateTime, endDateTime, customerName, customerLastName);
 
         return sales.stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
@@ -137,8 +147,9 @@ public class SaleService {
      */
     @Transactional
     public SaleResponseDTO createSale(SaleCreateDTO dto) {
+        Integer companyId = getCompanyIdFromContext();
         // Validación de unicidad de número de documento
-        if (saleRepository.existsByDocumentNumber(dto.getDocumentNumber())) {
+        if (saleRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe una venta con el número de documento: " + dto.getDocumentNumber());
         }
         // --- VALIDACIÓN DE DUPLICADOS EN DTO (Buena práctica, la mantenemos) ---
@@ -190,16 +201,35 @@ public class SaleService {
             throw new BusinessRuleException("Inconsistencia en los totales: Subtotal + IVA no es igual al Total.");
         }
 
-        // --- FIN DE LA NUEVA VALIDACIÓN ---
+        // --- INICIO DE LA NUEVA UBICACIÓN PARA LA VALIDACIÓN DE CRÉDITO ---
+
+        // 1. Obtenemos la entidad completa del cliente ANTES de construir la venta.
+        Customer customer = customerService.findEntityById(dto.getClientId());
+
+        // 2. Calculamos cuál sería el nuevo saldo si esta venta se aplicara.
+        BigDecimal potentialNewBalance = customer.getCurrentBalance().add(dto.getTotalAmount());
+
+        // 3. Comprobamos si el nuevo saldo excede el límite de crédito.
+        if (potentialNewBalance.compareTo(customer.getCreditLimit()) > 0) {
+            throw new BusinessRuleException(
+                    "Límite de crédito excedido para el cliente. " +
+                            "Límite: " + customer.getCreditLimit() + ", " +
+                            "Saldo Actual: " + customer.getCurrentBalance() + ", " +
+                            "Total de esta Venta: " + dto.getTotalAmount()
+            );
+        }
+        // --- FIN DE LA NUEVA UBICACIÓN PARA LA VALIDACIÓN DE CRÉDITO ---
 
         // --- CONSTRUCCIÓN MANUAL ---
 
-        // 1. Buscar entidades dependientes
-        Customer customer = customerService.findEntityById(dto.getClientId());
+
+        //Obtener la referencia a la empresa.
+        Company companyRef = companyRepository.getReferenceById(companyId);
 
         // 2. Crear la entidad Venta y poblarla MANUALMENTE desde el DTO
         Sale newSale = new Sale();
         newSale.setCustomer(customer);
+        newSale.setCompany(companyRef);
         newSale.setDocumentNumber(dto.getDocumentNumber());
         newSale.setSaleStatus("PENDIENTE");
         newSale.setIssueDate(dto.getIssueDate());
@@ -255,9 +285,11 @@ public class SaleService {
      * Retorna una lista de ventas emitidas dentro del rango de fechas proporcionado.
      */
     public List<SaleResponseDTO> findByIssueDateBetween(LocalDate start, LocalDate end) {
+        // 1. Obtener el contexto de la empresa.
+        Integer companyId = getCompanyIdFromContext();
         LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
-        return saleRepository.findByIssueDateBetweenOrderByIssueDateDesc(startDateTime, endDateTime)
+        return saleRepository.findByCompany_IdAndIssueDateBetweenOrderByIssueDateDesc(companyId, startDateTime, endDateTime)
                 .stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
                 .collect(Collectors.toList());
@@ -280,23 +312,26 @@ public class SaleService {
     //metodo para actualizar una venta con sus detalles, se rige con los campos del dtoUpdate
     @Transactional
     public SaleResponseDTO updateSalePartial(Integer id, SaleUpdateDTO dto) {
-        // 1. Buscar la venta que vamos a actualizar
+        // 1. Obtener el contexto de la empresa.
+        Integer companyId = getCompanyIdFromContext();
+
+        // 2. Buscar la venta que vamos a actualizar
         Sale sale = saleRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Venta con ID " + id + " no encontrada"));
 
-        // 2. Validar unicidad del número de documento (esta parte está perfecta)
+        // 3. Validar unicidad del número de documento (esta parte está perfecta)
         if (dto.getDocumentNumber() != null &&
                 !dto.getDocumentNumber().equals(sale.getDocumentNumber()) &&
-                saleRepository.existsByDocumentNumber(dto.getDocumentNumber())) {
+                saleRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe otra venta con el número de documento: " + dto.getDocumentNumber());
         }
-        //3. REGLA DE NEGOCIO: Solo se pueden editar ventas PENDIENTES.
+        //4. REGLA DE NEGOCIO: Solo se pueden editar ventas PENDIENTES.
         if (!"PENDIENTE".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException("Solo se pueden editar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
         }
         // --- INICIO DE LA VALIDACIÓN FINANCIERA COMPLETA ---
 
-        // 4. Si se envían detalles, se deben enviar también los totales y se validará todo.
+        // 5. Si se envían detalles, se deben enviar también los totales y se validará todo.
         if (dto.getSaleDetails() != null) {
             if (dto.getSubtotalAmount() == null || dto.getVatAmount() == null || dto.getTotalAmount() == null) {
                 throw new BusinessRuleException("Si se modifican los detalles, se deben enviar los nuevos valores de subtotalAmount, vatAmount y totalAmount.");
@@ -399,14 +434,34 @@ public class SaleService {
         if (!"PENDIENTE".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException("La venta solo puede ser aplicada si su estado es PENDIENTE. Estado actual: " + sale.getSaleStatus());
         }
+        // --- INICIO: NUEVA VALIDACIÓN DE PRODUCTOS ACTIVOS ---
+        // 3. Antes de cualquier otra cosa, validamos el estado de los productos en el detalle.
+        List<String> inactiveProductNames = sale.getSaleDetails().stream()
+                // Filtramos solo los detalles que son productos
+                .filter(detail -> detail.getProduct() != null)
+                // Nos quedamos solo con los productos cuyo estado es 'false' (inactivo)
+                .filter(detail -> !detail.getProduct().getProductStatus())
+                // Mapeamos a los nombres de los productos para el mensaje de error
+                .map(detail -> detail.getProduct().getProductName())
+                // Recolectamos los nombres en una lista
+                .collect(Collectors.toList());
 
+        // 4. Si la lista de productos inactivos no está vacía, lanzamos un error.
+        if (!inactiveProductNames.isEmpty()) {
+            String errorDetails = String.join(", ", inactiveProductNames);
+            throw new BusinessRuleException(
+                    "No se puede aplicar la venta. Los siguientes productos están desactivados o eliminados: " + errorDetails +
+                            ". Por favor, edite la venta para eliminar estos productos antes de aplicarla."
+            );
+        }
+        // --- FIN: NUEVA VALIDACIÓN DE PRODUCTOS ACTIVOS ---
 
         // --- INICIO DE LA NUEVA LÓGICA DE VALIDACIÓN DE CRÉDITO ---
 
         Customer customer = sale.getCustomer();
         BigDecimal potentialNewBalance = customer.getCurrentBalance().add(sale.getTotalAmount());
 
-        // 3. Comprobar si el nuevo saldo excede el límite de crédito
+        // 5. Comprobar si el nuevo saldo excede el límite de crédito
         if (potentialNewBalance.compareTo(customer.getCreditLimit()) > 0) {
             throw new BusinessRuleException(
                     "Límite de crédito excedido para el cliente. " +
@@ -421,17 +476,17 @@ public class SaleService {
         //    Esta será ahora la fecha oficial de la venta.
         sale.setIssueDate(LocalDateTime.now());
         
-        // 4. Delegar la lógica de inventario al InventoryService
+        // 6. Delegar la lógica de inventario al InventoryService
         inventoryService.processSaleApplication(sale);
 
-        // 5. Generar asiento contable
-        accountingService.createEntriesForSaleApplication(sale);
+        // 7. Generar asiento contable
+        salesAccountingService.createEntriesForSaleApplication(sale);
 
-        // 6. Actualizar el estado de la venta
+        // 8. Actualizar el estado de la venta
         sale.setSaleStatus("APLICADA");
         customer.setCurrentBalance(potentialNewBalance); // <-- Actualizamos el saldo en la entidad
 
-        // 7. Persistir todos los cambios (Venta y Cliente)
+        // 9. Persistir todos los cambios (Venta y Cliente)
         customerRepository.save(customer); // <-- Guardamos el cliente con su nuevo saldo
         Sale appliedSale = saleRepository.save(sale);
 
@@ -452,7 +507,7 @@ public class SaleService {
         inventoryService.processSaleCancellation(sale);
 
         // 4. Revertir la partida contable
-        accountingService.deleteEntriesForSaleCancellation(sale);
+        salesAccountingService.deleteEntriesForSaleCancellation(sale);
 
         // --- NUEVA LÓGICA DE REVERSIÓN DE SALDO ---
         Customer customer = sale.getCustomer();
@@ -491,6 +546,10 @@ public class SaleService {
         // Si es producto, buscar y asociar la entidad real (no un DTO)
         if (hasProduct) {
             Product product = productService.findEntityById(dto.getProductId());
+            // VALIDACIÓN ADICIONAL DE CONSISTENCIA: Asegurar que el producto pertenece a la misma empresa que la venta
+            if (!product.getCompany().getId().equals(sale.getCompany().getId())) {
+                throw new BusinessRuleException("Error de consistencia interna: El producto '" + product.getProductName() + "' no pertenece a la empresa de la venta.");
+            }
             detail.setProduct(product);
         }
 
@@ -499,6 +558,8 @@ public class SaleService {
     public List<SaleResponseDTO> findByCustomerSearch(
             String name, String lastName, String dui, String nit
     ) {
+        // 1. Obtener el contexto de la empresa. Esto se usará en ambas búsquedas.
+        Integer companyId = getCompanyIdFromContext();
         List<CustomerResponseDTO> customers = customerService.searchActive(name, lastName, dui, nit);
         if (customers.isEmpty()) {
             return List.of();
@@ -506,7 +567,7 @@ public class SaleService {
         List<Integer> customerIds = customers.stream()
                 .map(CustomerResponseDTO::getClientId) // <-- Cambiado aquí
                 .toList();
-        return saleRepository.findByCustomerIds(customerIds).stream()
+        return saleRepository.findByCompanyIdAndCustomerIds(companyId,customerIds).stream()
                 .map(sale -> modelMapper.map(sale, SaleResponseDTO.class))
                 .collect(Collectors.toList());
     }
