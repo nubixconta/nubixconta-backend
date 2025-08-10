@@ -13,8 +13,9 @@ public interface AccountRepository extends JpaRepository<Account, Integer> {
     List<Account> findByAccountType(String accountType);
     Optional<Account> findByAccountNameIgnoreCase(String name);
     //para buscar la cuenta de Clientes
-    @Query("SELECT a.id FROM Account a WHERE LOWER(a.accountName) IN ('cliente', 'clientes')")
-    Optional<Integer> findClientAccountId();
+    // Método modificado para devolver un objeto Account completo
+    @Query("SELECT a FROM Account a WHERE LOWER(a.accountName) IN ('cliente', 'clientes')")
+    Optional<Account> findClientAccount();
 
 
 }
