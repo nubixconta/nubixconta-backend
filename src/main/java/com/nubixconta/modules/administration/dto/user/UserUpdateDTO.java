@@ -26,10 +26,6 @@ public class UserUpdateDTO {
     private String email;
 
 
-    @Size(min = 6, max = 100, message = "La contraseña debe tener entre 6 y 100 caracteres")
-    private String password;
-
-
     @Size(max = 255, message = "El url de la photo no puede tener mas de 255 caracteres")
     private String photo;
 

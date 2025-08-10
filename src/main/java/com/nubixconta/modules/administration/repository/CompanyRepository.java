@@ -13,6 +13,7 @@ public interface CompanyRepository extends JpaRepository<Company, Integer>, JpaS
     boolean existsByCompanyNit(String companyNit);
     boolean existsByCompanyNrc(String companyNrc);
     List<Company> findByactiveStatus(boolean status);
+    List<Company> findByActiveStatusAndCompanyStatus(boolean activeStatus, boolean companyStatus);
 
     // =========================================================================================
     // == INICIO DE CÓDIGO AÑADIDO: Verificación de Permisos
@@ -25,6 +26,8 @@ public interface CompanyRepository extends JpaRepository<Company, Integer>, JpaS
      * @return true si la relación existe, false en caso contrario.
      */
     boolean existsByIdAndUser_Id(Integer companyId, Integer userId);
+
+    boolean activeStatus(Boolean activeStatus);
     // =========================================================================================
     // == FIN DE CÓDIGO AÑADIDO
     // =========================================================================================

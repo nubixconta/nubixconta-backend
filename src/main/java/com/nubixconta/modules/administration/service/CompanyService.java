@@ -120,6 +120,13 @@ public class CompanyService {
                 .map(company -> modelMapper.map(company, CompanyResponseDTO.class))
                 .toList();
     }
+    //Metodo para listar todas las empresas activas  y asignadas
+    public List<CompanyResponseDTO> getCompaniesByActiveAndAssigned(boolean activeStatus, Boolean companyStatus) {
+        List<Company> companies = companyRepository.findByActiveStatusAndCompanyStatus(activeStatus,companyStatus);
+        return companies.stream()
+                .map(company -> modelMapper.map(company, CompanyResponseDTO.class))
+                .toList();
+    }
 
     public List<Company> searchCompanies(String companyName, String userName, Boolean status) {
         return companyRepository.findAll((root, query, cb) -> {

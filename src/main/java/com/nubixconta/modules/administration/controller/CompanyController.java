@@ -51,6 +51,7 @@ public class CompanyController {
         }
     }
 
+
     //Controlador para listar todas las empresas activas
     @GetMapping("/active") // Empresas con companyStatus = true
     public ResponseEntity<List<CompanyResponseDTO>> getAssignedCompanies() {
@@ -61,6 +62,13 @@ public class CompanyController {
     @GetMapping("/inactive") // Empresas con companyStatus = false
     public ResponseEntity<List<CompanyResponseDTO>> getUnassignedCompanies() {
         List<CompanyResponseDTO> companies = companyService.getCompaniesByStatus(false);
+        return ResponseEntity.ok(companies);
+    }
+
+    //Controlador para listar todas las empresas activas y asignadas
+    @GetMapping("/active-assigned") // Empresas con companyStatus = true
+    public ResponseEntity<List<CompanyResponseDTO>> getCompaniesActiveAndAssigned() {
+        List<CompanyResponseDTO> companies = companyService.getCompaniesByActiveAndAssigned(true,true);
         return ResponseEntity.ok(companies);
     }
     //Metodo para filtrar por nombre del usuario de la empresa y por el estatus de la empresa

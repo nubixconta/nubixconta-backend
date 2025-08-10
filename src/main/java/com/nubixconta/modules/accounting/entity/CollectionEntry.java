@@ -26,8 +26,8 @@ public class CollectionEntry {
     private CollectionDetail collectionDetail;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
+    @JoinColumn(name = "catalog_id", nullable = false)
+    private Catalog catalog;
 
     @Digits(integer = 8, fraction = 2, message = "El debito no puede tener hasta 8 dígitos enteros y 2 decimales")
     @DecimalMin(value="0.00",inclusive=true,message = "El debito no puede ser negativo")
