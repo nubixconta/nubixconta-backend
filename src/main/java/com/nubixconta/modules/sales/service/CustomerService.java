@@ -153,6 +153,47 @@ public class CustomerService {
                     : customerRepository.existsByCompany_IdAndNcrAndClientIdNot(companyId, customer.getNcr(), customer.getClientId());
             if (exists) throw new BusinessRuleException("El NCR '" + customer.getNcr() + "' ya está registrado para esta empresa.");
         }
+        // --- INICIO: NUEVA VALIDACIÓN GLOBAL ---
+        // Verificamos DUI globalmente
+        if (StringUtils.hasText(customer.getCustomerDui())) {
+            boolean existsGlobally = (customer.getClientId() == null)
+                    ? customerRepository.existsByDuiGlobal(customer.getCustomerDui())
+                    : customerRepository.existsByDuiGlobalAndClientIdNot(customer.getCustomerDui(), customer.getClientId());
+            if (existsGlobally) throw new BusinessRuleException("El DUI '" + customer.getCustomerDui() + "' ya está registrado en el sistema para otro cliente.");
+        }
+
+        // Verificamos NIT globalmente
+        if (StringUtils.hasText(customer.getCustomerNit())) {
+            boolean existsGlobally = (customer.getClientId() == null)
+                    ? customerRepository.existsByNitGlobal(customer.getCustomerNit())
+                    : customerRepository.existsByNitGlobalAndClientIdNot(customer.getCustomerNit(), customer.getClientId());
+            if (existsGlobally) throw new BusinessRuleException("El NIT '" + customer.getCustomerNit() + "' ya está registrado en el sistema para otro cliente.");
+        }
+
+        // Verificamos NCR globalmente
+        if (StringUtils.hasText(customer.getNcr())) {
+            boolean existsGlobally = (customer.getClientId() == null)
+                    ? customerRepository.existsByNcrGlobal(customer.getNcr())
+                    : customerRepository.existsByNcrGlobalAndClientIdNot(customer.getNcr(), customer.getClientId());
+            if (existsGlobally) throw new BusinessRuleException("El NCR '" + customer.getNcr() + "' ya está registrado en el sistema para otro cliente.");
+        }
+
+        // Verificamos Email globalmente
+        if (StringUtils.hasText(customer.getEmail())) {
+            boolean existsGlobally = (customer.getClientId() == null)
+                    ? customerRepository.existsByEmailGlobal(customer.getEmail())
+                    : customerRepository.existsByEmailGlobalAndClientIdNot(customer.getEmail(), customer.getClientId());
+            if (existsGlobally) throw new BusinessRuleException("El Email '" + customer.getEmail() + "' ya está registrado en el sistema para otro cliente.");
+        }
+
+        // Verificamos Teléfono globalmente
+        if (StringUtils.hasText(customer.getPhone())) {
+            boolean existsGlobally = (customer.getClientId() == null)
+                    ? customerRepository.existsByPhoneGlobal(customer.getPhone())
+                    : customerRepository.existsByPhoneGlobalAndClientIdNot(customer.getPhone(), customer.getClientId());
+            if (existsGlobally) throw new BusinessRuleException("El Teléfono '" + customer.getPhone() + "' ya está registrado en el sistema para otro cliente.");
+        }
+        // --- FIN: NUEVA VALIDACIÓN GLOBAL ---
 
         // La lógica condicional por tipo de persona no necesita cambios.
         if (customer.getPersonType() == PersonType.NATURAL) {

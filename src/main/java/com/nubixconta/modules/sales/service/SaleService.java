@@ -201,12 +201,28 @@ public class SaleService {
             throw new BusinessRuleException("Inconsistencia en los totales: Subtotal + IVA no es igual al Total.");
         }
 
-        // --- FIN DE LA NUEVA VALIDACIÓN ---
+        // --- INICIO DE LA NUEVA UBICACIÓN PARA LA VALIDACIÓN DE CRÉDITO ---
+
+        // 1. Obtenemos la entidad completa del cliente ANTES de construir la venta.
+        Customer customer = customerService.findEntityById(dto.getClientId());
+
+        // 2. Calculamos cuál sería el nuevo saldo si esta venta se aplicara.
+        BigDecimal potentialNewBalance = customer.getCurrentBalance().add(dto.getTotalAmount());
+
+        // 3. Comprobamos si el nuevo saldo excede el límite de crédito.
+        if (potentialNewBalance.compareTo(customer.getCreditLimit()) > 0) {
+            throw new BusinessRuleException(
+                    "Límite de crédito excedido para el cliente. " +
+                            "Límite: " + customer.getCreditLimit() + ", " +
+                            "Saldo Actual: " + customer.getCurrentBalance() + ", " +
+                            "Total de esta Venta: " + dto.getTotalAmount()
+            );
+        }
+        // --- FIN DE LA NUEVA UBICACIÓN PARA LA VALIDACIÓN DE CRÉDITO ---
 
         // --- CONSTRUCCIÓN MANUAL ---
 
-        // 1. Buscar entidades dependientes
-        Customer customer = customerService.findEntityById(dto.getClientId());
+
         //Obtener la referencia a la empresa.
         Company companyRef = companyRepository.getReferenceById(companyId);
 
@@ -418,14 +434,34 @@ public class SaleService {
         if (!"PENDIENTE".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException("La venta solo puede ser aplicada si su estado es PENDIENTE. Estado actual: " + sale.getSaleStatus());
         }
+        // --- INICIO: NUEVA VALIDACIÓN DE PRODUCTOS ACTIVOS ---
+        // 3. Antes de cualquier otra cosa, validamos el estado de los productos en el detalle.
+        List<String> inactiveProductNames = sale.getSaleDetails().stream()
+                // Filtramos solo los detalles que son productos
+                .filter(detail -> detail.getProduct() != null)
+                // Nos quedamos solo con los productos cuyo estado es 'false' (inactivo)
+                .filter(detail -> !detail.getProduct().getProductStatus())
+                // Mapeamos a los nombres de los productos para el mensaje de error
+                .map(detail -> detail.getProduct().getProductName())
+                // Recolectamos los nombres en una lista
+                .collect(Collectors.toList());
 
+        // 4. Si la lista de productos inactivos no está vacía, lanzamos un error.
+        if (!inactiveProductNames.isEmpty()) {
+            String errorDetails = String.join(", ", inactiveProductNames);
+            throw new BusinessRuleException(
+                    "No se puede aplicar la venta. Los siguientes productos están desactivados o eliminados: " + errorDetails +
+                            ". Por favor, edite la venta para eliminar estos productos antes de aplicarla."
+            );
+        }
+        // --- FIN: NUEVA VALIDACIÓN DE PRODUCTOS ACTIVOS ---
 
         // --- INICIO DE LA NUEVA LÓGICA DE VALIDACIÓN DE CRÉDITO ---
 
         Customer customer = sale.getCustomer();
         BigDecimal potentialNewBalance = customer.getCurrentBalance().add(sale.getTotalAmount());
 
-        // 3. Comprobar si el nuevo saldo excede el límite de crédito
+        // 5. Comprobar si el nuevo saldo excede el límite de crédito
         if (potentialNewBalance.compareTo(customer.getCreditLimit()) > 0) {
             throw new BusinessRuleException(
                     "Límite de crédito excedido para el cliente. " +
@@ -440,17 +476,17 @@ public class SaleService {
         //    Esta será ahora la fecha oficial de la venta.
         sale.setIssueDate(LocalDateTime.now());
         
-        // 4. Delegar la lógica de inventario al InventoryService
+        // 6. Delegar la lógica de inventario al InventoryService
         inventoryService.processSaleApplication(sale);
 
-        // 5. Generar asiento contable
+        // 7. Generar asiento contable
         salesAccountingService.createEntriesForSaleApplication(sale);
 
-        // 6. Actualizar el estado de la venta
+        // 8. Actualizar el estado de la venta
         sale.setSaleStatus("APLICADA");
         customer.setCurrentBalance(potentialNewBalance); // <-- Actualizamos el saldo en la entidad
 
-        // 7. Persistir todos los cambios (Venta y Cliente)
+        // 9. Persistir todos los cambios (Venta y Cliente)
         customerRepository.save(customer); // <-- Guardamos el cliente con su nuevo saldo
         Sale appliedSale = saleRepository.save(sale);
 
