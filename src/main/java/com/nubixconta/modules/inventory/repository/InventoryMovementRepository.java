@@ -28,4 +28,50 @@ public interface InventoryMovementRepository extends JpaRepository<InventoryMove
 
     // NUEVO MÉTODO (Opcional pero recomendado): Un ordenamiento simple por fecha.
     List<InventoryMovement> findByCompany_IdOrderByDateDesc(Integer companyId);
+
+
+
+    // --- INICIO: NUEVOS MÉTODOS OPTIMIZADOS CON JOIN FETCH ---
+
+    /**
+     * Busca movimientos por rango de fechas, cargando eficientemente todas las relaciones necesarias
+     * para el DTO en una sola consulta.
+     */
+    @Query("SELECT m FROM InventoryMovement m " +
+            "LEFT JOIN FETCH m.product " +
+            "LEFT JOIN FETCH m.sale s LEFT JOIN FETCH s.customer " +
+            "LEFT JOIN FETCH m.creditNote cn LEFT JOIN FETCH cn.sale cns LEFT JOIN FETCH cns.customer " +
+            "WHERE m.company.id = :companyId AND m.date BETWEEN :startDate AND :endDate " +
+            "ORDER BY m.date DESC")
+    List<InventoryMovement> findByCompanyIdAndDateBetweenWithDetails(
+            @Param("companyId") Integer companyId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    /**
+     * Busca todos los movimientos ordenados por estado y fecha, cargando eficientemente
+     * todas las relaciones necesarias para el DTO en una sola consulta.
+     */
+    @Query("SELECT m FROM InventoryMovement m " +
+            "LEFT JOIN FETCH m.product " +
+            "LEFT JOIN FETCH m.sale s LEFT JOIN FETCH s.customer " +
+            "LEFT JOIN FETCH m.creditNote cn LEFT JOIN FETCH cn.sale cns LEFT JOIN FETCH cns.customer " +
+            "WHERE m.company.id = :companyId ORDER BY " +
+            "CASE m.status WHEN 'PENDIENTE' THEN 1 WHEN 'APLICADA' THEN 2 WHEN 'ANULADA' THEN 3 ELSE 4 END, " +
+            "m.date DESC")
+    List<InventoryMovement> findAllByCompanyIdOrderByStatusAndDateWithDetails(@Param("companyId") Integer companyId);
+
+    /**
+     * Busca todos los movimientos ordenados por fecha, cargando eficientemente
+     * todas las relaciones necesarias para el DTO en una sola consulta.
+     */
+    @Query("SELECT m FROM InventoryMovement m " +
+            "LEFT JOIN FETCH m.product " +
+            "LEFT JOIN FETCH m.sale s LEFT JOIN FETCH s.customer " +
+            "LEFT JOIN FETCH m.creditNote cn LEFT JOIN FETCH cn.sale cns LEFT JOIN FETCH cns.customer " +
+            "WHERE m.company.id = :companyId ORDER BY m.date DESC")
+    List<InventoryMovement> findByCompanyIdOrderByDateDescWithDetails(@Param("companyId") Integer companyId);
+
+    // --- FIN: NUEVOS MÉTODOS OPTIMIZADOS ---
 }

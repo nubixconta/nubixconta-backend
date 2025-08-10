@@ -164,10 +164,10 @@ public class InventoryService {
 
         // Lógica de selección de ordenamiento, idéntica a tu servicio de Ventas.
         if ("status".equalsIgnoreCase(sortBy)) {
-            movements = movementRepository.findAllByCompanyIdOrderByStatusAndDate(companyId);
+            movements = movementRepository.findAllByCompanyIdOrderByStatusAndDateWithDetails(companyId);
         } else {
             // "date" o cualquier otro valor (o nulo) será el fallback seguro.
-            movements = movementRepository.findByCompany_IdOrderByDateDesc(companyId);
+            movements = movementRepository.findByCompanyIdOrderByDateDescWithDetails(companyId);
         }
 
         return movements.stream()
@@ -183,7 +183,10 @@ public class InventoryService {
         Integer companyId = getCompanyIdFromContext();
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
-        return movementRepository.findByCompany_IdAndDateBetween(companyId,startDateTime, endDateTime).stream()
+        // --- CAMBIO: Se llama al nuevo método con 'WithDetails' ---
+        List<InventoryMovement> movements = movementRepository.findByCompanyIdAndDateBetweenWithDetails(companyId, startDateTime, endDateTime);
+
+        return movements.stream()
                 .map(MovementResponseDTO::fromEntity)
                 .collect(Collectors.toList());
     }
