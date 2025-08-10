@@ -153,11 +153,24 @@ public class InventoryService {
     }
 
     /**
-     * Devuelve una lista completa de todos los movimientos de inventario.
+     * Devuelve una lista de todos los movimientos de inventario, con ordenamiento personalizable.
+     * @param sortBy Criterio de ordenamiento: "status" (default) o "date".
+     * @return Lista de MovementResponseDTO ordenados.
      */
     @Transactional(readOnly = true)
-    public List<MovementResponseDTO> findAllMovements() {
-        return movementRepository.findAll().stream()
+    public List<MovementResponseDTO> findAllMovements(String sortBy) { // Acepta el nuevo parámetro
+        Integer companyId = getCompanyIdFromContext();
+        List<InventoryMovement> movements;
+
+        // Lógica de selección de ordenamiento, idéntica a tu servicio de Ventas.
+        if ("status".equalsIgnoreCase(sortBy)) {
+            movements = movementRepository.findAllByCompanyIdOrderByStatusAndDateWithDetails(companyId);
+        } else {
+            // "date" o cualquier otro valor (o nulo) será el fallback seguro.
+            movements = movementRepository.findByCompanyIdOrderByDateDescWithDetails(companyId);
+        }
+
+        return movements.stream()
                 .map(MovementResponseDTO::fromEntity)
                 .collect(Collectors.toList());
     }
@@ -170,7 +183,10 @@ public class InventoryService {
         Integer companyId = getCompanyIdFromContext();
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
-        return movementRepository.findByCompany_IdAndDateBetween(companyId,startDateTime, endDateTime).stream()
+        // --- CAMBIO: Se llama al nuevo método con 'WithDetails' ---
+        List<InventoryMovement> movements = movementRepository.findByCompanyIdAndDateBetweenWithDetails(companyId, startDateTime, endDateTime);
+
+        return movements.stream()
                 .map(MovementResponseDTO::fromEntity)
                 .collect(Collectors.toList());
     }

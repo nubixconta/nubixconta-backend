@@ -30,21 +30,22 @@ public class ProductService {
     }
 
     public List<ProductResponseDTO> findAll() {
-        return productRepository.findAll().stream()
+        Integer companyId = getCompanyIdFromContext();
+        return productRepository.findByCompany_IdOrderByProductNameAsc(companyId).stream()
                 .map(p -> modelMapper.map(p, ProductResponseDTO.class))
                 .collect(Collectors.toList());
     }
 
     public List<ProductResponseDTO> findActive() {
         Integer companyId = getCompanyIdFromContext();
-        return productRepository.findByCompany_IdAndProductStatusTrue(companyId).stream()
+        return productRepository.findByCompany_IdAndProductStatusTrueOrderByProductNameAsc(companyId).stream()
                 .map(p -> modelMapper.map(p, ProductResponseDTO.class))
                 .collect(Collectors.toList());
     }
 
     public List<ProductResponseDTO> findInactive() {
         Integer companyId = getCompanyIdFromContext();
-        return productRepository.findByCompany_IdAndProductStatusTrue(companyId).stream()
+        return productRepository.findByCompany_IdAndProductStatusFalseOrderByProductNameAsc(companyId).stream()
                 .map(p -> modelMapper.map(p, ProductResponseDTO.class))
                 .collect(Collectors.toList());
     }
@@ -62,13 +63,18 @@ public class ProductService {
         return modelMapper.map(product, ProductResponseDTO.class);
     }
 
-    public List<ProductResponseDTO> searchActive(Integer id, String code, String name) {
+    public List<ProductResponseDTO> searchActive( String code, String name) {
         Integer companyId = getCompanyIdFromContext();
+        String effectiveCode = (code != null && !code.isBlank()) ? code : null;
+        String effectiveName = (name != null && !name.isBlank()) ? name : null;
+        // Si vamos a buscar por nombre, añadimos los wildcards '%' aquí, en Java.
+        if (effectiveName != null) {
+            effectiveName = "%" + effectiveName + "%";
+        }
         List<Product> result = productRepository.searchActive(
                 companyId,
-                id,
-                (code != null && !code.isBlank()) ? code : null,
-                (name != null && !name.isBlank()) ? name : null
+                effectiveCode,
+                effectiveName
         );
         return result.stream()
                 .map(p -> modelMapper.map(p, ProductResponseDTO.class))

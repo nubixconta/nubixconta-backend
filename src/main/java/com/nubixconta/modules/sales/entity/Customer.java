@@ -56,16 +56,16 @@ public class Customer {
 
 
     @Size(max = 10)
-    @Column(name = "customer_dui", length = 10)
+    @Column(name = "customer_dui", length = 10,unique = true)
     private String customerDui;
 
     @Size(max = 17)
-    @Column(name = "customer_nit", length = 17)
+    @Column(name = "customer_nit", length = 17,unique = true)
     private String customerNit;
 
     @NotBlank(message = "El NCR es obligatorio") // <-- ¡AÑADIR @NotBlank!
     @Size(max = 14, message = "El NCR puede tener máximo 14 caracteres")
-    @Column(name = "ncr",nullable = false, length = 14) // <-- AÑADIR UNIQUE
+    @Column(name = "ncr",nullable = false, length = 14,unique = true) // <-- AÑADIR UNIQUE
     private String ncr;
 
     @NotBlank(message = "La dirección es obligatoria")
@@ -76,12 +76,12 @@ public class Customer {
     @NotBlank(message = "El email es obligatorio")
     @Size(max = 30, message = "El email puede tener máximo 30 caracteres")
     @Email(message = "El email debe tener un formato válido")
-    @Column(name = "email", length = 30, nullable = false)
+    @Column(name = "email", length = 30, nullable = false,unique = true)
     private String email;
 
     @NotBlank(message = "El teléfono es obligatorio")
     @Size(max = 8, message = "El teléfono puede tener máximo 8 caracteres")
-    @Column(name = "phone", length = 8, nullable = false)
+    @Column(name = "phone", length = 8, nullable = false,unique = true)
     private String phone;
 
     @NotNull(message = "El número de días de crédito es obligatorio")
