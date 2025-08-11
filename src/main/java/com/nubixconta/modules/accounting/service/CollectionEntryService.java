@@ -1,5 +1,6 @@
 package com.nubixconta.modules.accounting.service;
 import com.nubixconta.modules.accounting.dto.Account.AccountBankResponseDTO;
+import com.nubixconta.modules.accounting.dto.CollectionEntry.CollectionEntryResponseDTO;
 import com.nubixconta.modules.accounting.entity.Account;
 import com.nubixconta.modules.accounting.entity.Catalog;
 import com.nubixconta.modules.accounting.entity.CollectionEntry;
@@ -9,6 +10,8 @@ import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import com.nubixconta.modules.accountsreceivable.repository.CollectionDetailRepository;
 import com.nubixconta.modules.accounting.repository.CollectionEntryRepository;
 import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService;
+import com.nubixconta.modules.sales.entity.Sale;
+import com.nubixconta.modules.sales.repository.SaleRepository;
 import com.nubixconta.security.JwtUtil;
 import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
@@ -21,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class CollectionEntryService {
@@ -28,6 +32,7 @@ public class CollectionEntryService {
     private final CollectionEntryRepository entryRepository;
     private final AccountRepository accountRepository;
     private final ModelMapper mapper;
+    private final SaleRepository saleRepository;
     private final CatalogRepository catalogRepository;
     private final CollectionDetailRepository collectionDetailRepository;
     private final CollectionDetailService collectionDetailService;
@@ -38,14 +43,58 @@ public class CollectionEntryService {
                                   CollectionDetailRepository collectionDetailRepository,
                                   ModelMapper mapper,
                                   CatalogRepository catalogRepository,
-                                  CollectionDetailService collectionDetailService) {
+                                  CollectionDetailService collectionDetailService,
+                                  SaleRepository saleRepository) {
         this.entryRepository = entryRepository;
         this.accountRepository = accountRepository;
         this.catalogRepository = catalogRepository;
         this.collectionDetailRepository = collectionDetailRepository;
+        this.saleRepository = saleRepository;
         this.mapper = mapper;
         this.collectionDetailService = collectionDetailService;
     }
+
+    // Este metodo mapea en el dto el numero de documento, el nombre del cliente de Sale
+    //Tambien mapea en el dto el status y tipo de collectionDetail
+    //mapea en el dto la informacion del asiento contable
+    //El metodo se ocupa para visualizar el asiento contable en CXC
+    public List<CollectionEntryResponseDTO> getEntriesByDetailId(Integer detailId) {
+        List<CollectionEntry> entries = entryRepository.findByCollectionDetail_Id(detailId);
+
+        // Si no hay entradas, puedes devolver una lista vacía
+        if (entries.isEmpty()) {
+            return List.of();
+        }
+
+        // Obtener el CollectionDetail y la Venta (Sale) una sola vez para evitar consultas N+1
+        CollectionDetail detail = entries.get(0).getCollectionDetail();
+        Sale sale = saleRepository.findById(detail.getAccountReceivable().getSaleId())
+                .orElseThrow(() -> new RuntimeException("Venta no encontrada para el detalle de cobro."));
+
+        return entries.stream()
+                .map(entry -> {
+                    CollectionEntryResponseDTO dto = mapper.map(entry, CollectionEntryResponseDTO.class);
+
+                    // Mapear campos de CollectionEntry
+                    dto.setCodAccount(entry.getCatalog().getAccount().getGeneratedCode());
+                    dto.setAccountName(entry.getCatalog().getAccount().getAccountName());
+
+                    // Mapear campos de CollectionDetail
+                    dto.setTipo(detail.getModuleType());
+                    dto.setStatus(detail.getPaymentStatus());
+
+                    // Mapear campos de AccountsReceivable y Sale
+                    dto.setDocumentNumber(sale.getDocumentNumber());
+                    dto.setCustumerName(sale.getCustomer().getCustomerName() + " " + sale.getCustomer().getCustomerLastName());
+
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+
+
+
+
     // Método para obtener el ID de la cuenta de Clientes desde la tabla de cuenta
     public Account getClientAccount() {
         return accountRepository.findClientAccount()
