@@ -1,6 +1,7 @@
 package com.nubixconta.modules.sales.service;
 
 import com.nubixconta.modules.accounting.service.SalesAccountingService;
+import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.sales.dto.customer.CustomerResponseDTO;
@@ -46,6 +47,7 @@ public class SaleService {
     private final SalesAccountingService salesAccountingService;
     private final CustomerRepository customerRepository;
     private final CompanyRepository companyRepository;
+    private final CollectionDetailService collectionDetailService;
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
@@ -498,6 +500,9 @@ public class SaleService {
         // 9. Persistir todos los cambios (Venta y Cliente)
         customerRepository.save(customer); // <-- Guardamos el cliente con su nuevo saldo
         Sale appliedSale = saleRepository.save(sale);
+
+        //10 creamos el cobro
+        collectionDetailService.findOrCreateAccountsReceivable(appliedSale);
 
         return modelMapper.map(appliedSale, SaleResponseDTO.class);
     }
