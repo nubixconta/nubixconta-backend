@@ -140,23 +140,10 @@ public class CollectionDetailService {
         Sale sale = saleRepository.findBySaleIdAndCompanyId(saleId, companyId)
                 .orElseThrow(() -> new EntityNotFoundException("Venta no encontrada o no pertenece a la empresa actual."));
 
-        // Buscar o crear automáticamente la cuenta por cobrar
-        var ar = accountsReceivableRepository.findBySaleIdAndCompanyId(saleId, companyId)
-                .orElseGet(() -> {
-                    // Si no existe, crear una nueva instancia.
-                    AccountsReceivable nuevo = new AccountsReceivable();
-                    nuevo.setSaleId(saleId);
-                    nuevo.setSale(sale);
-                    nuevo.setBalance(BigDecimal.ZERO);
-                    nuevo.setModuleType("Cuentas por cobrar");
-                    nuevo.setCompany(sale.getCompany());
-                    return accountsReceivableRepository.save(nuevo);
-                });
 
-        if (ar.getSale() == null) {
-            ar = accountsReceivableRepository.findByIdAndCompanyId(ar.getId(), companyId)
-                    .orElseThrow(() -> new EntityNotFoundException("AccountsReceivable no encontrado."));
-        }
+        // **Llamada al nuevo método reutilizable**
+        AccountsReceivable ar = findOrCreateAccountsReceivable(sale);
+
 
         BigDecimal montoTotalVenta = ar.getSale().getTotalAmount();
         BigDecimal saldoActual = ar.getBalance();
@@ -200,8 +187,31 @@ public class CollectionDetailService {
         return saved;
     }
 
+    /**
+     * Método reutilizable para buscar una cuenta por cobrar asociada a una venta o crearla si no existe.
+     * Este método asume que la validación de la venta (si existe y pertenece a la empresa)
+     * ya se ha realizado previamente.
+     *
+     * @param sale La entidad Venta para la cual se busca o crea la cuenta por cobrar.
+     * @return La entidad AccountsReceivable existente o recién creada.
+     */
+    public AccountsReceivable findOrCreateAccountsReceivable(Sale sale) {
+        // Se busca por el ID de la venta y el ID de la compañía para asegurar la pertenencia de los datos.
+        return accountsReceivableRepository.findBySaleIdAndCompanyId(sale.getSaleId(), sale.getCompany().getId())
+                .orElseGet(() -> {
+                    // Si no existe, se crea una nueva instancia.
+                    AccountsReceivable newAR = new AccountsReceivable();
+                    newAR.setSaleId(sale.getSaleId());
+                    newAR.setSale(sale);
+                    newAR.setBalance(BigDecimal.ZERO); // El balance inicial siempre es cero.
+                    newAR.setModuleType("Cuentas por cobrar");
+                    newAR.setCompany(sale.getCompany());
+                    return accountsReceivableRepository.save(newAR);
+                });
+    }
 
-    @Transactional
+
+        @Transactional
     public void recalcularBalancePorReceivableId(Integer receivableId) {
         var ar = accountsReceivableRepository.findById(receivableId)
                 .orElseThrow(() -> new RuntimeException("AccountsReceivable no encontrado"));
