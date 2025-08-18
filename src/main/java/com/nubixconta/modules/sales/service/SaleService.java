@@ -152,6 +152,10 @@ public class SaleService {
         if (saleRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe una venta con el número de documento: " + dto.getDocumentNumber());
         }
+        // --- INICIO DE LA NUEVA VALIDACIÓN DE LÍMITE DE LÍNEAS ---
+        if (dto.getSaleDetails() != null && dto.getSaleDetails().size() > 15) {
+            throw new BusinessRuleException("Una venta no puede tener más de 15 líneas de detalle.");
+        }
         // --- VALIDACIÓN DE DUPLICADOS EN DTO (Buena práctica, la mantenemos) ---
         if (dto.getSaleDetails() != null) {
             Set<Integer> seenProductIds = new HashSet<>();
@@ -328,6 +332,11 @@ public class SaleService {
         //4. REGLA DE NEGOCIO: Solo se pueden editar ventas PENDIENTES.
         if (!"PENDIENTE".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException("Solo se pueden editar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
+        }
+
+        // --- INICIO DE LA NUEVA VALIDACIÓN DE LÍMITE DE LÍNEAS ---
+        if (dto.getSaleDetails() != null && dto.getSaleDetails().size() > 15) {
+            throw new BusinessRuleException("Una venta no puede tener más de 15 líneas de detalle.");
         }
         // --- INICIO DE LA VALIDACIÓN FINANCIERA COMPLETA ---
 
