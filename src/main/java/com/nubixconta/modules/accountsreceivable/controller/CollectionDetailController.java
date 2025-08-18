@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/collection-detail")
@@ -36,14 +37,15 @@ public class CollectionDetailController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CollectionDetail> getById(@PathVariable Integer id) {
+    public ResponseEntity<CollectionDetailResponseDTO> getById(@PathVariable Integer id) {
         return service.findById(id)
+                .map(collectionDetail -> modelMapper.map(collectionDetail, CollectionDetailResponseDTO.class))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<CollectionDetail> partialUpdate(
+    public ResponseEntity<CollectionDetailResponseDTO> partialUpdate(
             @PathVariable Integer id,
             @RequestBody @Valid CollectionDetailUpdateDTO dto) {
 
@@ -64,7 +66,9 @@ public class CollectionDetailController {
                     CollectionDetail actualizado = service.save(existing);
 
                     service.recalcularBalancePorReceivableId(receivableId);
-                    return ResponseEntity.ok(actualizado);
+                    // Mapear la entidad actualizada al DTO antes de devolverla
+                    CollectionDetailResponseDTO responseDto = modelMapper.map(actualizado, CollectionDetailResponseDTO.class);
+                    return ResponseEntity.ok(responseDto);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -73,7 +77,7 @@ public class CollectionDetailController {
 
     //Busca cobros por un rango de fechas
     @GetMapping("/search-by-date")
-    public ResponseEntity<List<CollectionDetail>> searchByDateRange(
+    public ResponseEntity<List<CollectionDetailResponseDTO>> searchByDateRange(
             @RequestParam("start") String startStr,
             @RequestParam("end") String endStr) {
 
@@ -87,7 +91,11 @@ public class CollectionDetailController {
         LocalDateTime end = endDate.atTime(LocalTime.MAX);
 
         List<CollectionDetail> results = service.findByDateRange(start, end);
-        return ResponseEntity.ok(results);
+
+        List<CollectionDetailResponseDTO> responseDTOs = results.stream()
+                .map(collectionDetail -> modelMapper.map(collectionDetail, CollectionDetailResponseDTO.class))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responseDTOs);
     }
 
     @PostMapping("/register-payment")

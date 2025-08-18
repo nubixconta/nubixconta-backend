@@ -2,17 +2,21 @@ package com.nubixconta.modules.accountsreceivable.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.modules.accountsreceivable.dto.accountsreceivable.AccountsReceivableResponseDTO;
+import com.nubixconta.modules.accountsreceivable.dto.accountsreceivable.AccountsReceivableSaleResponseDTO;
 import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailResponseDTO;
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.accountsreceivable.repository.AccountsReceivableRepository;
+import com.nubixconta.modules.accountsreceivable.repository.CollectionDetailRepository;
 import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
 import com.nubixconta.security.TenantContext;
+import org.springframework.transaction.annotation.Transactional; // <--- Añade esta línea
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.modelmapper.ModelMapper;
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
@@ -25,10 +29,11 @@ public class AccountsReceivableService {
 
     private final AccountsReceivableRepository repository;
     private final ModelMapper modelMapper;
-
-    public AccountsReceivableService(AccountsReceivableRepository repository, ModelMapper modelMapper) {
+    private final CollectionDetailRepository collectionDetailRepository;
+    public AccountsReceivableService(AccountsReceivableRepository repository, ModelMapper modelMapper,CollectionDetailRepository collectionDetailRepository) {
         this.repository = repository;
         this.modelMapper = modelMapper;
+        this.collectionDetailRepository = collectionDetailRepository;
     }
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
@@ -126,7 +131,9 @@ public List<Map<String, Serializable>> searchByCustomer(String name, String last
                                     cd.getPaymentStatus(),
                                     cd.getPaymentDetailDescription(),
                                     cd.getCollectionDetailDate(),
-                                    cd.getPaymentMethod()
+                                    cd.getPaymentMethod(),
+                                    cd.getPaymentAmount(),
+                                    cd.getReference()
                             ))
                             .toList();
 
@@ -137,11 +144,74 @@ public List<Map<String, Serializable>> searchByCustomer(String name, String last
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<AccountsReceivableSaleResponseDTO> findAllAccountsReceivableSaleResponseDTO() {
+        Integer companyId = getCompanyIdFromContext();
+        return repository.findByCompanyId(companyId).stream()
+                .map(ar -> {
+                    AccountsReceivableSaleResponseDTO dto = new AccountsReceivableSaleResponseDTO();
+                    dto.setBalance(ar.getBalance());
+
+                    if (ar.getSale() != null) {
+                        SaleForAccountsReceivableDTO saleDto = modelMapper.map(ar.getSale(), SaleForAccountsReceivableDTO.class);
+                        if (ar.getSale().getCustomer() != null) {
+                            saleDto.setCustomerName(ar.getSale().getCustomer().getCustomerName());
+                            saleDto.setCustomerLastName(ar.getSale().getCustomer().getCustomerLastName());
+                        }
+                        dto.setSale(saleDto);
+                    } else {
+                        dto.setSale(null); // Ensure sale is null if not present
+                    }
+
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+
+
+
     public Optional<AccountsReceivable> findById(Integer id) {
         Integer companyId = getCompanyIdFromContext();
         return repository.findByIdAndCompanyId(id, companyId); // <-- Usar el nuevo método del repositorio
     }
 
+    // método para filtrar cuentas por cobrar por rango de fecha de la venta asociada
+    @Transactional(readOnly = true)
+    public List<AccountsReceivableResponseDTO> findByDateRange(LocalDate start, LocalDate end) {
+        Integer companyId = getCompanyIdFromContext();
+
+        // Convierte las fechas al rango de tiempo completo del día
+        LocalDateTime startDateTime = start.atStartOfDay(); // Ej: 2025-08-15T00:00:00
+        LocalDateTime endDateTime = end.atTime(LocalTime.MAX);   // Ej: 2025-08-15T23:59:59.999999999
+
+        // La llamada al repositorio ahora usa las variables LocalDateTime ajustadas
+        List<AccountsReceivable> accountsReceivables = repository.findByCompanyIdAndSaleIssueDateBetweenWithSaleClientAndCollections(companyId, startDateTime, endDateTime);
+
+        // El resto de tu lógica de mapeo permanece igual
+        return accountsReceivables.stream().map(ar -> {
+            AccountsReceivableResponseDTO dto = modelMapper.map(ar, AccountsReceivableResponseDTO.class);
+
+            if (ar.getSale() != null) {
+                SaleForAccountsReceivableDTO saleDto = modelMapper.map(ar.getSale(), SaleForAccountsReceivableDTO.class);
+                if (ar.getSale().getCustomer() != null) {
+                    saleDto.setCustomerName(ar.getSale().getCustomer().getCustomerName());
+                    saleDto.setCustomerLastName(ar.getSale().getCustomer().getCustomerLastName());
+                    dto.setCreditDay(ar.getSale().getCustomer().getCreditDay());
+                }
+                dto.setSale(saleDto);
+            }
+
+            if (ar.getCollectionDetails() != null) {
+                dto.setCollectionDetails(ar.getCollectionDetails().stream()
+                        .map(cd -> modelMapper.map(cd, CollectionDetailResponseDTO.class))
+                        .collect(Collectors.toList()));
+            } else {
+                dto.setCollectionDetails(java.util.Collections.emptyList());
+            }
+
+            return dto;
+        }).collect(Collectors.toList());
+    }
     public void deleteById(Integer id) {
         repository.deleteById(id);
     }
