@@ -11,10 +11,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class SaleForAccountsReceivableDTO {
     private String documentNumber;
+    private Integer saleId;
     private BigDecimal totalAmount;
     private LocalDateTime issueDate;
     // Campos de cliente
     private String customerName;
     private String customerLastName;
     private Integer creditDay;
+
 }

@@ -63,15 +63,7 @@ public class AccountsReceivableController {
         return ResponseEntity.ok(service.searchByCustomer(name, lastName, dui, nit));
     }
     // Nuevo endpoint para buscar Cuentas por Cobrar por rango de fechas de la Venta (issueDate)
-    @GetMapping("/search-by-date")
-    public ResponseEntity<List<AccountsReceivableResponseDTO>> getByDateRange(
-            // Usa LocalDate y especifica el formato que esperas. ISO.DATE es 'yyyy-MM-dd'
-            @RequestParam("start") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam("end") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
-        List<AccountsReceivableResponseDTO> results = service.findByDateRange(startDate, endDate);
-        return ResponseEntity.ok(results);
-    }
 
     //  buscar accountReceivable por saleId
     @GetMapping("/by-sale/{saleId}")
@@ -80,6 +72,26 @@ public class AccountsReceivableController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+    // ENDPOINT PARA FILTRAR POR FECHA!
+    @GetMapping("/filter-by-date")
+    public ResponseEntity<List<AccountsReceivableResponseDTO>> getByDateRange(
+            @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
+        List<AccountsReceivableResponseDTO> filteredData = service.findByCollectionDateRange(startDate, endDate);
+        return ResponseEntity.ok(filteredData);
+    }
+    //  ENDPOINT PARA ORDENAR POR FECHA!
+    @GetMapping("/sorted-by-date")
+    public ResponseEntity<List<AccountsReceivableResponseDTO>> getAllSortedByDate() {
+        List<AccountsReceivableResponseDTO> sortedData = service.findAllSortedByDate();
+        return ResponseEntity.ok(sortedData);
+    }
+    //  ENDPOINT PARA ORDENAR POR ESTADO!
+    @GetMapping("/sorted-by-status")
+    public ResponseEntity<List<AccountsReceivableResponseDTO>> getAllSortedByStatus() {
+        List<AccountsReceivableResponseDTO> sortedData = service.findAllSortedByStatus();
+        return ResponseEntity.ok(sortedData);
+    }
 
 }
