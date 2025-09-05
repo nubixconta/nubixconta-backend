@@ -2,6 +2,7 @@ package com.nubixconta.modules.inventory.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
+import com.nubixconta.modules.administration.service.ChangeHistoryService;
 import com.nubixconta.modules.inventory.dto.movement.ManualMovementCreateDTO;
 import com.nubixconta.modules.inventory.dto.movement.ManualMovementUpdateDTO;
 import com.nubixconta.modules.inventory.dto.movement.MovementResponseDTO;
@@ -35,6 +36,7 @@ public class InventoryService {
 
     private final InventoryMovementRepository movementRepository;
     private final ProductRepository productRepository;
+    private final ChangeHistoryService changeHistoryService;
 
     private Integer getCompanyIdFromContext() {
         return TenantContext.getCurrentTenant()
@@ -149,6 +151,14 @@ public class InventoryService {
         movement.setCompany(product.getCompany());
 
         InventoryMovement savedMovement = movementRepository.save(movement);
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Creó un ajuste PENDIENTE de %s de %d unidad(es) para el producto '%s'. Motivo: %s",
+                savedMovement.getMovementType(),
+                savedMovement.getQuantity(),
+                savedMovement.getProduct().getProductName(),
+                savedMovement.getDescription());
+        changeHistoryService.logChange("Inventario - Movimientos", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
         return MovementResponseDTO.fromEntity(savedMovement);
     }
 
@@ -221,6 +231,15 @@ public class InventoryService {
         movement.setStockAfterMovement(newStock);
         InventoryMovement appliedMovement = movementRepository.save(movement);
 
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Aplicó el ajuste N° %d (%s de %d unidad(es) para '%s'). Estado cambió a APLICADO.",
+                appliedMovement.getMovementId(),
+                appliedMovement.getMovementType(),
+                appliedMovement.getQuantity(),
+                appliedMovement.getProduct().getProductName());
+        changeHistoryService.logChange("Inventario - Movimientos", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         return MovementResponseDTO.fromEntity(appliedMovement);
     }
 
@@ -253,6 +272,13 @@ public class InventoryService {
         movement.setStatus(MovementStatus.ANULADA);
         movement.setStockAfterMovement(newStock);
         InventoryMovement cancelledMovement = movementRepository.save(movement);
+
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Anuló el ajuste N° %d para el producto '%s'. Estado cambió a ANULADO.",
+                cancelledMovement.getMovementId(),
+                cancelledMovement.getProduct().getProductName());
+        changeHistoryService.logChange("Inventario - Movimientos", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
 
         return MovementResponseDTO.fromEntity(cancelledMovement);
     }
@@ -290,6 +316,12 @@ public class InventoryService {
         }
 
         InventoryMovement updatedMovement = movementRepository.save(movement);
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Actualizó el ajuste PENDIENTE N° %d para el producto '%s'.",
+                updatedMovement.getMovementId(),
+                updatedMovement.getProduct().getProductName());
+        changeHistoryService.logChange("Inventario - Movimientos", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
         return MovementResponseDTO.fromEntity(updatedMovement);
     }
 
@@ -303,6 +335,12 @@ public class InventoryService {
         if (movement.getStatus() != MovementStatus.PENDIENTE) {
             throw new BusinessRuleException("Solo se pueden eliminar movimientos en estado PENDIENTE.");
         }
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Eliminó el ajuste PENDIENTE N° %d para el producto '%s'.",
+                movementId,
+                movement.getProduct().getProductName());
+        changeHistoryService.logChange("Inventario - Movimientos", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
         movementRepository.delete(movement);
     }
 

@@ -5,6 +5,7 @@ import com.nubixconta.common.exception.NotFoundException;
 import com.nubixconta.modules.accounting.service.SalesAccountingService;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
+import com.nubixconta.modules.administration.service.ChangeHistoryService;
 import com.nubixconta.modules.inventory.entity.Product;
 import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.inventory.service.ProductService;
@@ -42,6 +43,7 @@ public class CreditNoteService {
     private final SalesAccountingService salesAccountingService;
     private final CustomerRepository customerRepository;
     private final CompanyRepository companyRepository;
+    private final ChangeHistoryService changeHistoryService;
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
@@ -193,6 +195,15 @@ public class CreditNoteService {
 
         // 6. Persistir el grafo de objetos completo
         CreditNote savedCreditNote = creditNoteRepository.save(newCreditNote);
+
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Creó la nota de crédito N° %s por $%.2f, asociada a la venta N° %s.",
+                savedCreditNote.getDocumentNumber(),
+                savedCreditNote.getTotalAmount(),
+                savedCreditNote.getSale().getDocumentNumber());
+        changeHistoryService.logChange("Notas de Crédito - Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         return modelMapper.map(savedCreditNote, CreditNoteResponseDTO.class);
     }
 
@@ -297,6 +308,11 @@ public class CreditNoteService {
 
         // 6. Guardar la entidad actualizada y devolver la respuesta
         CreditNote updatedCreditNote = creditNoteRepository.save(creditNote);
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Actualizó la nota de crédito N° %s.", updatedCreditNote.getDocumentNumber());
+        changeHistoryService.logChange("Notas de Crédito - Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         return modelMapper.map(updatedCreditNote, CreditNoteResponseDTO.class);
     }
 
@@ -312,6 +328,10 @@ public class CreditNoteService {
         if (!"PENDIENTE".equals(creditNote.getCreditNoteStatus())) {
             throw new BusinessRuleException("Solo se pueden eliminar notas de crédito con estado PENDIENTE. Estado actual: " + creditNote.getCreditNoteStatus());
         }
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Eliminó la nota de crédito PENDIENTE N° %s.", creditNote.getDocumentNumber());
+        changeHistoryService.logChange("Notas de Crédito - Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
         creditNoteRepository.delete(creditNote);
     }
 
@@ -396,6 +416,11 @@ public class CreditNoteService {
         creditNote.setCreditNoteStatus("APLICADA");
         CreditNote appliedCreditNote = creditNoteRepository.save(creditNote);
 
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Aplicó la nota de crédito N° %s. Estado cambió a APLICADA.", appliedCreditNote.getDocumentNumber());
+        changeHistoryService.logChange("Notas de Crédito - Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         return modelMapper.map(appliedCreditNote, CreditNoteResponseDTO.class);
     }
 
@@ -430,6 +455,11 @@ public class CreditNoteService {
         // 4. Actualizar el estado de la nota de crédito
         creditNote.setCreditNoteStatus("ANULADA");
         CreditNote cancelledCreditNote = creditNoteRepository.save(creditNote);
+
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Anuló la nota de crédito N° %s. Estado cambió a ANULADA.", cancelledCreditNote.getDocumentNumber());
+        changeHistoryService.logChange("Notas de Crédito - Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
 
         return modelMapper.map(cancelledCreditNote, CreditNoteResponseDTO.class);
     }

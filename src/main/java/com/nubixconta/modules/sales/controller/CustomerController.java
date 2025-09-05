@@ -4,6 +4,7 @@ import com.nubixconta.modules.sales.dto.customer.*;
 import com.nubixconta.modules.sales.service.CustomerService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
@@ -50,13 +51,23 @@ public class CustomerController {
         return ResponseEntity.ok(updated);
     }
 
-    // Eliminar cliente
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCustomer(@PathVariable Integer id) {
-        customerService.delete(id);
-        return ResponseEntity.noContent().build();
+    // --- NUEVO ENDPOINT (Consistente con SaleController): Desactivar un cliente ---
+    @PostMapping("/{id}/deactivate")
+    @ResponseStatus(HttpStatus.OK)
+    public CustomerResponseDTO deactivateCustomer(@PathVariable Integer id) {
+        customerService.deactivate(id);
+        // Devolvemos el cliente actualizado para que el frontend pueda refrescar el estado
+        return customerService.findById(id);
     }
 
+    // --- NUEVO ENDPOINT (Consistente con SaleController): Reactivar un cliente ---
+    @PostMapping("/{id}/activate")
+    @ResponseStatus(HttpStatus.OK)
+    public CustomerResponseDTO activateCustomer(@PathVariable Integer id) {
+        customerService.activate(id);
+        // Devolvemos el cliente actualizado
+        return customerService.findById(id);
+    }
     // Buscar clientes activos con filtros
     @GetMapping("/search")
     public List<CustomerResponseDTO> searchActiveCustomers(

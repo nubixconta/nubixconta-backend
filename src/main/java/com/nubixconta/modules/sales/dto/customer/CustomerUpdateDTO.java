@@ -41,6 +41,4 @@ public class CustomerUpdateDTO {
 
 
     private Boolean appliesWithholding;
-
-    private Boolean status;
 }
