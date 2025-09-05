@@ -10,6 +10,4 @@ import java.math.BigDecimal;
 public class AccountsReceivableSaleResponseDTO {
     private BigDecimal balance;
     private SaleForAccountsReceivableDTO sale;
-
-
 }

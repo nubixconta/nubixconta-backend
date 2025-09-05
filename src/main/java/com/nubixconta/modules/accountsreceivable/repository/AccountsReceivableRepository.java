@@ -1,6 +1,7 @@
 package com.nubixconta.modules.accountsreceivable.repository;
 
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
+import com.nubixconta.modules.sales.entity.Sale;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -23,16 +24,5 @@ public interface AccountsReceivableRepository extends JpaRepository<AccountsRece
     // Modificamos el método findById para que también filtre por empresa
     Optional<AccountsReceivable> findByIdAndCompanyId(Integer id, Integer companyId);
 
-    // Usamos FETCH JOIN para cargar la venta (s), el cliente (c) y los detalles de cobro (cd)
-    // Esto asegura que todos los datos necesarios para el DTO estén inicializados.
-    @Query("SELECT ar FROM AccountsReceivable ar " +
-            "JOIN FETCH ar.sale s " +
-            "LEFT JOIN FETCH s.customer c " + // Asegura que el cliente se cargue para el nombre/apellido/días de crédito
-            "LEFT JOIN FETCH ar.collectionDetails cd " + // Asegura que los detalles de cobro se carguen
-            "WHERE ar.company.id = :companyId AND s.issueDate BETWEEN :start AND :end")
-    List<AccountsReceivable> findByCompanyIdAndSaleIssueDateBetweenWithSaleClientAndCollections(
-            @Param("companyId") Integer companyId,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
-    );
+    Optional<AccountsReceivable> findBySale(Sale sale);
 }

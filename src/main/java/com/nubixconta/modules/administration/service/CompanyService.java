@@ -273,7 +273,7 @@ public class CompanyService {
                         .append(". ");
             } else {
                 cambios.append("Responsable asignado ")
-                        .append(user.getFirstName()+user.getLastName())
+                        .append(user.getFirstName()+ " " + user.getLastName())
                         .append(". ");
             }
 

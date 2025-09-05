@@ -16,13 +16,11 @@ public interface CollectionDetailRepository extends JpaRepository<CollectionDeta
     // Nuevo método para encontrar todos por empresa
     List<CollectionDetail> findByCompanyId(Integer companyId);
 
-    // Modificar el método existente para incluir el companyId
-    List<CollectionDetail> findByCompanyIdAndCollectionDetailDateBetween(Integer companyId, LocalDateTime start, LocalDateTime end);
 
+    // Método para encontrar detalles de cobro por empresa y dentro de un rango de fechas
+    List<CollectionDetail> findByCompanyIdAndCollectionDetailDateBetween(Integer companyId, LocalDateTime start, LocalDateTime end);
     // Repositorio
     @Query("SELECT a FROM CollectionDetail a WHERE a.accountReceivable.id = :receivableId AND a.company.id = :companyId")
     List<CollectionDetail> findByAccountReceivableIdAndCompanyId(@Param("receivableId") Integer receivableId, @Param("companyId") Integer companyId);
 
-    @Query("SELECT a FROM CollectionDetail a WHERE a.collectionDetailDate BETWEEN :start AND :end")
-    List<CollectionDetail> findByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
