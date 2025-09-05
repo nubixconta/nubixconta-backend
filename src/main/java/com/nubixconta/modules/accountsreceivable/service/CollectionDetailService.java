@@ -44,7 +44,7 @@ public class CollectionDetailService {
     }
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
-    private Integer getCompanyIdFromContext() {
+    public Integer getCompanyIdFromContext() {
         return TenantContext.getCurrentTenant()
                 .orElseThrow(() -> new BusinessRuleException("No se ha seleccionado una empresa en el contexto."));
     }
@@ -142,19 +142,20 @@ public class CollectionDetailService {
 
 
         // **Llamada al nuevo método reutilizable**
-        AccountsReceivable ar = findOrCreateAccountsReceivable(sale);
+        AccountsReceivable ar = accountsReceivableRepository.findBySale(sale)
+                .orElseThrow(() -> new EntityNotFoundException("Cuenta por cobrar no encontrada para la venta. Asegúrese de que la venta haya sido aplicada."));
 
 
         BigDecimal montoTotalVenta = ar.getSale().getTotalAmount();
         BigDecimal saldoActual = ar.getBalance();
         BigDecimal abonoNuevo = dto.getPaymentAmount();
+        BigDecimal nuevoSaldo = saldoActual.subtract(abonoNuevo);
 
-        if (saldoActual.add(abonoNuevo).compareTo(montoTotalVenta) > 0) {
-            throw new IllegalArgumentException("El monto a abonar excede el monto total de la venta.");
+        if (nuevoSaldo.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El monto a abonar excede el saldo restante de la venta.");
         }
-
         // Actualizar el balance
-        ar.setBalance(saldoActual.add(abonoNuevo));
+        ar.setBalance(nuevoSaldo);
         accountsReceivableRepository.save(ar);
 
         //Obtener la referencia a la empresa.
@@ -189,9 +190,7 @@ public class CollectionDetailService {
 
     /**
      * Método reutilizable para buscar una cuenta por cobrar asociada a una venta o crearla si no existe.
-     * Este método asume que la validación de la venta (si existe y pertenece a la empresa)
-     * ya se ha realizado previamente.
-     *
+     * Este método asume que la validación de la venta (si existe y esta aplicada y pertenece a la empresa)
      * @param sale La entidad Venta para la cual se busca o crea la cuenta por cobrar.
      * @return La entidad AccountsReceivable existente o recién creada.
      */
@@ -203,7 +202,7 @@ public class CollectionDetailService {
                     AccountsReceivable newAR = new AccountsReceivable();
                     newAR.setSaleId(sale.getSaleId());
                     newAR.setSale(sale);
-                    newAR.setBalance(BigDecimal.ZERO); // El balance inicial siempre es cero.
+                    newAR.setBalance(sale.getTotalAmount()); // El balance inicial es igual al monto total de la venta
                     newAR.setModuleType("Cuentas por cobrar");
                     newAR.setCompany(sale.getCompany());
                     return accountsReceivableRepository.save(newAR);
@@ -232,11 +231,12 @@ public class CollectionDetailService {
         }
 
         BigDecimal montoTotalVenta = venta.getTotalAmount();
-        if (totalAbonos.compareTo(montoTotalVenta) > 0) {
-            throw new IllegalArgumentException("La suma total de abonos válidos excede el monto total de la venta.");
-        }
+        BigDecimal nuevoBalance = montoTotalVenta.subtract(totalAbonos);
 
-        ar.setBalance(totalAbonos);
+        if (nuevoBalance.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalStateException("El balance calculado es negativo, lo que indica un error en los datos.");
+        }
+        ar.setBalance(nuevoBalance);
         accountsReceivableRepository.save(ar);
     }
 
