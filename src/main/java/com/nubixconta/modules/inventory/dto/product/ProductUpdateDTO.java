@@ -12,6 +12,4 @@ public class ProductUpdateDTO {
     private String productName;
 
     private String unit;
-
-    private Boolean productStatus;
 }

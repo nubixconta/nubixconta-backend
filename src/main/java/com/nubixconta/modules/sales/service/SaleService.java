@@ -3,6 +3,7 @@ package com.nubixconta.modules.sales.service;
 import com.nubixconta.modules.accounting.service.SalesAccountingService;
 import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
+import com.nubixconta.modules.administration.service.ChangeHistoryService;
 import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.sales.dto.customer.CustomerResponseDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
@@ -48,6 +49,7 @@ public class SaleService {
     private final CustomerRepository customerRepository;
     private final CompanyRepository companyRepository;
     private final CollectionDetailService collectionDetailService;
+    private final ChangeHistoryService changeHistoryService;
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
@@ -283,6 +285,12 @@ public class SaleService {
         // lo persistimos TODO de una sola vez.
         Sale savedSale = saleRepository.save(newSale);
 
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Creó la venta con número de documento '%s' por un total de $%.2f.",
+                savedSale.getDocumentNumber(), savedSale.getTotalAmount());
+        changeHistoryService.logChange("Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         // 5. Devolvemos el DTO de respuesta
         return modelMapper.map(savedSale, SaleResponseDTO.class);
     }
@@ -312,6 +320,10 @@ public class SaleService {
         if (!"PENDIENTE".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException("Solo se pueden eliminar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
         }
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Eliminó la venta PENDIENTE con número de documento '%s'.", sale.getDocumentNumber());
+        changeHistoryService.logChange("Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
         saleRepository.deleteById(id);
     }
 
@@ -430,6 +442,11 @@ public class SaleService {
 
         // 7. Guardar la venta actualizada.
         Sale updatedSale = saleRepository.save(sale);
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Actualizó la venta con número de documento '%s'.", updatedSale.getDocumentNumber());
+        changeHistoryService.logChange("Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         return modelMapper.map(updatedSale, SaleResponseDTO.class);
     }
 
@@ -504,6 +521,11 @@ public class SaleService {
         //10 creamos el cobro
         collectionDetailService.findOrCreateAccountsReceivable(appliedSale);
 
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Aplicó la venta con número de documento '%s'. El estado cambió a APLICADA.", appliedSale.getDocumentNumber());
+        changeHistoryService.logChange("Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         return modelMapper.map(appliedSale, SaleResponseDTO.class);
     }
 
@@ -533,6 +555,11 @@ public class SaleService {
         // 5. Actualizar estado
         sale.setSaleStatus("ANULADA");
         Sale cancelledSale = saleRepository.save(sale);
+
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Anuló la venta con número de documento '%s'. El estado cambió a ANULADA.", cancelledSale.getDocumentNumber());
+        changeHistoryService.logChange("Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
 
         return modelMapper.map(cancelledSale, SaleResponseDTO.class);
     }
