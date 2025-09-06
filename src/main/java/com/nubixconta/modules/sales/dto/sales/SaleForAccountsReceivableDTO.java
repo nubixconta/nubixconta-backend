@@ -18,5 +18,5 @@ public class SaleForAccountsReceivableDTO {
     private String customerName;
     private String customerLastName;
     private Integer creditDay;
-
+    private String saleDescription;
 }
