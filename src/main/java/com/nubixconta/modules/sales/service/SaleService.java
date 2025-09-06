@@ -1,6 +1,7 @@
 package com.nubixconta.modules.sales.service;
 
 import com.nubixconta.modules.accounting.service.SalesAccountingService;
+import com.nubixconta.modules.accountsreceivable.service.AccountsReceivableService;
 import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.administration.service.ChangeHistoryService;
@@ -50,6 +51,7 @@ public class SaleService {
     private final CompanyRepository companyRepository;
     private final CollectionDetailService collectionDetailService;
     private final ChangeHistoryService changeHistoryService;
+    private final AccountsReceivableService accountsReceivableService;
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
@@ -539,10 +541,20 @@ public class SaleService {
             throw new BusinessRuleException("La venta solo puede ser anulada si su estado es APLICADA. Estado actual: " + sale.getSaleStatus());
         }
 
-        // 3. Delegar la REVERSIÓN de inventario al InventoryService
+        // 3. REGLA DE NEGOCIO DE INTEGRIDAD: ¿Tiene cobros asociados?
+        // Esta validación ahora se hace sabiendo que la venta existe y está en el estado correcto.
+        boolean hasActiveCollections = accountsReceivableService.validateSaleWithoutCollections(saleId);
+        if (hasActiveCollections) {
+            throw new BusinessRuleException(
+                    "No se puede anular la venta porque tiene cobros asociados. " +
+                            "Por favor, anule primero los cobros en el módulo de Cuentas por Cobrar."
+            );
+        }
+
+        // 4. Delegar la REVERSIÓN de inventario al InventoryService
         inventoryService.processSaleCancellation(sale);
 
-        // 4. Revertir la partida contable
+        // 5. Revertir la partida contable
         salesAccountingService.deleteEntriesForSaleCancellation(sale);
 
         // --- NUEVA LÓGICA DE REVERSIÓN DE SALDO ---
@@ -552,7 +564,7 @@ public class SaleService {
         customerRepository.save(customer);
         // --- FIN ---
 
-        // 5. Actualizar estado
+        // 6. Actualizar estado
         sale.setSaleStatus("ANULADA");
         Sale cancelledSale = saleRepository.save(sale);
 
