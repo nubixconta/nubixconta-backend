@@ -25,4 +25,7 @@ public interface AccountsReceivableRepository extends JpaRepository<AccountsRece
     Optional<AccountsReceivable> findByIdAndCompanyId(Integer id, Integer companyId);
 
     Optional<AccountsReceivable> findBySale(Sale sale);
+   
+    @Query("SELECT ar FROM AccountsReceivable ar JOIN FETCH ar.collectionDetails cd WHERE ar.sale.saleId = :saleId AND ar.company.id = :companyId")
+    Optional<AccountsReceivable> findBySale_SaleIdAndCompany_IdWithCollectionDetails(@Param("saleId") Integer saleId, @Param("companyId") Integer companyId);
 }

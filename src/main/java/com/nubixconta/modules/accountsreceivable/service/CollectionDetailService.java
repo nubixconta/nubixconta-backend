@@ -99,35 +99,6 @@ public class CollectionDetailService {
         recalcularBalancePorReceivableId(receivableId);
     }
 
-    public CollectionDetail update(Integer id, CollectionDetail updated) {
-
-
-        if (updated.getAccountReceivable() == null || updated.getAccountReceivable().getId() == null) {
-            throw new IllegalArgumentException("Debe incluir el objeto accountReceivable con su id");
-        }
-
-        var accountReceivableId = updated.getAccountReceivable().getId();
-        var accountReceivable = accountsReceivableRepository.findById(accountReceivableId)
-                .orElseThrow(() -> new RuntimeException("No existe accountReceivable con ID: " + accountReceivableId));
-
-        var existing = repository.findById(id);
-
-
-        return existing
-                .map(current -> {
-                    current.setAccountReceivable(accountReceivable);
-                    current.setAccountId(updated.getAccountId());
-                    current.setReference(updated.getReference());
-                    current.setPaymentMethod(updated.getPaymentMethod());
-                    current.setPaymentStatus(updated.getPaymentStatus());
-                    current.setPaymentAmount(updated.getPaymentAmount());
-                    current.setPaymentDetailDescription(updated.getPaymentDetailDescription());
-                    current.setModuleType(updated.getModuleType());
-
-                    return repository.save(current);
-                })
-                .orElseThrow(() -> new RuntimeException(" Detalle no encontrado con ID: " + id));
-    }
 
     //Metodo para registrar un acountsReceivable automaticamante creando primero acountsReceivable y actualizando su
     //saldo si es un cobro parcial
@@ -208,8 +179,6 @@ public class CollectionDetailService {
                     return accountsReceivableRepository.save(newAR);
                 });
     }
-
-
         @Transactional
     public void recalcularBalancePorReceivableId(Integer receivableId) {
         var ar = accountsReceivableRepository.findById(receivableId)
@@ -239,6 +208,4 @@ public class CollectionDetailService {
         ar.setBalance(nuevoBalance);
         accountsReceivableRepository.save(ar);
     }
-
-
 }

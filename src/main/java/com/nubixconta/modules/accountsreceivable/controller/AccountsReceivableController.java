@@ -93,5 +93,12 @@ public class AccountsReceivableController {
         List<AccountsReceivableResponseDTO> sortedData = service.findAllSortedByStatus();
         return ResponseEntity.ok(sortedData);
     }
+ /*   // ENDPOINT para validar si una venta tiene cobros asociados
+    @GetMapping("/validate-sale-collections/{saleId}")
+    public ResponseEntity<Boolean> validateSaleCollections(@PathVariable Integer saleId) {
+        boolean hasCollections = service.validateSaleWithoutCollections(saleId);
+        return ResponseEntity.ok(hasCollections);
+    }
 
+  */
 }

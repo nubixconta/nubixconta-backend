@@ -37,7 +37,6 @@ public class AccountsReceivableService {
             "ANULADO", 2
     );
 
-
     public AccountsReceivableService(AccountsReceivableRepository repository, ModelMapper modelMapper,CollectionDetailRepository collectionDetailRepository) {
         this.repository = repository;
         this.modelMapper = modelMapper;
@@ -177,6 +176,7 @@ public List<Map<String, Serializable>> searchByCustomer(String name, String last
                 .collect(Collectors.toList());
     }
 
+
     /**
      *  Devuelve los datos con los detalles ordenados por estado personalizado.
      */
@@ -246,7 +246,7 @@ public List<Map<String, Serializable>> searchByCustomer(String name, String last
                 ))
                 .collect(Collectors.toList()); // Usamos toList() para que sea mutable
 
-        // ¡AQUÍ APLICAMOS EL ORDENAMIENTO!
+
         // Si se proporcionó un comparador, se usa para ordenar la lista de detalles.
         if (detailComparator != null) {
             collectionDTOs.sort(detailComparator);
@@ -280,6 +280,7 @@ public List<Map<String, Serializable>> searchByCustomer(String name, String last
                 .map(account -> convertToDtoWithFilteredDetails(account, startDateTime, endDateTime))
                 .collect(Collectors.toList());
     }
+
 
     /**
      * Convierte una entidad AccountsReceivable a su DTO, pero asegurándose de que la lista
@@ -361,6 +362,34 @@ public List<Map<String, Serializable>> searchByCustomer(String name, String last
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Valida si una venta tiene cobros asociados en estado "APLICADO" o "PENDIENTE".
+     * Devuelve `true` si la venta tiene al menos un cobro asociado con dichos estados,
+     * `false` en caso contrario.
+     * @param saleId El ID de la venta a validar.
+     * @return `true` si la venta tiene cobros en estado "APLICADO" o "PENDIENTE", `false` si no los tiene.
+     */
+    @Transactional(readOnly = true) // Añadir Transactional para asegurar que la colección se carga
+    public boolean validateSaleWithoutCollections(Integer saleId) {
+        Integer companyId = getCompanyIdFromContext();
+
+        Optional<AccountsReceivable> accountsReceivableOptional = repository.findBySale_SaleIdAndCompany_IdWithCollectionDetails(saleId, companyId);
+
+        if (accountsReceivableOptional.isPresent()) {
+            AccountsReceivable ar = accountsReceivableOptional.get();
+            // Filtrar los collectionDetails para contar solo los que están en estado "APLICADO" o "PENDIENTE"
+            long activeCollections = ar.getCollectionDetails().stream()
+                    .filter(cd -> "APLICADO".equalsIgnoreCase(cd.getPaymentStatus()) ||
+                            "PENDIENTE".equalsIgnoreCase(cd.getPaymentStatus()))
+                    .count();
+
+            // Si hay al menos un cobro en estado "APLICADO" o "PENDIENTE", devuelve true
+            return activeCollections > 0;
+        } else {
+            // Si no hay AccountsReceivable asociada a la venta, significa que no hay cobros.
+            return false;
+        }
+    }
 
 
     public Optional<AccountsReceivable> findById(Integer id) {
