@@ -3,6 +3,7 @@ package com.nubixconta.modules.sales.service;
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
 import com.nubixconta.modules.accounting.service.SalesAccountingService;
+import com.nubixconta.modules.accountsreceivable.service.AccountsReceivableService;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.administration.service.ChangeHistoryService;
@@ -44,6 +45,7 @@ public class CreditNoteService {
     private final CustomerRepository customerRepository;
     private final CompanyRepository companyRepository;
     private final ChangeHistoryService changeHistoryService;
+    private final AccountsReceivableService accountsReceivableService;
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
@@ -105,7 +107,17 @@ public class CreditNoteService {
             );
         }
 
-        // 4. REGLA 2: Validar que no exista ya una nota de crédito ACTIVA para esta venta.
+        // 4. --- ¡NUEVA VALIDACIÓN DE INTEGRIDAD FINANCIERA! ---
+        // Validamos que la venta no tenga cobros activos antes de permitir la creación de la NC.
+        boolean hasActiveCollections = accountsReceivableService.validateSaleWithoutCollections(sale.getSaleId());
+        if (hasActiveCollections) {
+            throw new BusinessRuleException(
+                    "No se puede crear una nota de crédito porque la venta asociada ya tiene cobros registrados. " +
+                            "Por favor, anule primero los cobros en el módulo de Cuentas por Cobrar."
+            );
+        }
+
+        // 5. REGLA 2: Validar que no exista ya una nota de crédito ACTIVA para esta venta.
         List<String> activeStatuses = List.of("PENDIENTE", "APLICADA");
         if (creditNoteRepository.existsByCompany_IdAndSale_SaleIdAndCreditNoteStatusIn(companyId, sale.getSaleId(), activeStatuses)) {
             throw new BusinessRuleException("Ya existe una nota de crédito activa (en estado PENDIENTE o APLICADA) para esta venta.");
@@ -129,7 +141,7 @@ public class CreditNoteService {
             }
         }
 
-        // 3. Validar que la suma de los detalles coincida con el subtotal de la cabecera
+        // 6. Validar que la suma de los detalles coincida con el subtotal de la cabecera
         if (calculatedSubtotalFromDetails.compareTo(dto.getSubtotalAmount()) != 0) {
             throw new BusinessRuleException(
                     "Inconsistencia en el subtotal de la nota de crédito: " +
@@ -137,7 +149,7 @@ public class CreditNoteService {
             );
         }
 
-        // 4. Validar que Subtotal + IVA == Total (esta ya la tenías)
+        // 7. Validar que Subtotal + IVA == Total (esta ya la tenías)
         if (dto.getSubtotalAmount().add(dto.getVatAmount()).compareTo(dto.getTotalAmount()) != 0) {
             throw new BusinessRuleException("Inconsistencia en los totales: Subtotal + IVA no es igual al Total.");
         }
@@ -145,14 +157,14 @@ public class CreditNoteService {
         // --- FIN DE LA NUEVA VALIDACIÓN ---
 
         // --- VALIDACIÓN DE DETALLES CONTRA LA VENTA ORIGINAL (CAMBIO CLAVE) ---
-        // 1. Crear un conjunto de identificadores de los ítems de la VENTA ORIGINAL para una búsqueda eficiente.
+        // 8. Crear un conjunto de identificadores de los ítems de la VENTA ORIGINAL para una búsqueda eficiente.
         Set<Object> originalSaleItemKeys = sale.getSaleDetails().stream()
                 .map(saleDetail -> saleDetail.getProduct() != null
                         ? (Object)saleDetail.getProduct().getIdProduct()
                         : saleDetail.getServiceName())
                 .collect(Collectors.toSet());
 
-        // 2. Iterar sobre los DTOs entrantes para validarlos ANTES de construir nada.
+        // 9. Iterar sobre los DTOs entrantes para validarlos ANTES de construir nada.
         if (dto.getDetails() != null) {
             for (CreditNoteDetailCreateDTO detailDTO : dto.getDetails()) {
                 Object incomingKey = detailDTO.getProductId() != null
@@ -169,10 +181,10 @@ public class CreditNoteService {
         }
         // --- FIN DE LA NUEVA VALIDACIÓN ---
 
-        // 3. Validar duplicados en los detalles del DTO
+        // 10. Validar duplicados en los detalles del DTO
         validateDetailsForDuplicates(dto.getDetails());
 
-        // 4. Construir la entidad principal manualmente
+        // 11. Construir la entidad principal manualmente
         CreditNote newCreditNote = new CreditNote();
         Company companyRef = companyRepository.getReferenceById(companyId);
         newCreditNote.setCompany(companyRef);
@@ -187,13 +199,13 @@ public class CreditNoteService {
         newCreditNote.setVatAmount(dto.getVatAmount());
         newCreditNote.setTotalAmount(dto.getTotalAmount());
 
-        // 5. Construir y asociar los detalles
+        // 12. Construir y asociar los detalles
         for (CreditNoteDetailCreateDTO detailDTO : dto.getDetails()) {
             CreditNoteDetail newDetail = mapToCreditNoteDetail(detailDTO, newCreditNote);
             newCreditNote.addDetail(newDetail);
         }
 
-        // 6. Persistir el grafo de objetos completo
+        // 13. Persistir el grafo de objetos completo
         CreditNote savedCreditNote = creditNoteRepository.save(newCreditNote);
 
         // --- INICIO: REGISTRO EN BITÁCORA ---
