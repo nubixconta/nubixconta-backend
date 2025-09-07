@@ -2,6 +2,7 @@ package com.nubixconta.modules.sales.service;
 
 import com.nubixconta.modules.administration.entity.User;
 import com.nubixconta.modules.administration.repository.UserRepository;
+import com.nubixconta.modules.administration.service.ChangeHistoryService;
 import com.nubixconta.modules.sales.dto.customer.*;
 import com.nubixconta.modules.sales.entity.Customer;
 import com.nubixconta.modules.sales.repository.CustomerRepository;
@@ -29,6 +30,7 @@ public class CustomerService {
     private final UserRepository userRepository;
     private final ModelMapper modelMapper;
     private final CompanyRepository companyRepository; // <-- NUEVO: NECESARIO PARA ASIGNAR LA EMPRESA
+    private final ChangeHistoryService changeHistoryService;
 
     // Obtener todos los clientes activos de la empresa actual
     public List<CustomerResponseDTO> findAll() {
@@ -77,6 +79,11 @@ public class CustomerService {
         customer.setStatus(true); // por defecto activo
 
         Customer saved = customerRepository.save(customer);
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Creó el cliente '%s'.", saved.getCustomerName());
+        changeHistoryService.logChange("Ventas - Clientes", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         return modelMapper.map(saved, CustomerResponseDTO.class);
     }
 
@@ -92,15 +99,50 @@ public class CustomerService {
         validateCustomerBusinessRules(existing, existing.getCompany().getId());
 
         Customer updated = customerRepository.save(existing);
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Actualizó los datos del cliente '%s'.", updated.getCustomerName());
+        changeHistoryService.logChange("Ventas - Clientes", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
         return modelMapper.map(updated, CustomerResponseDTO.class);
     }
 
-    // Eliminar cliente (físico o lógico)
-    public void delete(Integer id) {
-        if (!customerRepository.existsById(id)) {
-            throw new NotFoundException("Cliente con ID " + id + " no encontrado");
+    public void deactivate(Integer id) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Cliente con ID " + id + " no encontrado para desactivar."));
+
+        if (!customer.getStatus()) {
+            throw new BusinessRuleException("El cliente '" + customer.getCustomerName() + "' ya se encuentra inactivo.");
         }
-        customerRepository.deleteById(id);
+
+        customer.setStatus(false);
+        customerRepository.save(customer);
+
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Desactivó al cliente '%s'.", customer.getCustomerName());
+        changeHistoryService.logChange("Ventas - Clientes", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+    }
+
+    /**
+     * Reactiva un cliente que estaba inactivo.
+     * @param id El ID del cliente a reactivar.
+     */
+    @Transactional
+    public void activate(Integer id) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Cliente con ID " + id + " no encontrado para activar."));
+
+        if (customer.getStatus()) {
+            throw new BusinessRuleException("El cliente '" + customer.getCustomerName() + "' ya se encuentra activo.");
+        }
+
+        customer.setStatus(true);
+        customerRepository.save(customer);
+
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Reactivó al cliente '%s'.", customer.getCustomerName());
+        changeHistoryService.logChange("Ventas - Clientes", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
     }
 
     // Buscar clientes activos con filtros

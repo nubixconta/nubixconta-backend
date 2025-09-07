@@ -2,6 +2,7 @@ package com.nubixconta.modules.inventory.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
+import com.nubixconta.modules.administration.service.ChangeHistoryService;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
@@ -23,6 +24,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ModelMapper modelMapper;
     private final CompanyRepository companyRepository;
+    private final ChangeHistoryService changeHistoryService;
 
     private Integer getCompanyIdFromContext() {
         return TenantContext.getCurrentTenant()
@@ -98,6 +100,12 @@ public class ProductService {
         product.setCompany(companyRef);
 
         Product saved = productRepository.save(product);
+        // --- REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Creó el producto '%s' (Código: %s) con un stock inicial de %d.",
+                saved.getProductName(), saved.getProductCode(), saved.getStockQuantity());
+        changeHistoryService.logChange("Inventario - Productos", logMessage);
+        // --- FIN REGISTRO ---
+
         return modelMapper.map(saved, ProductResponseDTO.class);
     }
     @Transactional
@@ -115,16 +123,55 @@ public class ProductService {
 
         modelMapper.map(dto, product);
         Product updated = productRepository.save(product);
+        // --- REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Actualizó los datos del producto '%s' (Código: %s).",
+                updated.getProductName(), updated.getProductCode());
+        changeHistoryService.logChange("Inventario - Productos", logMessage);
+        // --- FIN REGISTRO ---
         return modelMapper.map(updated, ProductResponseDTO.class);
     }
 
 
-    public void delete(Integer id) {
-        if (!productRepository.existsById(id)) {
-            throw new NotFoundException("Producto no encontrado con ID: " + id);
+    // --- NUEVO MÉTODO PARA DESACTIVAR ---
+    @Transactional
+    public void deactivate(Integer id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + id));
+
+        if (!product.getProductStatus()) {
+            throw new BusinessRuleException("El producto '" + product.getProductName() + "' ya se encuentra inactivo.");
         }
-        productRepository.deleteById(id);
+
+        product.setProductStatus(false);
+        productRepository.save(product);
+
+        // --- REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Desactivó el producto '%s' (Código: %s).",
+                product.getProductName(), product.getProductCode());
+        changeHistoryService.logChange("Inventario - Productos", logMessage);
+        // --- FIN REGISTRO ---
     }
+
+    // --- NUEVO MÉTODO PARA ACTIVAR ---
+    @Transactional
+    public void activate(Integer id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + id));
+
+        if (product.getProductStatus()) {
+            throw new BusinessRuleException("El producto '" + product.getProductName() + "' ya se encuentra activo.");
+        }
+
+        product.setProductStatus(true);
+        productRepository.save(product);
+
+        // --- REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Reactivó el producto '%s' (Código: %s).",
+                product.getProductName(), product.getProductCode());
+        changeHistoryService.logChange("Inventario - Productos", logMessage);
+        // --- FIN REGISTRO ---
+    }
+
     // Solo para uso interno de servicios que necesiten la entidad real (no para exponerla al frontend)
     public Product findEntityById(Integer id) {
         return productRepository.findById(id)

@@ -3,6 +3,7 @@ package com.nubixconta.modules.inventory.controller;
 import com.nubixconta.common.exception.BadRequestException;
 import com.nubixconta.modules.inventory.service.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -83,10 +84,19 @@ public class ProductController {
     }
 
 
-    // Eliminar producto por ID
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Integer id) {
-        productService.delete(id);
-        return ResponseEntity.noContent().build();
+    // --- NUEVO ENDPOINT: Desactivar un producto ---
+    @PostMapping("/{id}/deactivate")
+    @ResponseStatus(HttpStatus.OK)
+    public ProductResponseDTO deactivateProduct(@PathVariable Integer id) {
+        productService.deactivate(id);
+        return productService.findById(id); // Devolvemos el estado actualizado
+    }
+
+    // --- NUEVO ENDPOINT: Reactivar un producto ---
+    @PostMapping("/{id}/activate")
+    @ResponseStatus(HttpStatus.OK)
+    public ProductResponseDTO activateProduct(@PathVariable Integer id) {
+        productService.activate(id);
+        return productService.findById(id); // Devolvemos el estado actualizado
     }
 }

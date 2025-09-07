@@ -1,7 +1,10 @@
 package com.nubixconta.modules.sales.service;
 
 import com.nubixconta.modules.accounting.service.SalesAccountingService;
+import com.nubixconta.modules.accountsreceivable.service.AccountsReceivableService;
+import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
+import com.nubixconta.modules.administration.service.ChangeHistoryService;
 import com.nubixconta.modules.inventory.service.InventoryService;
 import com.nubixconta.modules.sales.dto.customer.CustomerResponseDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
@@ -46,6 +49,9 @@ public class SaleService {
     private final SalesAccountingService salesAccountingService;
     private final CustomerRepository customerRepository;
     private final CompanyRepository companyRepository;
+    private final CollectionDetailService collectionDetailService;
+    private final ChangeHistoryService changeHistoryService;
+    private final AccountsReceivableService accountsReceivableService;
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
@@ -151,6 +157,10 @@ public class SaleService {
         // Validación de unicidad de número de documento
         if (saleRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe una venta con el número de documento: " + dto.getDocumentNumber());
+        }
+        // --- INICIO DE LA NUEVA VALIDACIÓN DE LÍMITE DE LÍNEAS ---
+        if (dto.getSaleDetails() != null && dto.getSaleDetails().size() > 15) {
+            throw new BusinessRuleException("Una venta no puede tener más de 15 líneas de detalle.");
         }
         // --- VALIDACIÓN DE DUPLICADOS EN DTO (Buena práctica, la mantenemos) ---
         if (dto.getSaleDetails() != null) {
@@ -277,6 +287,12 @@ public class SaleService {
         // lo persistimos TODO de una sola vez.
         Sale savedSale = saleRepository.save(newSale);
 
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Creó la venta con número de documento '%s' por un total de $%.2f.",
+                savedSale.getDocumentNumber(), savedSale.getTotalAmount());
+        changeHistoryService.logChange("Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         // 5. Devolvemos el DTO de respuesta
         return modelMapper.map(savedSale, SaleResponseDTO.class);
     }
@@ -306,6 +322,10 @@ public class SaleService {
         if (!"PENDIENTE".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException("Solo se pueden eliminar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
         }
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Eliminó la venta PENDIENTE con número de documento '%s'.", sale.getDocumentNumber());
+        changeHistoryService.logChange("Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
         saleRepository.deleteById(id);
     }
 
@@ -328,6 +348,11 @@ public class SaleService {
         //4. REGLA DE NEGOCIO: Solo se pueden editar ventas PENDIENTES.
         if (!"PENDIENTE".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException("Solo se pueden editar ventas con estado PENDIENTE. Estado actual: " + sale.getSaleStatus());
+        }
+
+        // --- INICIO DE LA NUEVA VALIDACIÓN DE LÍMITE DE LÍNEAS ---
+        if (dto.getSaleDetails() != null && dto.getSaleDetails().size() > 15) {
+            throw new BusinessRuleException("Una venta no puede tener más de 15 líneas de detalle.");
         }
         // --- INICIO DE LA VALIDACIÓN FINANCIERA COMPLETA ---
 
@@ -419,6 +444,11 @@ public class SaleService {
 
         // 7. Guardar la venta actualizada.
         Sale updatedSale = saleRepository.save(sale);
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Actualizó la venta con número de documento '%s'.", updatedSale.getDocumentNumber());
+        changeHistoryService.logChange("Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         return modelMapper.map(updatedSale, SaleResponseDTO.class);
     }
 
@@ -490,6 +520,14 @@ public class SaleService {
         customerRepository.save(customer); // <-- Guardamos el cliente con su nuevo saldo
         Sale appliedSale = saleRepository.save(sale);
 
+        //10 creamos el cobro
+        collectionDetailService.findOrCreateAccountsReceivable(appliedSale);
+
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Aplicó la venta con número de documento '%s'. El estado cambió a APLICADA.", appliedSale.getDocumentNumber());
+        changeHistoryService.logChange("Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
+
         return modelMapper.map(appliedSale, SaleResponseDTO.class);
     }
 
@@ -503,10 +541,20 @@ public class SaleService {
             throw new BusinessRuleException("La venta solo puede ser anulada si su estado es APLICADA. Estado actual: " + sale.getSaleStatus());
         }
 
-        // 3. Delegar la REVERSIÓN de inventario al InventoryService
+        // 3. REGLA DE NEGOCIO DE INTEGRIDAD: ¿Tiene cobros asociados?
+        // Esta validación ahora se hace sabiendo que la venta existe y está en el estado correcto.
+        boolean hasActiveCollections = accountsReceivableService.validateSaleWithoutCollections(saleId);
+        if (hasActiveCollections) {
+            throw new BusinessRuleException(
+                    "No se puede anular la venta porque tiene cobros asociados. " +
+                            "Por favor, anule primero los cobros en el módulo de Cuentas por Cobrar."
+            );
+        }
+
+        // 4. Delegar la REVERSIÓN de inventario al InventoryService
         inventoryService.processSaleCancellation(sale);
 
-        // 4. Revertir la partida contable
+        // 5. Revertir la partida contable
         salesAccountingService.deleteEntriesForSaleCancellation(sale);
 
         // --- NUEVA LÓGICA DE REVERSIÓN DE SALDO ---
@@ -516,9 +564,14 @@ public class SaleService {
         customerRepository.save(customer);
         // --- FIN ---
 
-        // 5. Actualizar estado
+        // 6. Actualizar estado
         sale.setSaleStatus("ANULADA");
         Sale cancelledSale = saleRepository.save(sale);
+
+        // --- INICIO: REGISTRO EN BITÁCORA ---
+        String logMessage = String.format("Anuló la venta con número de documento '%s'. El estado cambió a ANULADA.", cancelledSale.getDocumentNumber());
+        changeHistoryService.logChange("Ventas", logMessage);
+        // --- FIN: REGISTRO EN BITÁCORA ---
 
         return modelMapper.map(cancelledSale, SaleResponseDTO.class);
     }

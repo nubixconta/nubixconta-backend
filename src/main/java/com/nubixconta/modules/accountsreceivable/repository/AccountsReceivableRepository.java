@@ -1,6 +1,7 @@
 package com.nubixconta.modules.accountsreceivable.repository;
 
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
+import com.nubixconta.modules.sales.entity.Sale;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -22,4 +23,9 @@ public interface AccountsReceivableRepository extends JpaRepository<AccountsRece
 
     // Modificamos el método findById para que también filtre por empresa
     Optional<AccountsReceivable> findByIdAndCompanyId(Integer id, Integer companyId);
+
+    Optional<AccountsReceivable> findBySale(Sale sale);
+   
+    @Query("SELECT ar FROM AccountsReceivable ar JOIN FETCH ar.collectionDetails cd WHERE ar.sale.saleId = :saleId AND ar.company.id = :companyId")
+    Optional<AccountsReceivable> findBySale_SaleIdAndCompany_IdWithCollectionDetails(@Param("saleId") Integer saleId, @Param("companyId") Integer companyId);
 }
