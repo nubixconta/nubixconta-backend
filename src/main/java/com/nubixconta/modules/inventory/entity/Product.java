@@ -32,18 +32,18 @@ public class Product {
     private Company company;
 
     @NotBlank(message = "El código de producto es obligatorio")
-    @Size(max = 10, message = "El código de producto puede tener máximo 10 caracteres")
-    @Column(name = "product_code", length = 10, nullable = false)
+    @Size(max = 100, message = "El código de producto puede tener máximo 100 caracteres")
+    @Column(name = "product_code", length = 100, nullable = false)
     private String productCode;
 
     @NotBlank(message = "El nombre del producto es obligatorio")
-    @Size(max = 50, message = "El nombre puede tener máximo 50 caracteres")
-    @Column(name = "product_name", length = 50, nullable = false)
+    @Size(max = 256, message = "El nombre puede tener máximo 256 caracteres")
+    @Column(name = "product_name", length = 256, nullable = false)
     private String productName;
 
     @NotBlank(message = "La unidad es obligatoria")
-    @Size(max = 20, message = "La unidad puede tener máximo 20 caracteres")
-    @Column(name = "unit", length = 20, nullable = false)
+    @Size(max = 50, message = "La unidad puede tener máximo 50 caracteres")
+    @Column(name = "unit", length = 50, nullable = false)
     private String unit;
 
     @NotNull(message = "La cantidad en stock es obligatoria")

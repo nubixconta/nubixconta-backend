@@ -9,15 +9,15 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ProductCreateDTO {
     @NotBlank(message = "El código de producto es obligatorio")
-    @Size(max = 10, message = "El código puede tener máximo 10 caracteres")
+    @Size(max = 100, message = "El código puede tener máximo 100 caracteres")
     private String productCode;
 
     @NotBlank(message = "El nombre del producto es obligatorio")
-    @Size(max = 50, message = "El nombre puede tener máximo 50 caracteres")
+    @Size(max = 256, message = "El nombre puede tener máximo 256 caracteres")
     private String productName;
 
     @NotBlank(message = "La unidad es obligatoria")
-    @Size(max = 20, message = "La unidad puede tener máximo 20 caracteres")
+    @Size(max = 50, message = "La unidad puede tener máximo 50 caracteres")
     private String unit;
 
     @NotNull(message = "La cantidad en stock es obligatoria")
