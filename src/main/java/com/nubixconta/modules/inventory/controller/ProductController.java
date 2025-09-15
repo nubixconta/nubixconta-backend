@@ -1,17 +1,15 @@
 package com.nubixconta.modules.inventory.controller;
 
-
-import com.nubixconta.modules.inventory.entity.Product;
+import com.nubixconta.common.exception.BadRequestException;
 import com.nubixconta.modules.inventory.service.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import jakarta.validation.Valid;
+import com.nubixconta.modules.inventory.dto.product.*;
 import java.util.Map;
-import java.util.Optional;
-import java.lang.reflect.Field;
-import org.springframework.util.ReflectionUtils;
 
 @RestController
 @RequestMapping("/api/v1/products")
@@ -20,94 +18,85 @@ public class ProductController {
 
     private final ProductService productService;
 
-    // 1. Obtener TODOS los productos (activos e inactivos)
+    // Obtener todos los productos (activos e inactivos)
     @GetMapping
-    public List<Product> getAllProducts() {
-        return productService.findAll();
+    public ResponseEntity<?> getAllProducts() {
+        List<ProductResponseDTO> products = productService.findAll();
+
+        return ResponseEntity.ok(products);
     }
 
-    // 2. Obtener SOLO productos activos
+    // Obtener solo productos activos
     @GetMapping("/active")
-    public List<Product> getActiveProducts() {
-        return productService.findActive();
+    public ResponseEntity<?> getActiveProducts() {
+        List<ProductResponseDTO> products = productService.findActive();
+
+        return ResponseEntity.ok(products);
     }
 
-    // 3. Obtener SOLO productos inactivos
+    // Obtener solo productos inactivos
     @GetMapping("/inactive")
-    public List<Product> getInactiveProducts() {
-        return productService.findInactive();
+    public ResponseEntity<?> getInactiveProducts() {
+        List<ProductResponseDTO> products = productService.findInactive();
+
+        return ResponseEntity.ok(products);
     }
 
-    // 4. Buscar productos activos por id, código o nombre
-    //    Ejemplo: /api/v1/products/search?code=ABC&name=Teclado
+    // Búsqueda flexible por ID, código o nombre
     @GetMapping("/search")
-    public List<Product> searchActiveProducts(
+    public ResponseEntity<?> searchActiveProducts(
             @RequestParam(required = false) Integer id,
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String name
     ) {
         if ((id == null) && (code == null || code.isBlank()) && (name == null || name.isBlank())) {
-            throw new IllegalArgumentException("Debe enviar al menos un criterio de búsqueda.");
+            throw new BadRequestException("Debe enviar al menos un criterio de búsqueda.");
         }
-        return productService.searchActive(id, code, name);
+
+        List<ProductResponseDTO> result = productService.searchActive( code, name);
+        return ResponseEntity.ok(result);
     }
 
-    // 5. Obtener producto por ID
+    //  Obtener un producto por ID
     @GetMapping("/{id}")
-    public ResponseEntity<Product> getProduct(@PathVariable Integer id) {
-        return productService.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ProductResponseDTO getProduct(@PathVariable Integer id) {
+        return productService.findById(id);
     }
 
-    // 6. Obtener producto por código
+    //  Obtener un producto por su código
     @GetMapping("/by-code/{code}")
-    public ResponseEntity<Product> getProductByCode(@PathVariable String code) {
-        return productService.findByProductCode(code)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ProductResponseDTO getProductByCode(@PathVariable String code) {
+        return productService.findByProductCode(code);
     }
 
-
+    // Crear nuevo producto
     @PostMapping
-    public ResponseEntity<Product> createProduct(@Valid @RequestBody Product product) {
-        product.setIdProduct(null); // Garantiza que la PK no venga en el request
-        return ResponseEntity.ok(productService.save(product));
+    public ResponseEntity<ProductResponseDTO> createProduct(@Valid @RequestBody ProductCreateDTO dto) {
+        return ResponseEntity.ok(productService.create(dto));
     }
 
-
+    //  Actualizar producto (excepto stock)
     @PatchMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(
+    public ResponseEntity<ProductResponseDTO> updateProduct(
             @PathVariable Integer id,
-            @RequestBody Map<String, Object> updates) {
-
-        Optional<Product> optionalProduct = productService.findById(id);
-        if (optionalProduct.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        Product product = optionalProduct.get();
-
-        updates.forEach((key, value) -> {
-            if (key.equalsIgnoreCase("idProduct")) {
-                return; // No permitir cambiar la PK
-            }
-            Field field = ReflectionUtils.findField(Product.class, key);
-            if (field != null) {
-                field.setAccessible(true);
-                ReflectionUtils.setField(field, product, value);
-            }
-        });
-
-        return ResponseEntity.ok(productService.save(product));
+            @RequestBody ProductUpdateDTO dto) {
+        return ResponseEntity.ok(productService.update(id, dto));
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Integer id) {
-        try {
-            productService.delete(id);
-            return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+
+    // --- NUEVO ENDPOINT: Desactivar un producto ---
+    @PostMapping("/{id}/deactivate")
+    @ResponseStatus(HttpStatus.OK)
+    public ProductResponseDTO deactivateProduct(@PathVariable Integer id) {
+        productService.deactivate(id);
+        return productService.findById(id); // Devolvemos el estado actualizado
+    }
+
+    // --- NUEVO ENDPOINT: Reactivar un producto ---
+    @PostMapping("/{id}/activate")
+    @ResponseStatus(HttpStatus.OK)
+    public ProductResponseDTO activateProduct(@PathVariable Integer id) {
+        productService.activate(id);
+        return productService.findById(id); // Devolvemos el estado actualizado
     }
 }

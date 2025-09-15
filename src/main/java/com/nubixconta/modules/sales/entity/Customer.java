@@ -1,23 +1,48 @@
 package com.nubixconta.modules.sales.entity;
 
-import lombok.Data;
+
+import com.nubixconta.modules.administration.entity.User;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import com.nubixconta.modules.administration.entity.Company;
+import org.hibernate.annotations.Filter; // <-- NUEVO IMPORT
+import org.hibernate.annotations.FilterDef; // <-- NUEVO IMPORT
+import org.hibernate.annotations.ParamDef; // <-- NUEVO IMPORT
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+
+// Se mueven las restricciones de unicidad aquí para que sean compuestas con el company_id.
+// Esto permite que diferentes empresas tengan un cliente con el mismo NIT/DUI/NCR.
+@Table(name = "customer", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"company_id", "customer_dui"}),
+        @UniqueConstraint(columnNames = {"company_id", "customer_nit"}),
+        @UniqueConstraint(columnNames = {"company_id", "ncr"})
+})
 @Entity
-@Table(name = "customer")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+
+// 2. Se aplica dicho filtro a esta entidad. Hibernate añadirá automáticamente la condición
+//    "company_id = ?" a todas las consultas sobre esta entidad si el filtro está activo.
+@Filter(name = "tenantFilter", condition = "company_id = :companyId")
 public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "client_id")
     private Integer clientId;
 
-    @NotNull(message = "El userId es obligatorio")
-    @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    // SE AÑADE LA RELACIÓN CON Company.
+    // Esta es la relación clave para el aislamiento de datos.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     @NotBlank(message = "El nombre es obligatorio")
     @Size(max = 50, message = "El nombre puede tener máximo 50 caracteres")
@@ -30,17 +55,17 @@ public class Customer {
     private String customerLastName;
 
 
-    @Size(max = 10, message = "El DUI puede tener máximo 10 caracteres")
-    @Column(name = "customer_dui", length = 10)
+    @Size(max = 10)
+    @Column(name = "customer_dui", length = 10,unique = true)
     private String customerDui;
 
-
-    @Size(max = 17, message = "El NIT puede tener máximo 17 caracteres")
-    @Column(name = "customer_nit", length = 17)
+    @Size(max = 17)
+    @Column(name = "customer_nit", length = 17,unique = true)
     private String customerNit;
 
+    @NotBlank(message = "El NCR es obligatorio") // <-- ¡AÑADIR @NotBlank!
     @Size(max = 14, message = "El NCR puede tener máximo 14 caracteres")
-    @Column(name = "ncr", length = 14)
+    @Column(name = "ncr",nullable = false, length = 14,unique = true) // <-- AÑADIR UNIQUE
     private String ncr;
 
     @NotBlank(message = "La dirección es obligatoria")
@@ -51,12 +76,12 @@ public class Customer {
     @NotBlank(message = "El email es obligatorio")
     @Size(max = 30, message = "El email puede tener máximo 30 caracteres")
     @Email(message = "El email debe tener un formato válido")
-    @Column(name = "email", length = 30, nullable = false)
+    @Column(name = "email", length = 30, nullable = false,unique = true)
     private String email;
 
     @NotBlank(message = "El teléfono es obligatorio")
     @Size(max = 8, message = "El teléfono puede tener máximo 8 caracteres")
-    @Column(name = "phone", length = 8, nullable = false)
+    @Column(name = "phone", length = 8, nullable = false,unique = true)
     private String phone;
 
     @NotNull(message = "El número de días de crédito es obligatorio")
@@ -69,13 +94,26 @@ public class Customer {
     @Column(name = "credit_limit", precision = 10, scale = 2, nullable = false)
     private BigDecimal creditLimit;
 
+    // Este campo llevará el control del saldo pendiente del cliente.
+    // Lo inicializamos en CERO para nuevos clientes.
+    @NotNull
+    @Digits(integer = 10, fraction = 2)
+    @Column(name = "current_balance", precision = 10, scale = 2, nullable = false)
+    private BigDecimal currentBalance = BigDecimal.ZERO;
+
+
     @NotNull(message = "El estado es obligatorio")
     @Column(name = "status", nullable = false)
     private Boolean status;
 
-    @NotNull(message = "La fecha de creación es obligatoria")
-    @Column(name = "creation_date", nullable = false)
+    @CreationTimestamp
+    @Column(name = "creation_date", nullable = false, updatable = false)
     private LocalDateTime creationDate;
+
+    @UpdateTimestamp
+    @Column(name = "update_date")
+    private LocalDateTime updateDate;
+
 
     @NotNull(message = "El campo de exención de IVA es obligatorio")
     @Column(name = "exempt_from_vat", nullable = false)
@@ -86,12 +124,28 @@ public class Customer {
     @Column(name = "business_activity", length = 100, nullable = false)
     private String businessActivity;
 
-    @NotBlank(message = "El tipo de persona es obligatorio")
-    @Size(max = 30, message = "El tipo de persona puede tener máximo 30 caracteres")
+    @NotNull(message = "El tipo de persona es obligatorio")
+    @Enumerated(EnumType.STRING) // Le dice a JPA que guarde el nombre del enum ("NATURAL", "JURIDICA") en la BD
     @Column(name = "person_type", length = 30, nullable = false)
-    private String personType;
+    private PersonType personType;
 
     @NotNull(message = "El campo de retención es obligatorio")
     @Column(name = "applies_withholding", nullable = false)
     private Boolean appliesWithholding;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Customer customer = (Customer) o;
+        // Para entidades con ID, una vez que el ID no es nulo, es la única verdad.
+        return clientId != null && clientId.equals(customer.clientId);
+    }
+
+    @Override
+    public int hashCode() {
+        // Usar una constante para objetos transitorios (sin ID)
+        // y el hash del ID para los persistidos.
+        return getClass().hashCode();
+    }
 }

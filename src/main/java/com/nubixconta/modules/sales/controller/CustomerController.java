@@ -1,16 +1,15 @@
 package com.nubixconta.modules.sales.controller;
 
-import com.nubixconta.modules.sales.entity.Customer;
+import com.nubixconta.modules.sales.dto.customer.*;
 import com.nubixconta.modules.sales.service.CustomerService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.List;
-import org.springframework.util.ReflectionUtils;
-import java.lang.reflect.Field;
-import java.util.Map;
-import java.util.Optional;
+
 
 
 @RestController
@@ -20,76 +19,68 @@ public class CustomerController {
 
     private final CustomerService customerService;
 
+    // Obtener todos los clientes activos
     @GetMapping
-    public List<Customer> getAllCustomers() {
+    public List<CustomerResponseDTO> getAllCustomers() {
         return customerService.findAll();
     }
 
+    // Obtener cliente por ID (si no existe, lanza NotFoundException)
     @GetMapping("/{id}")
-    public ResponseEntity<Customer> getCustomer(@PathVariable Integer id) {
-        return customerService.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<CustomerResponseDTO> getCustomer(@PathVariable Integer id) {
+        return ResponseEntity.ok(customerService.findById(id));
     }
 
+    /**
+     * MODIFICADO: Se elimina el parámetro HttpServletRequest.
+     * El servicio ahora obtiene toda la información de contexto necesaria (companyId)
+     * de forma segura desde el TenantContext, haciendo el controlador más limpio.
+     */
     @PostMapping
-    public ResponseEntity<Customer> createCustomer(@Valid @RequestBody Customer customer) {
-        // Si hay errores de validación, el GlobalExceptionHandler responderá automáticamente
-        customer.setClientId(null); // Asegura que no venga el id en creación
-        return ResponseEntity.ok(customerService.save(customer));
+    public ResponseEntity<CustomerResponseDTO> createCustomer(@Valid @RequestBody CustomerCreateDTO dto) {
+        CustomerResponseDTO created = customerService.save(dto);
+        return ResponseEntity.status(201).body(created);
     }
 
+    // Actualizar cliente (parcial)
     @PatchMapping("/{id}")
-    public ResponseEntity<Customer> updateCustomer(
+    public ResponseEntity<CustomerResponseDTO> updateCustomer(
             @PathVariable Integer id,
-            @RequestBody Map<String, Object> updates) {
-
-        Optional<Customer> optionalCustomer = customerService.findById(id);
-        if (optionalCustomer.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        Customer customer = optionalCustomer.get();
-
-        updates.forEach((key, value) -> {
-            // No permitir modificar el id
-            if (key.equalsIgnoreCase("clientId")) {
-                return;
-            }
-            Field field = ReflectionUtils.findField(Customer.class, key);
-            if (field != null) {
-                field.setAccessible(true);
-                ReflectionUtils.setField(field, customer, value);
-            }
-        });
-
-
-        return ResponseEntity.ok(customerService.save(customer));
+            @RequestBody CustomerUpdateDTO dto) {
+        CustomerResponseDTO updated = customerService.update(id, dto);
+        return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCustomer(@PathVariable Integer id) {
-        try {
-            customerService.delete(id);
-            return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+    // --- NUEVO ENDPOINT (Consistente con SaleController): Desactivar un cliente ---
+    @PostMapping("/{id}/deactivate")
+    @ResponseStatus(HttpStatus.OK)
+    public CustomerResponseDTO deactivateCustomer(@PathVariable Integer id) {
+        customerService.deactivate(id);
+        // Devolvemos el cliente actualizado para que el frontend pueda refrescar el estado
+        return customerService.findById(id);
     }
-    // 1. Búsqueda flexible SOLO activos
+
+    // --- NUEVO ENDPOINT (Consistente con SaleController): Reactivar un cliente ---
+    @PostMapping("/{id}/activate")
+    @ResponseStatus(HttpStatus.OK)
+    public CustomerResponseDTO activateCustomer(@PathVariable Integer id) {
+        customerService.activate(id);
+        // Devolvemos el cliente actualizado
+        return customerService.findById(id);
+    }
+    // Buscar clientes activos con filtros
     @GetMapping("/search")
-    public List<Customer> searchActiveCustomers(
+    public List<CustomerResponseDTO> searchActiveCustomers(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String lastName,
             @RequestParam(required = false) String dui,
-            @RequestParam(required = false) String nit
-    ) {
+            @RequestParam(required = false) String nit) {
         return customerService.searchActive(name, lastName, dui, nit);
     }
 
-    // 2. Listar clientes desactivados
+    // Obtener clientes inactivos
     @GetMapping("/inactive")
-    public List<Customer> getInactiveCustomers() {
+    public List<CustomerResponseDTO> getInactiveCustomers() {
         return customerService.findInactive();
     }
-
 }

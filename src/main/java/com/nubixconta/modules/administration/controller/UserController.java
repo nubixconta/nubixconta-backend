@@ -1,84 +1,106 @@
 package com.nubixconta.modules.administration.controller;
 
+import com.nubixconta.modules.administration.dto.company.CompanyResponseDTO;
+import com.nubixconta.modules.administration.dto.user.*;
 import com.nubixconta.modules.administration.entity.User;
 import com.nubixconta.modules.administration.service.UserService;
+import com.nubixconta.security.JwtUtil;
+import jakarta.validation.Valid;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserController {
 
     private final UserService userService;
-
+    private final ModelMapper modelMapper;
     @Autowired
-    public UserController(UserService userService) {
+    public UserController(UserService userService, ModelMapper modelMapper) {
         this.userService = userService;
+        this.modelMapper = modelMapper;
     }
 
-    /* -------------------- CREAR -------------------- */
-    @PostMapping
-    public ResponseEntity<User> createUser(
-            @ModelAttribute User user,                            //  <—  SIN @Valid
-            @RequestParam(value = "file", required = false) MultipartFile file) {
 
-        // valores por defecto (antes de guardar)
-        user.setStatus(Boolean.TRUE);
-        user.setRole(Boolean.FALSE);
-
-        handleFileUpload(user, file);
-        return ResponseEntity.status(201).body(userService.saveUser(user));
+    @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<UserResponseDTO> createUser(@Valid @RequestBody UserCreateDTO userDTO) {
+        User savedUser = userService.saveUser(userDTO);
+        UserResponseDTO responseDTO = modelMapper.map(savedUser, UserResponseDTO.class);
+        return ResponseEntity.status(201).body(responseDTO);
     }
 
-    /* -------------------- ACTUALIZAR -------------------- */
-    @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(
-            @PathVariable Integer id,
-            @ModelAttribute User user,                            //  <—  SIN @Valid
-            @RequestParam(value = "file", required = false) MultipartFile file) {
+    @PatchMapping("/{id}")
 
-        handleFileUpload(user, file);
-        return ResponseEntity.ok(userService.updateUser(id, user));
+    public ResponseEntity<?> patchUser(@PathVariable Integer id, @RequestBody UserUpdateDTO dto) {
+        try {
+            User updatedUser = userService.updateUser(id, dto);
+            UserResponseDTO response = modelMapper.map(updatedUser, UserResponseDTO.class);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace(); // muestra el verdadero error en consola
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
     }
 
-    /* -------------------- LISTAR / OBTENER -------------------- */
+    // Endpoint para que el propio administrador cambie su contraseña
+    @PatchMapping("/change-password/{id}")
+    public ResponseEntity<?> changePassword(@PathVariable Integer id, @RequestBody ChangePasswordDTO dto) {
+        try {
+            /// Obtener el ID del usuario autenticado desde el token de forma segura
+            Integer authenticatedUserId = JwtUtil.extractCurrentUserId();
+
+            if (!authenticatedUserId.equals(id)) {
+                return ResponseEntity.status(403).body("No tienes permiso para cambiar la contraseña de este usuario.");
+            }
+            // Si la validación pasa, llama al servicio con el ID obtenido del token
+            userService.changeAdminPassword(id, dto);
+            return ResponseEntity.ok("Contraseña actualizada exitosamente.");
+        } catch (Exception e) {
+            return ResponseEntity.status(400).body(e.getMessage());
+        }
+    }
+
+    //Endpoin para modificarla contraseña de un usuario asistente
+    @PatchMapping("/{userId}/reset-password")
+    public ResponseEntity<?> resetPasswordForUser(@PathVariable Integer userId, @RequestBody AdminResetPasswordDTO dto) {
+        try {
+            // Obtener el ID del administrador autenticado desde el token de forma segura
+            Integer adminId = JwtUtil.extractCurrentUserId();
+
+            // Llama al servicio con el ID del usuario a modificar y el ID del administrador que lo autoriza
+            userService.resetUserPasswordByAdmin(userId, adminId, dto);
+            return ResponseEntity.ok("Contraseña del usuario reiniciada exitosamente.");
+        } catch (Exception e) {
+            return ResponseEntity.status(400).body(e.getMessage());
+        }
+    }
+
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+        List<User> users = userService.getAllUsers();
+        return ResponseEntity.ok(users);
     }
-
+//Metodo que lista a asistentes contables activos
+    @GetMapping("/assistant")
+    public ResponseEntity<List<UserResponseDTO>> getUserByAssistant() {
+        List<UserResponseDTO> users = userService.getUserByAssistant(false,true);
+        return ResponseEntity.ok(users);
+    }
+    //Enpoint para obtener un usuario por su id
     @GetMapping("/{id}")
     public ResponseEntity<?> getUserById(@PathVariable Integer id) {
         try {
-            return ResponseEntity.ok(userService.getUserById(id));
-        } catch (RuntimeException ex) {
-            return ResponseEntity.status(404).body(ex.getMessage());
+            User user = userService.getUserById(id);
+            return ResponseEntity.ok(user);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
         }
     }
 
-    /* -------------------- PRIVADO -------------------- */
-    private void handleFileUpload(User user, MultipartFile file) {
-        if (file != null && !file.isEmpty()) {
-            try {
-                String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-                Path uploadDir = Paths.get("src/main/resources/static/uploads/");
-                Files.createDirectories(uploadDir);
-                Files.copy(file.getInputStream(),
-                           uploadDir.resolve(filename),
-                           StandardCopyOption.REPLACE_EXISTING);
-                user.setPhoto("/uploads/" + filename);
-            } catch (IOException e) {
-                throw new RuntimeException("Error guardando la imagen", e);
-            }
-        }
-    }
 }

@@ -5,14 +5,22 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import com.nubixconta.modules.sales.entity.Customer;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users",
+uniqueConstraints = {
+@UniqueConstraint(columnNames = {"first_name", "last_name"}),
+@UniqueConstraint(columnNames = {"user_name"}),
+@UniqueConstraint(columnNames = {"email"})
+       })
 @Data
 public class User {
 
@@ -22,36 +30,41 @@ public class User {
     private Integer id;
 
     @NotNull(message = "El nombre es obligatorio")
+    @Size(max = 50, message = "El firstName no puede tener mas de 50 caracteres")
     @Column(name = "first_name", length = 50)
     private String firstName;
 
     @NotNull(message = "El apellido es obligatorio")
+    @Size(max = 50, message = "El lastName  no puede tener mas de 50 caracteres")
     @Column(name = "last_name", length = 50)
     private String lastName;
 
     @NotNull(message = "El userName es obligatorio")
-    @JsonProperty("userName") // <- Esta línea es clave
+    @Size(max = 32, message = "La userName no puede tener mas de 32 caracteres")
     @Column(name = "user_name", length = 32, unique = true)
     private String userName;
 
     @NotNull(message = "El correo es obligatorio")
-    @Column(length = 100)
+    @Size(max = 50, message = "La email no puede tener mas de 50 caracteres")
+    @Email(message = "El correo no tiene un formato válido")
+    @Column(length = 50,unique = true)
     private String email;
 
     @NotNull(message = "La contraseña es obligatorio")
-    @JsonProperty("password") // <- Esta línea también es necesaria
     @Column(name = "pass_word", length = 255)
     private String password;
+
 
     @Column(length = 255)
     private String photo;
 
-    // ... imports y anotaciones de clase
-    @Column(name = "user_status", nullable = false)
-    private Boolean status = Boolean.TRUE; // <- default
 
-    @Column(name = "role", nullable = false)
-    private Boolean role = Boolean.FALSE; // <- default
+    @Column(name="user_status")
+    private Boolean status;
+
+    @NotNull(message = "El estado es obligatorio")
+    @Column(name="role")
+    private Boolean role;
 
 
     @JsonManagedReference
@@ -63,4 +76,15 @@ public class User {
     @JsonIgnore
     private List<ChangeHistory> changesMade;
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
+    private List<AccessLog> accessLogs;
+
+
+    @PrePersist
+    protected void onCreate() {
+        if (status == null) {
+            status = true; // Estableciendo a true (usuario se encuentra en estado activo por defecto)
+        }
+    }
 }
