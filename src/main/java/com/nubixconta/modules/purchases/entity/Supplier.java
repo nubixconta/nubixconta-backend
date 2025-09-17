@@ -3,10 +3,7 @@ package com.nubixconta.modules.purchases.entity;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.sales.entity.PersonType;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -29,7 +26,6 @@ import java.util.Objects;
 @Getter
 @Setter
 @NoArgsConstructor
-// @FilterDef(...) // <-- LÍNEA ELIMINADA
 @Filter(name = "tenantFilter", condition = "company_id = :companyId") // <-- ESTA LÍNEA ES LA CORRECTA Y SE MANTIENE
 public class Supplier {
 
@@ -43,49 +39,51 @@ public class Supplier {
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 
-    @NotBlank
+    @NotBlank(message = "El nombre del proveedor es obligatorio")
     @Size(max = 100)
     @Column(name = "suplier_name", length = 100, nullable = false)
     private String supplierName;
 
-    @Size(max = 100)
+    @Size(max = 100, message = "El apellido puede tener máximo 100 caracteres")
     @Column(name = "suplier_last_name", length = 100)
     private String supplierLastName;
 
-    @Size(max = 10)
+    @Size(max = 10, message = "El DUI puede tener máximo 10 caracteres")
     @Column(name = "suplier_dui", length = 10)
     private String supplierDui;
 
-    @Size(max = 17)
+    @Size(max = 17, message = "El NIT puede tener máximo 17 caracteres")
     @Column(name = "suplier_nit", length = 17)
     private String supplierNit;
 
-    @NotBlank
-    @Size(max = 14)
+    @NotBlank(message = "El NRC es obligatorio")
+    @Size(max = 14, message = "El NRC puede tener máximo 14 caracteres")
     @Column(name = "nrc", length = 14, nullable = false)
     private String nrc;
 
-    @NotBlank
-    @Size(max = 50)
+    @NotBlank(message = "La dirección es obligatoria")
+    @Size(max = 50, message = "La dirección puede tener máximo 50 caracteres")
     @Column(name = "address", length = 50, nullable = false)
     private String address;
 
-    @NotBlank
-    @Email
-    @Size(max = 30)
+    @NotBlank(message = "El email es obligatorio")
+    @Email(message = "El email debe tener un formato válido")
+    @Size(max = 30, message = "El email puede tener máximo 30 caracteres")
     @Column(name = "email", length = 30, nullable = false)
     private String email;
 
-    @NotBlank
-    @Size(max = 8)
+    @NotBlank(message = "El teléfono es obligatorio")
+    @Size(max = 8, message = "El teléfono puede tener máximo 8 caracteres")
     @Column(name = "phone", length = 8, nullable = false)
     private String phone;
 
-    @NotNull
+    @NotNull(message = "El número de días de crédito es obligatorio")
+    @Min(value = 0, message = "Los días de crédito no pueden ser negativos")
     @Column(name = "credit_day", nullable = false)
     private Integer creditDay;
 
-    @NotNull
+    @NotNull(message = "El límite de crédito es obligatorio")
+    @Digits(integer = 10, fraction = 2, message = "Formato de límite de crédito inválido")
     @Column(name = "credit_limit", precision = 10, scale = 2, nullable = false)
     private BigDecimal creditLimit;
 
@@ -93,29 +91,29 @@ public class Supplier {
     @Column(name = "current_balance", precision = 10, scale = 2, nullable = false)
     private BigDecimal currentBalance = BigDecimal.ZERO;
 
-    @NotNull
+    @NotNull(message = "El estado es obligatorio")
     @Column(name = "status", nullable = false)
     private Boolean status;
 
-    @NotNull
+    @NotNull(message = "El campo de exención de IVA es obligatorio")
     @Column(name = "exempt_from_vat", nullable = false)
     private Boolean exemptFromVat;
 
-    @NotBlank
-    @Size(max = 100)
+    @NotBlank(message = "La actividad económica es obligatoria")
+    @Size(max = 100, message = "La actividad económica puede tener máximo 100 caracteres")
     @Column(name = "business_activity", length = 100, nullable = false)
     private String businessActivity;
 
-    @NotNull
+    @NotNull(message = "El tipo de persona es obligatorio")
     @Enumerated(EnumType.STRING)
     @Column(name = "person_type", length = 30, nullable = false)
     private PersonType personType;
 
-    @NotNull
-    @Column(name = "applies_withholding", nullable = false)
-    private Boolean appliesWithholding;
+    @NotNull(message = "El campo 'aplica percepción' es obligatorio")
+    @Column(name = "applies_perception", nullable = false) // Columna en BD
+    private Boolean appliesPerception;
 
-    @Size(max = 20)
+    @Size(max = 20, message = "El tipo de proveedor puede tener máximo 20 caracteres")
     @Column(name = "suplier_type", length = 20)
     private String supplierType;
 
