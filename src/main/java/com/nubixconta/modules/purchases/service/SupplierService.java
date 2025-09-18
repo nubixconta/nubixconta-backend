@@ -123,18 +123,42 @@ public class SupplierService {
         Supplier existing = supplierRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Proveedor con ID " + id + " no encontrado"));
 
-        // Mapeo manual para controlar qué campos se actualizan
-        existing.setSupplierName(dto.getSupplierName());
-        existing.setSupplierLastName(dto.getSupplierLastName());
-        existing.setAddress(dto.getAddress());
-        existing.setEmail(dto.getEmail());
-        existing.setPhone(dto.getPhone());
-        existing.setCreditDay(dto.getCreditDay());
-        existing.setCreditLimit(dto.getCreditLimit());
-        existing.setExemptFromVat(dto.getExemptFromVat());
-        existing.setBusinessActivity(dto.getBusinessActivity());
-        existing.setAppliesPerception(dto.getAppliesPerception());
-        existing.setSupplierType(dto.getSupplierType());
+        // --- INICIO DE LA LÓGICA DE ACTUALIZACIÓN PARCIAL CORREGIDA ---
+        // Se aplica el nuevo valor solo si fue proporcionado en el DTO (no es null).
+        if (dto.getSupplierName() != null) {
+            existing.setSupplierName(dto.getSupplierName());
+        }
+        if (dto.getSupplierLastName() != null) {
+            existing.setSupplierLastName(dto.getSupplierLastName());
+        }
+        if (dto.getAddress() != null) {
+            existing.setAddress(dto.getAddress());
+        }
+        if (dto.getEmail() != null) {
+            existing.setEmail(dto.getEmail());
+        }
+        if (dto.getPhone() != null) {
+            existing.setPhone(dto.getPhone());
+        }
+        if (dto.getCreditDay() != null) {
+            existing.setCreditDay(dto.getCreditDay());
+        }
+        if (dto.getCreditLimit() != null) {
+            existing.setCreditLimit(dto.getCreditLimit());
+        }
+        if (dto.getExemptFromVat() != null) {
+            existing.setExemptFromVat(dto.getExemptFromVat());
+        }
+        if (dto.getBusinessActivity() != null) {
+            existing.setBusinessActivity(dto.getBusinessActivity());
+        }
+        if (dto.getAppliesPerception() != null) {
+            existing.setAppliesPerception(dto.getAppliesPerception());
+        }
+        if (dto.getSupplierType() != null) {
+            existing.setSupplierType(dto.getSupplierType());
+        }
+        // --- FIN DE LA LÓGICA CORREGIDA ---
 
         // Re-validar las reglas de negocio con los datos actualizados
         validateSupplierBusinessRules(existing, existing.getCompany().getId());

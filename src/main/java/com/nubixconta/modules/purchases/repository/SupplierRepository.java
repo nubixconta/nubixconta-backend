@@ -54,10 +54,10 @@ public interface SupplierRepository extends JpaRepository<Supplier, Integer> {
     // --- MÉTODO DE BÚSQUEDA AÑADIDO ---
     // Busca proveedores activos combinando múltiples criterios opcionales.
     @Query("SELECT s FROM Supplier s WHERE s.company.id = :companyId AND s.status = true " +
-            "AND (:name IS NULL OR LOWER(s.supplierName) LIKE LOWER(CONCAT('%', :name, '%'))) " +
-            "AND (:lastName IS NULL OR LOWER(s.supplierLastName) LIKE LOWER(CONCAT('%', :lastName, '%'))) " +
-            "AND (:dui IS NULL OR s.supplierDui = :dui) " +
-            "AND (:nit IS NULL OR s.supplierNit = :nit)")
+            "AND (:name IS NULL OR :name = '' OR LOWER(s.supplierName) LIKE LOWER(CONCAT('%', :name, '%'))) " +
+            "AND (:lastName IS NULL OR :lastName = '' OR LOWER(s.supplierLastName) LIKE LOWER(CONCAT('%', :lastName, '%'))) " +
+            "AND (:dui IS NULL OR :dui = '' OR s.supplierDui = :dui) " +
+            "AND (:nit IS NULL OR :nit = '' OR s.supplierNit = :nit)")
     List<Supplier> searchActive(
             @Param("companyId") Integer companyId,
             @Param("name") String name,
