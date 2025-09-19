@@ -1,5 +1,6 @@
 package com.nubixconta.modules.AccountsPayable.entity;
 import com.nubixconta.modules.administration.entity.Company;
+import com.nubixconta.modules.purchases.entity.Purchase;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -31,7 +32,7 @@ public class AccountsPayable {
 
         @ManyToOne(fetch = FetchType.EAGER)
         @JoinColumn(name = "purcharse_id", insertable = false, updatable = false)
-        private Purcharse purcharse;
+        private Purchase purcharse;
 
         @NotNull(message = "El saldo es obligatorio")
         @Column(precision = 10, scale = 2)
@@ -44,7 +45,7 @@ public class AccountsPayable {
         @Column(name = "module_type", length = 30)
         private String moduleType;
 
-        @OneToMany(mappedBy = "accountReceivable", cascade = CascadeType.ALL)
+        @OneToMany(mappedBy = "accountsPayable", cascade = CascadeType.ALL)
         private List<PaymentDetails> paymentDetails;
 
         public void addCollectionDetail(PaymentDetails detail) {

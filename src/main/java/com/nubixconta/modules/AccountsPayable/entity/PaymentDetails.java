@@ -76,7 +76,7 @@ public class PaymentDetails {
         @Column(name = "module_type", length = 30)
         private String moduleType;
 
-        @OneToMany(mappedBy = "collectionDetail", cascade = CascadeType.ALL)
+        @OneToMany(mappedBy = "paymentDetails", cascade = CascadeType.ALL)
         private List<PaymentEntry> paymentEntries;
 
         public void addEntry(PaymentEntry entry) {
