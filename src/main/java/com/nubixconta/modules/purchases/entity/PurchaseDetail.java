@@ -1,5 +1,6 @@
 package com.nubixconta.modules.purchases.entity;
 
+import com.nubixconta.modules.accounting.entity.Catalog; // <-- NUEVO IMPORT
 import com.nubixconta.modules.inventory.entity.Product;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -29,16 +30,22 @@ public class PurchaseDetail {
     private Purchase purchase;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_product", nullable = true) // Nullable porque puede ser un servicio
+    @JoinColumn(name = "id_product", nullable = true)
     private Product product;
+
+    // --- CAMBIO CLAVE #1: Se añade la relación con el Catálogo Contable ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_catalog", nullable = true)
+    private Catalog catalog;
 
     @NotNull
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
-    @Size(max = 50)
-    @Column(name = "service_name", length = 50) // Nullable porque puede ser un producto
-    private String serviceName;
+    // --- CAMBIO CLAVE #2: 'serviceName' se reemplaza por 'lineDescription' ---
+    @Size(max = 255)
+    @Column(name = "line_description", length = 255)
+    private String lineDescription;
 
     @NotNull
     @Column(name = "unit_price", precision = 10, scale = 2, nullable = false)
@@ -57,20 +64,17 @@ public class PurchaseDetail {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         PurchaseDetail that = (PurchaseDetail) o;
-        // La igualdad se basa en el ID si la entidad ya está persistida
         if (purchaseDetailId != null && that.purchaseDetailId != null) {
             return purchaseDetailId.equals(that.purchaseDetailId);
         }
-        // Para entidades nuevas, se compara el contenido
         return Objects.equals(purchase, that.purchase) &&
                 Objects.equals(product, that.product) &&
-                Objects.equals(serviceName, that.serviceName);
+                Objects.equals(catalog, that.catalog) && // <-- Añadido para consistencia
+                Objects.equals(lineDescription, that.lineDescription); // <-- Añadido para consistencia
     }
 
     @Override
     public int hashCode() {
-        // Usar una constante para entidades nuevas (sin ID)
-        // y el hash del ID para las persistidas.
-        return purchaseDetailId != null ? purchaseDetailId.hashCode() : Objects.hash(purchase, product, serviceName);
+        return purchaseDetailId != null ? purchaseDetailId.hashCode() : Objects.hash(purchase, product, catalog, lineDescription);
     }
 }
