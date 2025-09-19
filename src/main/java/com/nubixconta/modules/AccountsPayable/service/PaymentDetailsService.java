@@ -6,11 +6,14 @@ import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableReposito
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.administration.service.ChangeHistoryService;
+import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.security.TenantContext;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -77,5 +80,35 @@ public class PaymentDetailsService {
         detail.setAccountsPayable(accountPayable);
         return repository.save(detail);
     }
+    @Transactional
+    public void recalcularBalancePorPayableId(Integer payableId) {
+        var ar = accountsPayableRepository.findById(payableId)
+                .orElseThrow(() -> new RuntimeException("AccountsPayable no encontrado"));
+
+        // Obtener solo los abonos que NO estén anulados
+        Integer companyId = getCompanyIdFromContext();
+        List<PaymentDetails> abonos = repository.findByAccountsPayableAndCompanyId(payableId,companyId).stream()
+                .filter(detalle -> !"ANULADO".equalsIgnoreCase(detalle.getPaymentStatus()))
+                .toList();
+
+        BigDecimal totalAbonos = abonos.stream()
+                .map(PaymentDetails::getPaymentAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Purchase purchase = ar.getPurcharse();
+        if (purchase == null) {
+            throw new IllegalStateException("La relación con la compra no está disponible para esta cuenta por pagar.");
+        }
+
+        BigDecimal montoTotalCompra = purchase.getTotalAmount();
+        BigDecimal nuevoBalance = montoTotalCompra.subtract(totalAbonos);
+
+        if (nuevoBalance.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalStateException("El balance calculado es negativo, lo que indica un error en los datos.");
+        }
+        ar.setBalance(nuevoBalance);
+        accountsPayableRepository.save(ar);
+    }
+
 }
 

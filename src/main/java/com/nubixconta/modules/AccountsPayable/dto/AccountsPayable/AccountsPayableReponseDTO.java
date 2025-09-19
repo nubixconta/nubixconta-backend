@@ -9,6 +9,7 @@ import java.util.List;
 @Data
 public class AccountsPayableReponseDTO {
     private BigDecimal balance;
+    private BigDecimal payableAmount;
     private PurchaseForAccountsPayableDTO purchase;
     private List<PaymentDetailsResponseDTO> paymentDetails;
 }

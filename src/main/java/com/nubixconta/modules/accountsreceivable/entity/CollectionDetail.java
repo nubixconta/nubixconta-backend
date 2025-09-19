@@ -27,7 +27,6 @@ public class CollectionDetail {
     @Column(name = "collection_detail_id")
     private Integer id;
 
-
     @NotNull(message = "La cuenta por cobrar es obligatoria")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_receivable_id", nullable = false)

@@ -7,5 +7,6 @@ import java.math.BigDecimal;
 @Data
 public class AccountsPayablePurchaseResponseDTO {
     private BigDecimal balance;
+    private BigDecimal payableAmount;
     private PurchaseForAccountsPayableDTO purchase;
 }
