@@ -64,7 +64,9 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
                 config.setAllowedOrigins(Arrays.asList(
             "http://localhost:5173",              // para desarrollo local
-            "https://nubixconta.netlify.app"      // para producción en Netlify
+            "https://nubixconta.netlify.app",
+                        "https://2c07ffe7cc33.ngrok-free.app"
+                        // para producción en Netlify
         ));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));
