@@ -7,6 +7,7 @@ import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
+import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.administration.service.ChangeHistoryService;
@@ -20,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -83,6 +85,13 @@ public class PaymentDetailsService {
 
     public Optional<PaymentDetails> findById(Integer id) {
         return repository.findById(id);
+    }
+
+    //Metodo para filtrar por fechas
+    public List<PaymentDetails> findByDateRange(LocalDateTime start, LocalDateTime end) {
+        Integer companyId = getCompanyIdFromContext();
+        // Llamar al nuevo método del repositorio.
+        return repository.findByCompanyIdAndPaymentDetailsDateBetween(companyId, start, end);
     }
 
 

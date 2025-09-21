@@ -36,7 +36,7 @@ public class PaymentDetailsCreateDTO {
     private String paymentDetailDescription;
 
     @NotNull(message = "La fecha es obligatoria")
-    private LocalDateTime PaymentDetailsDate;
+    private LocalDateTime paymentDetailsDate;
 
     @NotNull(message = "El módulo es obligatorio")
     @Size(max = 30, message = "El módulo no puede tener más de 30 caracteres")

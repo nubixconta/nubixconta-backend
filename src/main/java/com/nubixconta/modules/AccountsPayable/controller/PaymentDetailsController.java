@@ -15,7 +15,12 @@ import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/payment-details")
@@ -90,4 +95,26 @@ public class PaymentDetailsController {
         return ResponseEntity.ok(response);
     }
 
+    //Busca pagos por un rango de fechas
+    @GetMapping("/search-by-date")
+    public ResponseEntity<List<PaymentDetailsResponseDTO>> searchByDateRange(
+            @RequestParam("start") String startStr,
+            @RequestParam("end") String endStr) {
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        // Se convierte la fecha al inicio y fin del día
+        LocalDate startDate = LocalDate.parse(startStr, formatter);
+        LocalDateTime start = startDate.atStartOfDay();
+
+        LocalDate endDate = LocalDate.parse(endStr, formatter);
+        LocalDateTime end = endDate.atTime(LocalTime.MAX);
+
+        List<PaymentDetails> results = service.findByDateRange(start, end);
+
+        List<PaymentDetailsResponseDTO> responseDTOs = results.stream()
+                .map(paymentDetails -> modelMapper.map(paymentDetails, PaymentDetailsResponseDTO.class))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responseDTOs);
+    }
 }
