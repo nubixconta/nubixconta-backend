@@ -22,7 +22,7 @@ public class AccountsPayable {
 
         @NotNull(message = "La compra es obligatoria")
         @Column(name = "purcharse_id", nullable = false)
-        private Integer purcharseId;
+        private Integer purchaseId;
 
         // --- ¡Añadido el campo de la empresa! ---
         @NotNull(message = "La empresa es obligatoria")
@@ -32,7 +32,7 @@ public class AccountsPayable {
 
         @ManyToOne(fetch = FetchType.EAGER)
         @JoinColumn(name = "purcharse_id", insertable = false, updatable = false)
-        private Purchase purcharse;
+        private Purchase purchase;
 
         @NotNull(message = "El saldo es obligatorio")
         @Column(precision = 10, scale = 2)

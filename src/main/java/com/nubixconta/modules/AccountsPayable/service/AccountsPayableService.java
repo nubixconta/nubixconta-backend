@@ -7,7 +7,6 @@ import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsR
 import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
-import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.purchases.dto.purchase.PurchaseForAccountsPayableDTO;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.security.TenantContext;
@@ -63,10 +62,10 @@ public class AccountsPayableService {
         return repository.findByCompanyId(companyId).stream()
                 .filter(ar -> ar.getBalance().compareTo(BigDecimal.ZERO) > 0)
                 .filter(ar -> {
-                    if (ar.getPurcharse() == null) {
+                    if (ar.getPurchase() == null) {
                         return false;
                     }
-                    Purchase purchase = ar.getPurcharse();
+                    Purchase purchase = ar.getPurchase();
 
                     // Convierte LocalDateTime a LocalDate para la comparación
                     LocalDate purchaseIssueDate = purchase.getIssueDate().toLocalDate();
@@ -97,12 +96,12 @@ public class AccountsPayableService {
         AccountsPayablePurchaseResponseDTO dto = new AccountsPayablePurchaseResponseDTO();
         dto.setBalance(ar.getBalance());
 
-        if (ar.getPurcharse() != null) {
-            PurchaseForAccountsPayableDTO purchaseDto = modelMapper.map(ar.getPurcharse(), PurchaseForAccountsPayableDTO.class);
-            if (ar.getPurcharse().getSupplier() != null) {
-                purchaseDto.setSupplierName(ar.getPurcharse().getSupplier().getSupplierName());
-                purchaseDto.setSupplierLastName(ar.getPurcharse().getSupplier().getSupplierLastName());
-                purchaseDto.setCreditDay(ar.getPurcharse().getSupplier().getCreditDay());
+        if (ar.getPurchase() != null) {
+            PurchaseForAccountsPayableDTO purchaseDto = modelMapper.map(ar.getPurchase(), PurchaseForAccountsPayableDTO.class);
+            if (ar.getPurchase().getSupplier() != null) {
+                purchaseDto.setSupplierName(ar.getPurchase().getSupplier().getSupplierName());
+                purchaseDto.setSupplierLastName(ar.getPurchase().getSupplier().getSupplierLastName());
+                purchaseDto.setCreditDay(ar.getPurchase().getSupplier().getCreditDay());
             }
             dto.setPurchase(purchaseDto);
         } else {
@@ -121,16 +120,16 @@ public class AccountsPayableService {
                 .map(account -> {
                     AccountsPayableReponseDTO dto = modelMapper.map(account, AccountsPayableReponseDTO.class);
 
-                    if (account.getPurcharse() != null) {
+                    if (account.getPurchase() != null) {
                         PurchaseForAccountsPayableDTO purchaseDTO = new PurchaseForAccountsPayableDTO();
-                        purchaseDTO.setDocumentNumber(account.getPurcharse().getDocumentNumber());
-                        purchaseDTO.setIssueDate(account.getPurcharse().getIssueDate());
-                        purchaseDTO.setTotalAmount(account.getPurcharse().getTotalAmount());
+                        purchaseDTO.setDocumentNumber(account.getPurchase().getDocumentNumber());
+                        purchaseDTO.setIssueDate(account.getPurchase().getIssueDate());
+                        purchaseDTO.setTotalAmount(account.getPurchase().getTotalAmount());
 
-                        if (account.getPurcharse().getSupplier() != null) {
-                            purchaseDTO.setSupplierName(account.getPurcharse().getSupplier().getSupplierName());
-                            purchaseDTO.setSupplierLastName(account.getPurcharse().getSupplier().getSupplierLastName());
-                            purchaseDTO.setCreditDay(account.getPurcharse().getSupplier().getCreditDay());
+                        if (account.getPurchase().getSupplier() != null) {
+                            purchaseDTO.setSupplierName(account.getPurchase().getSupplier().getSupplierName());
+                            purchaseDTO.setSupplierLastName(account.getPurchase().getSupplier().getSupplierLastName());
+                            purchaseDTO.setCreditDay(account.getPurchase().getSupplier().getCreditDay());
                         }
 
                         dto.setPurchase(purchaseDTO);
@@ -162,8 +161,8 @@ public class AccountsPayableService {
                 .orElseGet(() -> {
                     // Si no existe, se crea una nueva instancia.
                     AccountsPayable newAR = new AccountsPayable();
-                    newAR.setPurcharseId(purchase.getIdPurchase());
-                    newAR.setPurcharse(purchase);
+                    newAR.setPurchaseId(purchase.getIdPurchase());
+                    newAR.setPurchase(purchase);
                     newAR.setPayableAmount(purchase.getTotalAmount());// El monto del pago inicial es igual al monto total de la venta
                     newAR.setBalance(newAR.getPayableAmount());
                     newAR.setModuleType("Cuentas por pagar");

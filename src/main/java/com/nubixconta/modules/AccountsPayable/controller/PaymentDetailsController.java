@@ -1,10 +1,12 @@
 package com.nubixconta.modules.AccountsPayable.controller;
 
+import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsCreateDTO;
 import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsResponseDTO;
 import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsUpdateDTO;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.service.PaymentDetailsService;
+import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailCreateDTO;
 import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailResponseDTO;
 import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailUpdateDTO;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
@@ -12,6 +14,8 @@ import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/payment-details")
@@ -27,7 +31,21 @@ public class PaymentDetailsController {
         this.modelMapper = modelMapper;
     }
 
-//Enpoint para eliminar un pago
+    @GetMapping
+    public List<PaymentDetailsResponseDTO> getAll() {
+        return service.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<PaymentDetailsResponseDTO> getById(@PathVariable Integer id) {
+        return service.findById(id)
+                .map(paymentDetails -> modelMapper.map(paymentDetails, PaymentDetailsResponseDTO.class))
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+
+    //Enpoint para eliminar un pago
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
         service.deleteById(id);
@@ -62,6 +80,14 @@ public class PaymentDetailsController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+    //Metodo para registrar el pago
+    @PostMapping("/make-payment")
+    public ResponseEntity<PaymentDetailsResponseDTO> makePayment(
+            @RequestBody @Valid PaymentDetailsCreateDTO dto) {
 
+        PaymentDetails saved = service.makePayment(dto);
+        PaymentDetailsResponseDTO response = modelMapper.map(saved, PaymentDetailsResponseDTO.class);
+        return ResponseEntity.ok(response);
+    }
 
 }

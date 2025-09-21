@@ -1,6 +1,7 @@
 package com.nubixconta.modules.purchases.repository;
 
 import com.nubixconta.modules.purchases.entity.Purchase;
+import com.nubixconta.modules.sales.entity.Sale;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -50,4 +51,6 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Integer> {
             @Param("supplierName") String supplierName,
             @Param("supplierLastName") String supplierLastName
     );
+    // Busca una venta por su ID y el ID de la empresa.
+    Optional<Purchase> findByIdPurchaseAndCompanyId(Integer purchaseId, Integer companyId);
 }

@@ -12,7 +12,7 @@ import java.util.List;
 @Repository
 public interface PaymentDetailsRepository extends JpaRepository<PaymentDetails, Integer> {
     // Nuevo método para encontrar todos por empresa
-    List<PaymentDetails> findByCompanyId(Integer companyId);
+    List<PaymentDetails> findByCompany_Id(Integer companyId);
 
     @Query("SELECT a FROM PaymentDetails a WHERE a.accountsPayable.id = :payableId AND a.company.id = :companyId")
     List<PaymentDetails> findByAccountsPayableAndCompanyId(@Param("payableId") Integer payableId, @Param("companyId") Integer companyId);
