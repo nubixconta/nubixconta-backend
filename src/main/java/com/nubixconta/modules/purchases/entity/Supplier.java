@@ -125,6 +125,20 @@ public class Supplier {
     @Column(name = "update_date")
     private LocalDateTime updateDate;
 
+
+    /**
+     * Devuelve el nombre completo del proveedor.
+     * Concatena el nombre y el apellido si este último existe.
+     * @return El nombre completo como una cadena de texto.
+     */
+    @Transient // Anotación importante: le dice a JPA que este método no es una columna en la BD.
+    public String getFullName() {
+        if (this.supplierLastName != null && !this.supplierLastName.isBlank()) {
+            return this.supplierName + " " + this.supplierLastName;
+        }
+        return this.supplierName;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
