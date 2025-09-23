@@ -7,8 +7,7 @@ import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsR
 import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
-import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
-import com.nubixconta.modules.purchases.dto.purchase.PurchaseForAccountsPayableDTO;
+import com.nubixconta.modules.purchases.dto.purchases.PurchaseDetailResponseDTO;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.security.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
@@ -98,7 +97,7 @@ public class AccountsPayableService {
         dto.setBalance(ar.getBalance());
 
         if (ar.getPurcharse() != null) {
-            PurchaseForAccountsPayableDTO purchaseDto = modelMapper.map(ar.getPurcharse(), PurchaseForAccountsPayableDTO.class);
+            PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDto = modelMapper.map(ar.getPurcharse(), PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO.class);
             if (ar.getPurcharse().getSupplier() != null) {
                 purchaseDto.setSupplierName(ar.getPurcharse().getSupplier().getSupplierName());
                 purchaseDto.setSupplierLastName(ar.getPurcharse().getSupplier().getSupplierLastName());
@@ -122,7 +121,7 @@ public class AccountsPayableService {
                     AccountsPayableReponseDTO dto = modelMapper.map(account, AccountsPayableReponseDTO.class);
 
                     if (account.getPurcharse() != null) {
-                        PurchaseForAccountsPayableDTO purchaseDTO = new PurchaseForAccountsPayableDTO();
+                        PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDTO = new PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO();
                         purchaseDTO.setDocumentNumber(account.getPurcharse().getDocumentNumber());
                         purchaseDTO.setIssueDate(account.getPurcharse().getIssueDate());
                         purchaseDTO.setTotalAmount(account.getPurcharse().getTotalAmount());

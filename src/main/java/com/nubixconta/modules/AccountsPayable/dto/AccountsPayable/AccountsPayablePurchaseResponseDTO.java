@@ -1,6 +1,6 @@
 package com.nubixconta.modules.AccountsPayable.dto.AccountsPayable;
 
-import com.nubixconta.modules.purchases.dto.purchase.PurchaseForAccountsPayableDTO;
+import com.nubixconta.modules.purchases.dto.purchases.PurchaseDetailResponseDTO;
 import lombok.Data;
 import java.math.BigDecimal;
 
@@ -8,5 +8,5 @@ import java.math.BigDecimal;
 public class AccountsPayablePurchaseResponseDTO {
     private BigDecimal balance;
     private BigDecimal payableAmount;
-    private PurchaseForAccountsPayableDTO purchase;
+    private PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchase;
 }
