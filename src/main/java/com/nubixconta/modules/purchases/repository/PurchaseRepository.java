@@ -18,6 +18,11 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Integer> {
 
     boolean existsByCompany_IdAndDocumentNumber(Integer companyId, String documentNumber);
 
+    /**
+     * Busca una compra por el ID de la empresa y el número de documento.
+     */
+    Optional<Purchase> findByCompany_IdAndDocumentNumber(Integer companyId, String documentNumber);
+
     List<Purchase> findByCompany_IdOrderByIssueDateDesc(Integer companyId);
 
     List<Purchase> findByCompany_IdAndPurchaseStatus(Integer companyId, String purchaseStatus);

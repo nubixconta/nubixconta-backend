@@ -5,17 +5,22 @@ import com.nubixconta.modules.AccountsPayable.dto.AccountsPayable.AccountsPayabl
 import com.nubixconta.modules.AccountsPayable.dto.AccountsPayable.AccountsPayableReponseDTO;
 import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsResponseDTO;
 import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
+import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
+import com.nubixconta.modules.accountsreceivable.dto.accountsreceivable.AccountsReceivableSaleResponseDTO;
 import com.nubixconta.modules.purchases.dto.purchase.PurchaseForAccountsPayableDTO;
 import com.nubixconta.modules.purchases.entity.Purchase;
+import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
 import com.nubixconta.security.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
 import org.modelmapper.ModelMapper;
+import org.modelmapper.TypeMap;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -38,6 +43,8 @@ public class AccountsPayableService {
         this.repository = repository;
         this.modelMapper = modelMapper;
         this.paymentDetailsRepository = paymentDetailsRepository;
+
+
     }
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
@@ -46,13 +53,51 @@ public class AccountsPayableService {
                 .orElseThrow(() -> new BusinessRuleException("No se ha seleccionado una empresa en el contexto."));
     }
 
-    @Transactional(readOnly = true)
+   /* @Transactional(readOnly = true)
     public List<AccountsPayablePurchaseResponseDTO> findAllAccountsPayablePurchaseResponseDTO() {
         return repository.findByCompanyId(getCompanyIdFromContext()).stream()
                 .filter(ar -> ar.getBalance().compareTo(BigDecimal.ZERO) > 0)
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+    }*/
+
+    @Transactional(readOnly = true)
+    public List<AccountsPayablePurchaseResponseDTO> findAllAccountsPayablePurchaseResponseDTO() {
+        Integer companyId = getCompanyIdFromContext();
+        return repository.findByCompanyId(companyId).stream()
+                .filter(ar -> ar.getBalance().compareTo(BigDecimal.ZERO) > 0)
+                .map(ar -> {
+                    AccountsPayablePurchaseResponseDTO dto = new AccountsPayablePurchaseResponseDTO();
+                    dto.setBalance(ar.getBalance());
+
+                    if (ar.getPurchase() != null) {
+                        Purchase purchase = ar.getPurchase();
+                        PurchaseForAccountsPayableDTO purchaseDto = new PurchaseForAccountsPayableDTO();
+
+                        // Mapeo manual de campos de la compra
+                        purchaseDto.setDocumentNumber(purchase.getDocumentNumber());
+                        purchaseDto.setIdPurchase(purchase.getIdPurchase());
+                        purchaseDto.setTotalAmount(purchase.getTotalAmount());
+                        purchaseDto.setIssueDate(purchase.getIssueDate());
+                        purchaseDto.setPurchaseDescription(purchase.getPurchaseDescription());
+
+                        // Mapeo manual de campos del proveedor
+                        if (purchase.getSupplier() != null) {
+                            purchaseDto.setSupplierName(purchase.getSupplier().getSupplierName());
+                            purchaseDto.setSupplierLastName(purchase.getSupplier().getSupplierLastName());
+                            purchaseDto.setCreditDay(purchase.getSupplier().getCreditDay());
+                        }
+
+                        dto.setPurchase(purchaseDto);
+                    } else {
+                        dto.setPurchase(null);
+                    }
+
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
+
 
     @Transactional(readOnly = true)
     public List<AccountsPayablePurchaseResponseDTO> findFilteredAccountsPayablePurchaseResponseDTO(
@@ -116,43 +161,66 @@ public class AccountsPayableService {
      */
     public List<AccountsPayableReponseDTO> findAll() {
         Integer companyId = getCompanyIdFromContext();
-        return repository.findByCompanyId(companyId).stream()
-                .map(account -> {
-                    AccountsPayableReponseDTO dto = modelMapper.map(account, AccountsPayableReponseDTO.class);
 
-                    if (account.getPurchase() != null) {
-                        PurchaseForAccountsPayableDTO purchaseDTO = new PurchaseForAccountsPayableDTO();
-                        purchaseDTO.setDocumentNumber(account.getPurchase().getDocumentNumber());
-                        purchaseDTO.setIssueDate(account.getPurchase().getIssueDate());
-                        purchaseDTO.setTotalAmount(account.getPurchase().getTotalAmount());
+        // *** 1. USAMOS EL NUEVO MÉTODO DEL REPOSITORIO ***
+        // Esto asegura que la lista 'paymentDetails' se cargue (resuelve el Lazy Loading).
+        List<AccountsPayable> accounts = repository.findByCompanyIdWithDetails(companyId);
 
-                        if (account.getPurchase().getSupplier() != null) {
-                            purchaseDTO.setSupplierName(account.getPurchase().getSupplier().getSupplierName());
-                            purchaseDTO.setSupplierLastName(account.getPurchase().getSupplier().getSupplierLastName());
-                            purchaseDTO.setCreditDay(account.getPurchase().getSupplier().getCreditDay());
-                        }
-
-                        dto.setPurchase(purchaseDTO);
-                    }
-                    // Transformar manualmente los detalles de cobro por que ModelMapper
-                    //no puede mapea todo el objeto CollectionDetail por defecto y no lo convierte
-                    // a CollectionDetailTDO hay que hacerlo manualmente
-                    List<PaymentDetailsResponseDTO> paymentDTOs = account.getPaymentDetails().stream()
-                            .map(cd -> new PaymentDetailsResponseDTO(
-                                    cd.getId(),
-                                    cd.getPaymentStatus(),
-                                    cd.getPaymentDetailDescription(),
-                                    cd.getPaymentDetailsDate(),
-                                    cd.getPaymentMethod(),
-                                    cd.getPaymentAmount()
-                            ))
-                            .toList();
-
-                    dto.setPaymentDetails(paymentDTOs);
-
-                    return dto;
-                })
+        return accounts.stream()
+                .map(this::mapEntityToDTO) // Delegamos el mapeo a un método dedicado
                 .collect(Collectors.toList());
+    }
+
+
+    private AccountsPayableReponseDTO mapEntityToDTO(AccountsPayable account) {
+        AccountsPayableReponseDTO dto = new AccountsPayableReponseDTO();
+
+        // 1. Mapeo de propiedades directas
+        dto.setBalance(account.getBalance());
+        dto.setPayableAmount(account.getPayableAmount());
+
+        // 2. Mapeo de Compra (Purchase)
+        if (account.getPurchase() != null) {
+            PurchaseForAccountsPayableDTO purchaseDTO = new PurchaseForAccountsPayableDTO();
+            purchaseDTO.setDocumentNumber(account.getPurchase().getDocumentNumber());
+            purchaseDTO.setIssueDate(account.getPurchase().getIssueDate());
+            purchaseDTO.setTotalAmount(account.getPurchase().getTotalAmount());
+
+            if (account.getPurchase().getSupplier() != null) {
+                // Mapeo explícito que resuelve el conflicto de ModelMapper
+                purchaseDTO.setSupplierName(account.getPurchase().getSupplier().getSupplierName());
+                purchaseDTO.setSupplierLastName(account.getPurchase().getSupplier().getSupplierLastName());
+                purchaseDTO.setCreditDay(account.getPurchase().getSupplier().getCreditDay());
+            }
+
+            dto.setPurchase(purchaseDTO);
+        }
+
+        // 3. Mapeo de Detalles de Pago (PaymentDetails)
+        if (account.getPaymentDetails() != null) {
+            List<PaymentDetailsResponseDTO> detailsDTO = account.getPaymentDetails().stream()
+                    .map(this::mapPaymentDetailToDTO)
+                    .collect(Collectors.toList());
+
+            dto.setPaymentDetails(detailsDTO);
+        } else {
+            dto.setPaymentDetails(Collections.emptyList());
+        }
+
+        return dto;
+    }
+
+    private PaymentDetailsResponseDTO mapPaymentDetailToDTO(PaymentDetails detail) {
+        PaymentDetailsResponseDTO dto = new PaymentDetailsResponseDTO();
+
+        // Mapeo de las propiedades de PaymentDetails a PaymentDetailsResponseDTO
+        dto.setPaymentAmount(detail.getPaymentAmount());
+        dto.setPaymentMethod(detail.getPaymentMethod());
+        dto.setPaymentStatus(detail.getPaymentStatus());
+        dto.setPaymentDetailsDate(detail.getPaymentDetailsDate());
+        dto.setPaymentDetailDescription(detail.getPaymentDetailDescription());
+
+        return dto;
     }
 
     public AccountsPayable findOrCreateAccountsPayable(Purchase purchase) {
