@@ -1,26 +1,36 @@
 package com.nubixconta.modules.AccountsPayable.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
+import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsCreateDTO;
+import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsResponseDTO;
+import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
+import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.administration.service.ChangeHistoryService;
 import com.nubixconta.modules.purchases.entity.Purchase;
+import com.nubixconta.modules.purchases.repository.PurchaseRepository;
 import com.nubixconta.security.TenantContext;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class PaymentDetailsService {
 
     private final PaymentDetailsRepository repository;
-    //private final PurchaseRepo saleRepository;
+    private final PurchaseRepository purchaseRepository;
+    private final ModelMapper modelMapper;
     private ChangeHistoryService changeHistoryService;
     private final CompanyRepository companyRepository;
 
@@ -28,12 +38,15 @@ public class PaymentDetailsService {
     private AccountsPayableRepository accountsPayableRepository;
 
     public PaymentDetailsService(PaymentDetailsRepository repository,
-                                 //SaleRepository saleRepository,
+                                 PurchaseRepository purchaseRepository,
                                  ChangeHistoryService changeHistoryService,
-                                 CompanyRepository companyRepository) {
+                                 CompanyRepository companyRepository,
+                                 ModelMapper modelMapper
+                                 ) {
         this.repository = repository;
-        //this.saleRepository = saleRepository;
+        this.purchaseRepository = purchaseRepository;
         this.changeHistoryService = changeHistoryService;
+        this.modelMapper = modelMapper;
         this.companyRepository = companyRepository;
     }
 
@@ -44,6 +57,13 @@ public class PaymentDetailsService {
                 .orElseThrow(() -> new BusinessRuleException("No se ha seleccionado una empresa en el contexto."));
     }
 
+    public List<PaymentDetailsResponseDTO> findAll() {
+        // La llamada a findAll() es suficiente. El filtro de Hibernate se encarga de
+        // filtrar los resultados por la compañía del contexto.
+        return repository.findAll().stream()
+                .map(paymentDetail -> modelMapper.map(paymentDetail, PaymentDetailsResponseDTO.class))
+                .collect(Collectors.toList());
+    }
     @Transactional
     public void deleteById(Integer id) {
         PaymentDetails detail = repository.findById(id)
@@ -60,11 +80,18 @@ public class PaymentDetailsService {
         repository.deleteById(id);
 
         // Luego recalcular el saldo
-        // :TODO Pendiente recalcularBalancePorReceivableId(accountsPayableId);
+        recalcularBalancePorPayableId(accountsPayableId);
     }
 
     public Optional<PaymentDetails> findById(Integer id) {
         return repository.findById(id);
+    }
+
+    //Metodo para filtrar por fechas
+    public List<PaymentDetails> findByDateRange(LocalDateTime start, LocalDateTime end) {
+        Integer companyId = getCompanyIdFromContext();
+        // Llamar al nuevo método del repositorio.
+        return repository.findByCompanyIdAndPaymentDetailsDateBetween(companyId, start, end);
     }
 
 
@@ -95,7 +122,7 @@ public class PaymentDetailsService {
                 .map(PaymentDetails::getPaymentAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        Purchase purchase = ar.getPurcharse();
+        Purchase purchase = ar.getPurchase();
         if (purchase == null) {
             throw new IllegalStateException("La relación con la compra no está disponible para esta cuenta por pagar.");
         }
@@ -108,6 +135,61 @@ public class PaymentDetailsService {
         }
         ar.setBalance(nuevoBalance);
         accountsPayableRepository.save(ar);
+    }
+
+
+    @Transactional
+    public PaymentDetails makePayment(PaymentDetailsCreateDTO dto) {
+        Integer purchaseId = dto.getIdPurchase();
+        Integer companyId = getCompanyIdFromContext();
+
+        Purchase purchase = purchaseRepository.findByIdPurchaseAndCompanyId(purchaseId, companyId)
+                .orElseThrow(() -> new EntityNotFoundException("Compra no encontrada o no pertenece a la empresa actual."));
+
+
+        // **Llamada al nuevo método reutilizable**
+        AccountsPayable ar = accountsPayableRepository.findByPurchase(purchase)
+                .orElseThrow(() -> new EntityNotFoundException("Cuenta por cobrar no encontrada para la venta. Asegúrese de que la venta haya sido aplicada."));
+
+
+        BigDecimal montoTotalCompra = ar.getPurchase().getTotalAmount();
+        BigDecimal saldoActual = ar.getBalance();
+        BigDecimal abonoNuevo = dto.getPaymentAmount();
+        BigDecimal nuevoSaldo = saldoActual.subtract(abonoNuevo);
+
+        if (nuevoSaldo.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El monto a abonar excede el saldo restante de la compra.");
+        }
+        // Actualizar el balance
+        ar.setBalance(nuevoSaldo);
+        accountsPayableRepository.save(ar);
+
+        //Obtener la referencia a la empresa.
+        Company companyRef = companyRepository.getReferenceById(companyId);
+
+        // Crear PaymentDetails desde DTO
+        PaymentDetails detail = new PaymentDetails();
+        detail.setAccountsPayable(ar);
+        detail.setCompany(companyRef);
+        detail.setAccountId(dto.getAccountId());
+        detail.setReference(dto.getReference());
+        detail.setPaymentMethod(dto.getPaymentMethod());
+        detail.setPaymentStatus(dto.getPaymentStatus());
+        detail.setPaymentAmount(dto.getPaymentAmount());
+        detail.setPaymentDetailDescription(dto.getPaymentDetailDescription());
+        detail.setPaymentDetailsDate(dto.getPaymentDetailsDate());
+        detail.setModuleType(dto.getModuleType());
+
+        PaymentDetails saved = repository.save(detail);
+        recalcularBalancePorPayableId(ar.getId());
+
+        // Bitácora de cambios
+        changeHistoryService.logChange(
+                "Cuentas por pagar",
+                "Se realizo un pago para el numero de documento " + ar.getPurchase().getDocumentNumber()
+                        + "A la empresa " + companyRef.getCompanyName()
+        );
+        return saved;
     }
 
 }

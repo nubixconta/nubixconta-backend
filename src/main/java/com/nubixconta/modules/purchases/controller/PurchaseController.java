@@ -132,4 +132,15 @@ public class PurchaseController {
         AccountingEntryResponseDTO entryDto = purchasesAccountingService.getEntryForPurchase(id);
         return ResponseEntity.ok(entryDto);
     }
+
+    /**
+     * Obtiene el ID de una compra específica dado su número de documento.
+     * @param documentNumber El número de documento de la compra.
+     * @return El ID de la compra (Integer).
+     */
+    @GetMapping("/document/{documentNumber}")
+    public ResponseEntity<Integer> getPurchaseIdByDocumentNumber(@PathVariable String documentNumber) {
+        Integer idPurchase = purchaseService.findIdByDocumentNumber(documentNumber);
+        return ResponseEntity.ok(idPurchase);
+    }
 }

@@ -1,17 +1,22 @@
 package com.nubixconta.modules.AccountsPayable.controller;
 
+import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsCreateDTO;
 import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsResponseDTO;
 import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsUpdateDTO;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.service.PaymentDetailsService;
-import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailResponseDTO;
-import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailUpdateDTO;
-import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/payment-details")
@@ -27,7 +32,20 @@ public class PaymentDetailsController {
         this.modelMapper = modelMapper;
     }
 
-//Enpoint para eliminar un pago
+    @GetMapping
+    public List<PaymentDetailsResponseDTO> getAll() {
+        return service.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<PaymentDetailsResponseDTO> getById(@PathVariable Integer id) {
+        return service.findById(id)
+                .map(paymentDetails -> modelMapper.map(paymentDetails, PaymentDetailsResponseDTO.class))
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    //Enpoint para eliminar un pago
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
         service.deleteById(id);
@@ -55,13 +73,43 @@ public class PaymentDetailsController {
 
                     PaymentDetails actualizado = service.save(existing);
 
-                   //TODO: Falta  service.recalcularBalancePorReceivableId(receivableId);
+                    service.recalcularBalancePorPayableId(payableId);
                     // Mapear la entidad actualizada al DTO antes de devolverla
                     PaymentDetailsResponseDTO responseDto = modelMapper.map(actualizado, PaymentDetailsResponseDTO.class);
                     return ResponseEntity.ok(responseDto);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+    //Metodo para registrar el pago
+    @PostMapping("/make-payment")
+    public ResponseEntity<PaymentDetailsResponseDTO> makePayment(
+            @RequestBody @Valid PaymentDetailsCreateDTO dto) {
 
+        PaymentDetails saved = service.makePayment(dto);
+        PaymentDetailsResponseDTO response = modelMapper.map(saved, PaymentDetailsResponseDTO.class);
+        return ResponseEntity.ok(response);
+    }
 
+    //Busca pagos por un rango de fechas
+    @GetMapping("/search-by-date")
+    public ResponseEntity<List<PaymentDetailsResponseDTO>> searchByDateRange(
+            @RequestParam("start") String startStr,
+            @RequestParam("end") String endStr) {
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        // Se convierte la fecha al inicio y fin del día
+        LocalDate startDate = LocalDate.parse(startStr, formatter);
+        LocalDateTime start = startDate.atStartOfDay();
+
+        LocalDate endDate = LocalDate.parse(endStr, formatter);
+        LocalDateTime end = endDate.atTime(LocalTime.MAX);
+
+        List<PaymentDetails> results = service.findByDateRange(start, end);
+
+        List<PaymentDetailsResponseDTO> responseDTOs = results.stream()
+                .map(paymentDetails -> modelMapper.map(paymentDetails, PaymentDetailsResponseDTO.class))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responseDTOs);
+    }
 }

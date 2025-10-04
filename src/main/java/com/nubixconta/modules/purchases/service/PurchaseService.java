@@ -481,4 +481,19 @@ public class PurchaseService {
             throw new BusinessRuleException("No se puede aplicar la compra. Los siguientes productos están inactivos: " + String.join(", ", inactiveProductNames));
         }
     }
+    /**
+     * Busca el ID de una compra dado su número de documento.
+     *
+     * @param documentNumber El número de documento de la compra.
+     * @return El idPurchase.
+     */
+    public Integer findIdByDocumentNumber(String documentNumber) {
+        Integer companyId = getCompanyIdFromContext();
+
+        Purchase purchase = purchaseRepository.findByCompany_IdAndDocumentNumber(companyId, documentNumber)
+                .orElseThrow(() -> new NotFoundException("Compra con número de documento " + documentNumber + " no encontrada."));
+
+        return purchase.getIdPurchase();
+    }
+
 }

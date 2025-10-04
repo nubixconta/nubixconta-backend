@@ -12,4 +12,5 @@ public class AccountsPayableReponseDTO {
     private BigDecimal payableAmount;
     private PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchase;
     private List<PaymentDetailsResponseDTO> paymentDetails;
+    private Integer creditDay;
 }

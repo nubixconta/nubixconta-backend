@@ -11,9 +11,6 @@ import java.util.Optional;
 public interface SaleRepository extends JpaRepository<Sale, Integer>{
 
 
-
-
-
     /**
      * Busca todas las ventas que pertenecen a una lista de IDs de clientes, pero restringido
      * a una empresa específica para garantizar el aislamiento de datos.
