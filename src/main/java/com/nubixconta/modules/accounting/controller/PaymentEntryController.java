@@ -1,8 +1,6 @@
 package com.nubixconta.modules.accounting.controller;
 
-import com.nubixconta.modules.accounting.dto.CollectionEntry.CollectionEntryResponseDTO;
 import com.nubixconta.modules.accounting.dto.PaymentEntry.PaymentEntryResponseDTO;
-import com.nubixconta.modules.accounting.service.CollectionEntryService;
 import com.nubixconta.modules.accounting.service.PaymentEntryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
