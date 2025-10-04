@@ -7,7 +7,7 @@ import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
-import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
+import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.administration.service.ChangeHistoryService;
@@ -42,7 +42,8 @@ public class PaymentDetailsService {
                                  PurchaseRepository purchaseRepository,
                                  ChangeHistoryService changeHistoryService,
                                  CompanyRepository companyRepository,
-                                 ModelMapper modelMapper) {
+                                 ModelMapper modelMapper
+                                 ) {
         this.repository = repository;
         this.purchaseRepository = purchaseRepository;
         this.changeHistoryService = changeHistoryService;
@@ -80,7 +81,7 @@ public class PaymentDetailsService {
         repository.deleteById(id);
 
         // Luego recalcular el saldo
-        // :TODO Pendiente recalcularBalancePorReceivableId(accountsPayableId);
+        recalcularBalancePorPayableId(accountsPayableId);
     }
 
     public Optional<PaymentDetails> findById(Integer id) {

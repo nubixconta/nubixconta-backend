@@ -49,7 +49,6 @@ public class PaymentDetailsController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-
     //Enpoint para eliminar un pago
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
@@ -78,7 +77,7 @@ public class PaymentDetailsController {
 
                     PaymentDetails actualizado = service.save(existing);
 
-                   //TODO: Falta  service.recalcularBalancePorReceivableId(receivableId);
+                    service.recalcularBalancePorPayableId(payableId);
                     // Mapear la entidad actualizada al DTO antes de devolverla
                     PaymentDetailsResponseDTO responseDto = modelMapper.map(actualizado, PaymentDetailsResponseDTO.class);
                     return ResponseEntity.ok(responseDto);

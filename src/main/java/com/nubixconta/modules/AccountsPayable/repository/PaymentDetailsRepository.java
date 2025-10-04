@@ -20,4 +20,6 @@ public interface PaymentDetailsRepository extends JpaRepository<PaymentDetails, 
 
     // Método para encontrar detalles de cobro por empresa y dentro de un rango de fechas
     List<PaymentDetails> findByCompanyIdAndPaymentDetailsDateBetween(Integer companyId, LocalDateTime start, LocalDateTime end);
+
+
 }

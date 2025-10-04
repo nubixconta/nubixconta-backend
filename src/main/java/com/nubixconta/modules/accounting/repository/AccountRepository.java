@@ -17,5 +17,10 @@ public interface AccountRepository extends JpaRepository<Account, Integer> {
     @Query("SELECT a FROM Account a WHERE LOWER(a.accountName) IN ('cliente', 'clientes')")
     Optional<Account> findClientAccount();
 
+    //para buscar la cuenta de Provedores
+    // Método modificado para devolver un objeto Account completo
+    @Query("SELECT a FROM Account a WHERE LOWER(a.accountName) IN ('proveedores', 'proveedores')")
+    Optional<Account> findSupplierAccount();
+
 
 }
