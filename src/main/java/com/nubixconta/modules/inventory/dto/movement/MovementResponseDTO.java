@@ -3,7 +3,9 @@ package com.nubixconta.modules.inventory.dto.movement;
 import com.nubixconta.modules.inventory.entity.InventoryMovement;
 import com.nubixconta.modules.inventory.entity.MovementStatus;
 import com.nubixconta.modules.inventory.entity.MovementType;
-import com.nubixconta.modules.sales.entity.Customer;
+import com.nubixconta.modules.sales.entity.Customer; // Asegúrate de tener este import
+import com.nubixconta.modules.purchases.entity.Supplier; // Y este también
+
 import lombok.Getter;
 import lombok.Setter;
 import java.time.LocalDateTime;
@@ -23,15 +25,19 @@ public class MovementResponseDTO {
     // Información del origen del movimiento
     private String originModule;
     private String originDocument;
-    private String customerName;
+
+    // --- CAMPOS CORREGIDOS PARA TERCEROS INVOLUCRADOS ---
+    // Solo uno de estos dos campos tendrá valor a la vez.
+    private String customerName;  // Para Ventas y Notas de Crédito
+    private String supplierName; // Para Compras
 
     // Información del producto afectado
     private MovementProductInfoDTO product;
 
 
     /**
-     * Método de fábrica estático para convertir una entidad InventoryMovement a este DTO.
-     * Esto mantiene la lógica de mapeo encapsulada y limpia.
+     * MÉTODO DE FÁBRICA CORREGIDO.
+     * Convierte una entidad InventoryMovement a este DTO de forma semánticamente correcta.
      */
     public static MovementResponseDTO fromEntity(InventoryMovement movement) {
         MovementResponseDTO dto = new MovementResponseDTO();
@@ -49,39 +55,33 @@ public class MovementResponseDTO {
                 movement.getProduct().getProductName()
         ));
 
-        // --- INICIO DE LA LÓGICA MODIFICADA ---
-        Customer customer = null;
-
-        // Lógica para determinar el origen
+        // Lógica corregida para determinar el origen y el tercero involucrado
         if (movement.getSale() != null) {
             dto.setOriginModule("Ventas");
             dto.setOriginDocument(movement.getSale().getDocumentNumber());
-            // Accedemos al cliente a través de la relación con la Venta
-            customer = movement.getSale().getCustomer();
+            Customer customer = movement.getSale().getCustomer();
+            // Asigna el nombre al campo correcto
+            dto.setCustomerName(customer != null ? customer.getFullName() : null);
+
         } else if (movement.getCreditNote() != null) {
             dto.setOriginModule("Ventas (Nota de Crédito)");
             dto.setOriginDocument(movement.getCreditNote().getDocumentNumber());
-            // Accedemos al cliente a través de la Nota de Crédito, que a su vez tiene una Venta
-            customer = movement.getCreditNote().getSale().getCustomer();
+            Customer customer = movement.getCreditNote().getSale().getCustomer();
+            // Asigna el nombre al campo correcto
+            dto.setCustomerName(customer != null ? customer.getFullName() : null);
+
+        } else if (movement.getPurchase() != null) {
+            dto.setOriginModule("Compras");
+            dto.setOriginDocument(movement.getPurchase().getDocumentNumber());
+            Supplier supplier = movement.getPurchase().getSupplier();
+            // Asigna el nombre al campo de proveedor
+            dto.setSupplierName(supplier != null ? supplier.getFullName() : null);
+
         } else {
             dto.setOriginModule("Ajuste Manual de Inventario");
             dto.setOriginDocument("Movimiento #" + movement.getMovementId());
-            // Los ajustes manuales no tienen cliente, por lo que 'customer' se mantiene null.
+            // Para ajustes manuales, ambos nombres de terceros son nulos por defecto.
         }
-
-        // Ahora, poblamos el nombre del cliente basado en lo que encontramos
-        if (customer != null) {
-            // Unimos nombre y apellido para tener el nombre completo, si el apellido existe.
-            String fullName = customer.getCustomerName();
-            if (customer.getCustomerLastName() != null && !customer.getCustomerLastName().isBlank()) {
-                fullName += " " + customer.getCustomerLastName();
-            }
-            dto.setCustomerName(fullName);
-        } else {
-            // Si no hay cliente (ajuste manual), ponemos un valor por defecto.
-            dto.setCustomerName("N/A");
-        }
-        // --- FIN DE LA LÓGICA MODIFICADA ---
 
         return dto;
     }

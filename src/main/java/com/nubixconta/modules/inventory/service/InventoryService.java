@@ -12,6 +12,8 @@ import com.nubixconta.modules.inventory.entity.MovementType;   // Asegúrate que
 import com.nubixconta.modules.inventory.entity.Product;
 import com.nubixconta.modules.inventory.repository.InventoryMovementRepository;
 import com.nubixconta.modules.inventory.repository.ProductRepository;
+import com.nubixconta.modules.purchases.entity.Purchase;
+import com.nubixconta.modules.purchases.entity.PurchaseDetail;
 import com.nubixconta.modules.sales.entity.CreditNote;
 import com.nubixconta.modules.sales.entity.CreditNoteDetail;
 import com.nubixconta.modules.sales.entity.Sale;
@@ -66,7 +68,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, sale, null,sale.getCompany());
+                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, sale, null,null,sale.getCompany());
             }
         }
     }
@@ -85,7 +87,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, sale, null,sale.getCompany());
+                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, sale, null,null,sale.getCompany());
             }
         }
     }
@@ -104,7 +106,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, null, creditNote,creditNote.getCompany());
+                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, null, creditNote,null,creditNote.getCompany());
             }
         }
     }
@@ -127,11 +129,72 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, null, creditNote,creditNote.getCompany());
+                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, null, creditNote,null,creditNote.getCompany());
             }
         }
     }
 
+    // =================================================================================
+    // MÉTODOS NUEVOS PARA LA INTEGRACIÓN CON COMPRAS
+    // =================================================================================
+
+    /**
+     * Procesa la afectación de inventario cuando una COMPRA es APLICADA.
+     * Este método AUMENTA el stock de los productos.
+     * Debe ser llamado desde PurchaseService.applyPurchase().
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void processPurchaseApplication(Purchase purchase) {
+        for (PurchaseDetail detail : purchase.getPurchaseDetails()) {
+            if (detail.getProduct() != null) {
+                // Obtenemos el producto para asegurar que trabajamos con la entidad más reciente.
+                Product product = productRepository.findById(detail.getProduct().getIdProduct())
+                        .orElseThrow(() -> new BusinessRuleException("Producto con ID " + detail.getProduct().getIdProduct() + " no encontrado durante la aplicación de la compra."));
+
+                // La lógica de compra es AUMENTAR el stock.
+                int newStock = product.getStockQuantity() + detail.getQuantity();
+                product.setStockQuantity(newStock);
+                productRepository.save(product);
+
+                // Creamos el registro de movimiento para auditoría.
+                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, null, null, purchase, purchase.getCompany());
+            }
+        }
+    }
+
+    /**
+     * Procesa la reversión de inventario cuando una COMPRA es ANULADA.
+     * Este método DISMINUYE el stock para revertir la entrada.
+     * Debe ser llamado desde PurchaseService.cancelPurchase().
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void processPurchaseCancellation(Purchase purchase) {
+        for (PurchaseDetail detail : purchase.getPurchaseDetails()) {
+            if (detail.getProduct() != null) {
+                Product product = productRepository.findById(detail.getProduct().getIdProduct())
+                        .orElseThrow(() -> new BusinessRuleException("Producto con ID " + detail.getProduct().getIdProduct() + " no encontrado durante la anulación de la compra."));
+
+                int quantityToDecrease = detail.getQuantity();
+
+                // Validación CRÍTICA: Asegurarse de que hay stock suficiente para revertir.
+                if (product.getStockQuantity() < quantityToDecrease) {
+                    throw new BusinessRuleException(
+                            "Stock insuficiente para anular la compra del producto '" + product.getProductName() + "'. " +
+                                    "Stock actual: " + product.getStockQuantity() + ", se intenta revertir una entrada de: " + quantityToDecrease + ". " +
+                                    "El producto pudo haber sido vendido o ajustado."
+                    );
+                }
+
+                // La lógica de anulación es DISMINUIR el stock.
+                int newStock = product.getStockQuantity() - quantityToDecrease;
+                product.setStockQuantity(newStock);
+                productRepository.save(product);
+
+                // Creamos el registro de movimiento para auditoría.
+                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, null, null, purchase, purchase.getCompany());
+            }
+        }
+    }
     /**
      * Crea un nuevo registro de movimiento manual en estado PENDIENTE.
      */
@@ -359,15 +422,16 @@ public class InventoryService {
 
     /**
      * Método helper privado para crear y guardar el registro de movimiento.
+     * Ahora soporta Sale, CreditNote y Purchase.
      */
-    private void createMovementRecord(Product product, Integer quantity, MovementType type, Integer stockAfter, Sale sale, CreditNote creditNote, Company company) {
+    private void createMovementRecord(Product product, Integer quantity, MovementType type, Integer stockAfter, Sale sale, CreditNote creditNote, Purchase purchase, Company company) {
         InventoryMovement movement = new InventoryMovement();
         movement.setCompany(company);
         movement.setProduct(product);
         movement.setQuantity(quantity);
         movement.setMovementType(type);
         movement.setStockAfterMovement(stockAfter);
-        movement.setStatus(MovementStatus.APLICADA);
+        movement.setStatus(MovementStatus.APLICADA); // Los movimientos automáticos siempre nacen aplicados.
 
         if (sale != null) {
             movement.setSale(sale);
@@ -377,7 +441,15 @@ public class InventoryService {
             movement.setCreditNote(creditNote);
             String action = type == MovementType.ENTRADA ? "Entrada por Nota de Crédito" : "Reversión por Anulación de N.C.";
             movement.setDescription(action + ": " + creditNote.getDocumentNumber());
+
+            // --- LÓGICA AÑADIDA ---
+        } else if (purchase != null) {
+            movement.setPurchase(purchase);
+            String action = type == MovementType.ENTRADA ? "Entrada por Compra" : "Reversión por Anulación de Compra";
+            movement.setDescription(action + ": " + purchase.getDocumentNumber());
         }
+        // --- FIN ---
+
         movementRepository.save(movement);
     }
 }

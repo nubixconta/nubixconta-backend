@@ -27,7 +27,6 @@ import com.nubixconta.security.TenantContext; // <-- NUEVO IMPORT
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
-    private final UserRepository userRepository;
     private final ModelMapper modelMapper;
     private final CompanyRepository companyRepository; // <-- NUEVO: NECESARIO PARA ASIGNAR LA EMPRESA
     private final ChangeHistoryService changeHistoryService;
