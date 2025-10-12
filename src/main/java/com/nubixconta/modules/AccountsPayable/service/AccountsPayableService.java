@@ -9,6 +9,7 @@ import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
 import com.nubixconta.modules.purchases.dto.purchases.PurchaseDetailResponseDTO;
+import com.nubixconta.modules.purchases.dto.purchases.PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.security.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
@@ -143,12 +144,12 @@ public class AccountsPayableService {
         AccountsPayablePurchaseResponseDTO dto = new AccountsPayablePurchaseResponseDTO();
         dto.setBalance(ar.getBalance());
 
-        if (ar.getPurcharse() != null) {
-            PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDto = modelMapper.map(ar.getPurcharse(), PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO.class);
-            if (ar.getPurcharse().getSupplier() != null) {
-                purchaseDto.setSupplierName(ar.getPurcharse().getSupplier().getSupplierName());
-                purchaseDto.setSupplierLastName(ar.getPurcharse().getSupplier().getSupplierLastName());
-                purchaseDto.setCreditDay(ar.getPurcharse().getSupplier().getCreditDay());
+        if (ar.getPurchase() != null) {
+            PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDto = modelMapper.map(ar.getPurchase(), PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO.class);
+            if (ar.getPurchase().getSupplier() != null) {
+                purchaseDto.setSupplierName(ar.getPurchase().getSupplier().getSupplierName());
+                purchaseDto.setSupplierLastName(ar.getPurchase().getSupplier().getSupplierLastName());
+                purchaseDto.setCreditDay(ar.getPurchase().getSupplier().getCreditDay());
             }
             dto.setPurchase(purchaseDto);
         } else {
@@ -167,16 +168,16 @@ public class AccountsPayableService {
                 .map(account -> {
                     AccountsPayableReponseDTO dto = modelMapper.map(account, AccountsPayableReponseDTO.class);
 
-                    if (account.getPurcharse() != null) {
+                    if (account.getPurchase() != null) {
                         PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDTO = new PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO();
-                        purchaseDTO.setDocumentNumber(account.getPurcharse().getDocumentNumber());
-                        purchaseDTO.setIssueDate(account.getPurcharse().getIssueDate());
-                        purchaseDTO.setTotalAmount(account.getPurcharse().getTotalAmount());
+                        purchaseDTO.setDocumentNumber(account.getPurchase().getDocumentNumber());
+                        purchaseDTO.setIssueDate(account.getPurchase().getIssueDate());
+                        purchaseDTO.setTotalAmount(account.getPurchase().getTotalAmount());
 
-                        if (account.getPurcharse().getSupplier() != null) {
-                            purchaseDTO.setSupplierName(account.getPurcharse().getSupplier().getSupplierName());
-                            purchaseDTO.setSupplierLastName(account.getPurcharse().getSupplier().getSupplierLastName());
-                            purchaseDTO.setCreditDay(account.getPurcharse().getSupplier().getCreditDay());
+                        if (account.getPurchase().getSupplier() != null) {
+                            purchaseDTO.setSupplierName(account.getPurchase().getSupplier().getSupplierName());
+                            purchaseDTO.setSupplierLastName(account.getPurchase().getSupplier().getSupplierLastName());
+                            purchaseDTO.setCreditDay(account.getPurchase().getSupplier().getCreditDay());
                         }
 
         // *** 1. USAMOS EL NUEVO MÉTODO DEL REPOSITORIO ***
