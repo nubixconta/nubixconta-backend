@@ -136,12 +136,12 @@ public class AccountsPayableService {
         AccountsPayablePurchaseResponseDTO dto = new AccountsPayablePurchaseResponseDTO();
         dto.setBalance(ar.getBalance());
 
-        if (ar.getPurcharse() != null) {
-            PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDto = modelMapper.map(ar.getPurcharse(), PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO.class);
-            if (ar.getPurcharse().getSupplier() != null) {
-                purchaseDto.setSupplierName(ar.getPurcharse().getSupplier().getSupplierName());
-                purchaseDto.setSupplierLastName(ar.getPurcharse().getSupplier().getSupplierLastName());
-                purchaseDto.setCreditDay(ar.getPurcharse().getSupplier().getCreditDay());
+        if (ar.getPurchase() != null) {
+            PurchaseForAccountsPayableDTO purchaseDto = modelMapper.map(ar.getPurchase(), PurchaseForAccountsPayableDTO.class);
+            if (ar.getPurchase().getSupplier() != null) {
+                purchaseDto.setSupplierName(ar.getPurchase().getSupplier().getSupplierName());
+                purchaseDto.setSupplierLastName(ar.getPurchase().getSupplier().getSupplierLastName());
+                purchaseDto.setCreditDay(ar.getPurchase().getSupplier().getCreditDay());
             }
             dto.setPurchase(purchaseDto);
         } else {
@@ -156,21 +156,6 @@ public class AccountsPayableService {
      */
     public List<AccountsPayableReponseDTO> findAll() {
         Integer companyId = getCompanyIdFromContext();
-        return repository.findByCompanyId(companyId).stream()
-                .map(account -> {
-                    AccountsPayableReponseDTO dto = modelMapper.map(account, AccountsPayableReponseDTO.class);
-
-                    if (account.getPurcharse() != null) {
-                        PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDTO = new PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO();
-                        purchaseDTO.setDocumentNumber(account.getPurcharse().getDocumentNumber());
-                        purchaseDTO.setIssueDate(account.getPurcharse().getIssueDate());
-                        purchaseDTO.setTotalAmount(account.getPurcharse().getTotalAmount());
-
-                        if (account.getPurcharse().getSupplier() != null) {
-                            purchaseDTO.setSupplierName(account.getPurcharse().getSupplier().getSupplierName());
-                            purchaseDTO.setSupplierLastName(account.getPurcharse().getSupplier().getSupplierLastName());
-                            purchaseDTO.setCreditDay(account.getPurcharse().getSupplier().getCreditDay());
-                        }
 
         // *** 1. USAMOS EL NUEVO MÉTODO DEL REPOSITORIO ***
         // Esto asegura que la lista 'paymentDetails' se cargue (resuelve el Lazy Loading).

@@ -10,7 +10,7 @@ import java.util.List;
 public class AccountsPayableReponseDTO {
     private BigDecimal balance;
     private BigDecimal payableAmount;
-    private PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchase;
+    private PurchaseForAccountsPayableDTO purchase;
     private List<PaymentDetailsResponseDTO> paymentDetails;
     private Integer creditDay;
 }

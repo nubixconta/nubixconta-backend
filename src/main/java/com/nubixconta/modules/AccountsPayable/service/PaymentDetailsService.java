@@ -42,7 +42,7 @@ public class PaymentDetailsService {
                                  ChangeHistoryService changeHistoryService,
                                  CompanyRepository companyRepository,
                                  ModelMapper modelMapper
-                                 ) {
+    ) {
         this.repository = repository;
         this.purchaseRepository = purchaseRepository;
         this.changeHistoryService = changeHistoryService;
