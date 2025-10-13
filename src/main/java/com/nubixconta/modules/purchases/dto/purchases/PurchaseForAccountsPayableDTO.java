@@ -1,4 +1,4 @@
-package com.nubixconta.modules.purchases.dto.purchase;
+package com.nubixconta.modules.purchases.dto.purchases;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
