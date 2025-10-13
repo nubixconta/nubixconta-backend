@@ -20,20 +20,4 @@ public class PurchaseDetailResponseDTO {
     private BigDecimal unitPrice;
     private BigDecimal subtotal;
     private Boolean tax;
-
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    public static class PurchaseForAccountsPayableDTO {
-        //Campos de la compra
-        private String documentNumber;
-        private Integer idPurchase;
-        private BigDecimal totalAmount;
-        private LocalDateTime issueDate;
-        private String purchaseDescription;
-        // Campos de proveedor
-        private String supplierName;
-        private String supplierLastName;
-        private Integer creditDay;
-    }
 }
