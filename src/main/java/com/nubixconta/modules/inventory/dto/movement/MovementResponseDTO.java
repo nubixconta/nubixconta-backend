@@ -61,14 +61,14 @@ public class MovementResponseDTO {
             dto.setOriginDocument(movement.getSale().getDocumentNumber());
             Customer customer = movement.getSale().getCustomer();
             // Asigna el nombre al campo correcto
-            dto.setCustomerName(customer != null ? customer.getFullName() : null);
+            dto.setCustomerName(buildFullNameFrom(movement.getSale().getCustomer()));
 
         } else if (movement.getCreditNote() != null) {
             dto.setOriginModule("Ventas (Nota de Crédito)");
             dto.setOriginDocument(movement.getCreditNote().getDocumentNumber());
             Customer customer = movement.getCreditNote().getSale().getCustomer();
             // Asigna el nombre al campo correcto
-            dto.setCustomerName(customer != null ? customer.getFullName() : null);
+            dto.setCustomerName(buildFullNameFrom(movement.getCreditNote().getSale().getCustomer()));
 
         } else if (movement.getPurchase() != null) {
             dto.setOriginModule("Compras");
@@ -84,5 +84,20 @@ public class MovementResponseDTO {
         }
 
         return dto;
+    }
+    /**
+     * NUEVO MÉTODO DE AYUDA PRIVADO.
+     * Recrea la lógica de getFullName pero dentro del DTO.
+     * Es estático porque no depende del estado de una instancia de MovementResponseDTO.
+     */
+    private static String buildFullNameFrom(Customer customer) {
+        if (customer == null) {
+            return null; // O un valor por defecto como "Cliente no disponible"
+        }
+        // Accedemos a los getters públicos de la entidad Customer
+        if (customer.getCustomerLastName() != null && !customer.getCustomerLastName().isBlank()) {
+            return customer.getCustomerName() + " " + customer.getCustomerLastName();
+        }
+        return customer.getCustomerName();
     }
 }

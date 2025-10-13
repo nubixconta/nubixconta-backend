@@ -10,7 +10,7 @@ import com.nubixconta.modules.accounting.entity.Catalog;
 import com.nubixconta.modules.accounting.entity.PaymentEntry;
 import com.nubixconta.modules.accounting.repository.AccountRepository;
 import com.nubixconta.modules.accounting.repository.CatalogRepository;
-import com.nubixconta.modules.accounting.repository.PaymentEntryRepository;;
+import com.nubixconta.modules.accounting.repository.PaymentEntryRepository;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.modules.purchases.repository.PurchaseRepository;
 import com.nubixconta.security.JwtUtil;
