@@ -1,6 +1,6 @@
 package com.nubixconta.modules.AccountsPayable.dto.AccountsPayable;
 
-import com.nubixconta.modules.purchases.dto.purchases.PurchaseDetailResponseDTO;
+import com.nubixconta.modules.purchases.dto.purchases.PurchaseForAccountsPayableDTO;
 import lombok.Data;
 import java.math.BigDecimal;
 

@@ -133,18 +133,6 @@ public class Customer {
     @Column(name = "applies_withholding", nullable = false)
     private Boolean appliesWithholding;
 
-    /**
-     * Devuelve el nombre completo del cliente.
-     * Concatena el nombre y el apellido si este último existe.
-     * @return El nombre completo como una cadena de texto.
-     */
-    @Transient // Anotación importante: le dice a JPA que este método no es una columna en la BD.
-    public String getFullName() {
-        if (this.customerLastName != null && !this.customerLastName.isBlank()) {
-            return this.customerName + " " + this.customerLastName;
-        }
-        return this.customerName;
-    }
 
     @Override
     public boolean equals(Object o) {
