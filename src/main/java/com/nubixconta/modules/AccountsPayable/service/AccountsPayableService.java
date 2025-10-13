@@ -74,7 +74,7 @@ public class AccountsPayableService {
 
                     if (ar.getPurchase() != null) {
                         Purchase purchase = ar.getPurchase();
-                        PurchaseForAccountsPayableDTO purchaseDto = new PurchaseForAccountsPayableDTO();
+                        PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDto = new PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO();
 
                         // Mapeo manual de campos de la compra
                         purchaseDto.setDocumentNumber(purchase.getDocumentNumber());
@@ -198,7 +198,7 @@ public class AccountsPayableService {
 
         // 2. Mapeo de Compra (Purchase)
         if (account.getPurchase() != null) {
-            PurchaseForAccountsPayableDTO purchaseDTO = new PurchaseForAccountsPayableDTO();
+            PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDTO = new PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO();
             purchaseDTO.setDocumentNumber(account.getPurchase().getDocumentNumber());
             purchaseDTO.setIssueDate(account.getPurchase().getIssueDate());
             purchaseDTO.setTotalAmount(account.getPurchase().getTotalAmount());
