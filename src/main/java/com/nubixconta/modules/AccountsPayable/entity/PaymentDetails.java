@@ -69,7 +69,7 @@ public class PaymentDetails {
 
         @NotNull(message = "La fecha es obligatorio")
         @Column(name = "collection_detail_date")
-        private LocalDateTime PaymentDetailsDate;
+        private LocalDateTime paymentDetailsDate;
 
         @NotNull(message = "El módulo es obligatorio")
         @Size(max = 30, message = "La el modulo no puede tener mas de 30 caracteres")

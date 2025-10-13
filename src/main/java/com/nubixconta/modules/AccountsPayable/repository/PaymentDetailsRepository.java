@@ -7,13 +7,19 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
 public interface PaymentDetailsRepository extends JpaRepository<PaymentDetails, Integer> {
     // Nuevo método para encontrar todos por empresa
-    List<PaymentDetails> findByCompanyId(Integer companyId);
+    List<PaymentDetails> findByCompany_Id(Integer companyId);
 
     @Query("SELECT a FROM PaymentDetails a WHERE a.accountsPayable.id = :payableId AND a.company.id = :companyId")
     List<PaymentDetails> findByAccountsPayableAndCompanyId(@Param("payableId") Integer payableId, @Param("companyId") Integer companyId);
+
+    // Método para encontrar detalles de cobro por empresa y dentro de un rango de fechas
+    List<PaymentDetails> findByCompanyIdAndPaymentDetailsDateBetween(Integer companyId, LocalDateTime start, LocalDateTime end);
+
+
 }

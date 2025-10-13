@@ -12,17 +12,19 @@ public class PaymentDetailsResponseDTO {
     private LocalDateTime paymentDetailsDate;
     private String paymentMethod;
     private BigDecimal paymentAmount;
+    private String reference;
 
     // Constructor sin argumentos (necesario para ModelMapper)
     public PaymentDetailsResponseDTO() {
     }
     public PaymentDetailsResponseDTO(Integer id, String paymentStatus, String paymentDetailsDescription,
-                                     LocalDateTime paymentDate, String paymentMethod, BigDecimal paymentAmount) {
+                                     LocalDateTime paymentDate, String paymentMethod, BigDecimal paymentAmount,String reference) {
         this.id = id;
         this.paymentStatus = paymentStatus;
         this.paymentDetailDescription = paymentDetailsDescription;
         this.paymentDetailsDate = paymentDate;
         this.paymentMethod = paymentMethod;
         this.paymentAmount = paymentAmount;
+        this.reference = reference;
     }
 }
