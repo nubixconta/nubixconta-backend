@@ -8,7 +8,7 @@ import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
-import com.nubixconta.modules.purchases.dto.purchases.PurchaseDetailResponseDTO;
+import com.nubixconta.modules.purchases.dto.purchases.PurchaseForAccountsPayableDTO;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.security.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
@@ -54,14 +54,7 @@ public class AccountsPayableService {
         return TenantContext.getCurrentTenant()
                 .orElseThrow(() -> new BusinessRuleException("No se ha seleccionado una empresa en el contexto."));
     }
-/*
-    @Transactional(readOnly = true)
-    public List<AccountsPayablePurchaseResponseDTO> findAllAccountsPayablePurchaseResponseDTO() {
-        return repository.findByCompanyId(getCompanyIdFromContext()).stream()
-                .filter(ar -> ar.getBalance().compareTo(BigDecimal.ZERO) > 0)
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
-    }*/
+
 
     @Transactional(readOnly = true)
     public List<AccountsPayablePurchaseResponseDTO> findAllAccountsPayablePurchaseResponseDTO() {
@@ -138,7 +131,7 @@ public class AccountsPayableService {
                 .collect(Collectors.toList());
     }
 
-    // Helper privado para evitar código duplicado
+
     private AccountsPayablePurchaseResponseDTO convertToDto(AccountsPayable ar) {
         AccountsPayablePurchaseResponseDTO dto = new AccountsPayablePurchaseResponseDTO();
         dto.setBalance(ar.getBalance());
