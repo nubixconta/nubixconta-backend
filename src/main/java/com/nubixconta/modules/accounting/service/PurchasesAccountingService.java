@@ -5,10 +5,13 @@ import com.nubixconta.common.exception.NotFoundException;
 import com.nubixconta.modules.accounting.dto.AccountingEntryLineDTO;
 import com.nubixconta.modules.accounting.dto.AccountingEntryResponseDTO;
 import com.nubixconta.modules.accounting.entity.Catalog;
+import com.nubixconta.modules.accounting.entity.PurchaseCreditNoteEntry;
 import com.nubixconta.modules.accounting.entity.PurchaseEntry;
+import com.nubixconta.modules.accounting.repository.PurchaseCreditNoteEntryRepository;
 import com.nubixconta.modules.accounting.repository.PurchaseEntryRepository;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.purchases.entity.Purchase;
+import com.nubixconta.modules.purchases.entity.PurchaseCreditNote;
 import com.nubixconta.modules.purchases.entity.PurchaseDetail;
 import com.nubixconta.modules.purchases.entity.Supplier;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ public class PurchasesAccountingService {
 
     private final PurchaseEntryRepository purchaseEntryRepository;
     private final AccountingConfigurationService configService;
+    private final PurchaseCreditNoteEntryRepository purchaseCreditNoteEntryRepository;
 
     /**
      * Crea la partida contable completa para una compra que se está aplicando.
@@ -134,6 +138,133 @@ public class PurchasesAccountingService {
                 totalCredits
         );
     }
+
+    /**
+     * Crea la partida contable para una Nota de Crédito sobre Compra que se está aplicando.
+     * Lógica: Invierte el asiento de la compra original.
+     * @param creditNote La entidad completa de la nota de crédito.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void createEntriesForCreditNoteApplication(PurchaseCreditNote creditNote) {
+        Company company = creditNote.getCompany();
+        Integer companyId = company.getId();
+        String description = "Devolución de compra s/g NC: " + creditNote.getDocumentNumber();
+
+        // 1. Obtener las cuentas FIJAS desde la configuración contable.
+        Catalog supplierCatalog = configService.findCatalogBySettingKey("DEFAULT_SUPPLIER_ACCOUNT", companyId);
+        Catalog inventoryCatalog = configService.findCatalogBySettingKey("INVENTORY_ASSET_ACCOUNT", companyId);
+        Catalog vatCreditCatalog = configService.findCatalogBySettingKey("VAT_CREDIT_ACCOUNT", companyId);
+
+        List<PurchaseCreditNoteEntry> entries = new ArrayList<>();
+
+        // 2. Crear la línea de CARGO (DEBE) al proveedor (disminuye la deuda).
+        entries.add(createPurchaseCreditNoteEntry(creditNote, supplierCatalog, creditNote.getTotalAmount(), BigDecimal.ZERO, description));
+
+        // 3. Procesar líneas de detalle para los ABONOS (HABER).
+        BigDecimal totalProductSubtotal = BigDecimal.ZERO;
+
+        for (var detail : creditNote.getDetails()) {
+            if (detail.getProduct() != null) {
+                totalProductSubtotal = totalProductSubtotal.add(detail.getSubtotal());
+            } else if (detail.getCatalog() != null) {
+                // Para gastos devueltos, creamos una línea de ABONO (HABER) a su cuenta específica.
+                entries.add(createPurchaseCreditNoteEntry(creditNote, detail.getCatalog(), BigDecimal.ZERO, detail.getSubtotal(), description));
+            }
+        }
+
+        // 4. Crear las líneas de ABONO (HABER) para las cuentas fijas.
+        // Abono único para la suma de todos los productos devueltos del inventario.
+        if (totalProductSubtotal.compareTo(BigDecimal.ZERO) > 0) {
+            entries.add(createPurchaseCreditNoteEntry(creditNote, inventoryCatalog, BigDecimal.ZERO, totalProductSubtotal, description));
+        }
+
+        // Abono único para el total del IVA devuelto.
+        if (creditNote.getVatAmount().compareTo(BigDecimal.ZERO) > 0) {
+            entries.add(createPurchaseCreditNoteEntry(creditNote, vatCreditCatalog, BigDecimal.ZERO, creditNote.getVatAmount(), description));
+        }
+
+        // 5. Validar que la partida esté cuadrada y guardarla.
+        validatePurchaseCreditNoteEntryTotals(entries);
+        purchaseCreditNoteEntryRepository.saveAll(entries);
+    }
+
+    /**
+     * Elimina la partida contable asociada a una Nota de Crédito sobre Compra que se está anulando.
+     * @param creditNote La entidad de la nota de crédito.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void deleteEntriesForCreditNoteCancellation(PurchaseCreditNote creditNote) {
+        purchaseCreditNoteEntryRepository.deleteByPurchaseCreditNote_Id(creditNote.getId());
+    }
+
+    /**
+     * Obtiene el asiento contable formateado para una nota de crédito de compra específica.
+     * @param creditNoteId El ID de la nota de crédito de compra.
+     * @return Un AccountingEntryResponseDTO con toda la información para el frontend.
+     */
+    @Transactional(readOnly = true)
+    public AccountingEntryResponseDTO getEntryForPurchaseCreditNote(Integer creditNoteId) {
+        // 1. Usar el método optimizado del repositorio que ya confirmamos.
+        List<PurchaseCreditNoteEntry> entries = purchaseCreditNoteEntryRepository.findByPurchaseCreditNoteIdWithDetails(creditNoteId);
+        if (entries.isEmpty()) {
+            throw new NotFoundException("No se encontró asiento contable para la nota de crédito de compra con ID: " + creditNoteId);
+        }
+
+        // 2. Extraer información común de la primera línea.
+        PurchaseCreditNoteEntry firstEntry = entries.get(0);
+        PurchaseCreditNote creditNote = firstEntry.getPurchaseCreditNote();
+        Supplier supplier = creditNote.getPurchase().getSupplier();
+
+        // 3. Mapear cada línea a su DTO universal (AccountingEntryLineDTO).
+        List<AccountingEntryLineDTO> lines = entries.stream()
+                .map(entry -> new AccountingEntryLineDTO(
+                        entry.getCatalog().getAccount().getGeneratedCode(),
+                        entry.getCatalog().getAccount().getAccountName(),
+                        entry.getDebe(),
+                        entry.getHaber()
+                ))
+                .collect(Collectors.toList());
+
+        // 4. Calcular totales.
+        BigDecimal totalDebits = lines.stream().map(AccountingEntryLineDTO::debit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredits = lines.stream().map(AccountingEntryLineDTO::credit).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 5. Construir y devolver el DTO de respuesta final (AccountingEntryResponseDTO).
+        return new AccountingEntryResponseDTO(
+                firstEntry.getId(),
+                creditNote.getDocumentNumber(),
+                "Nota de Crédito Compra", // Tipo de documento
+                creditNote.getCreditNoteStatus(),
+                "Proveedor", // Etiqueta del socio de negocio
+                supplier.getFullName(),
+                firstEntry.getDate(),
+                creditNote.getDescription(),
+                lines,
+                totalDebits,
+                totalCredits
+        );
+    }
+
+
+    private PurchaseCreditNoteEntry createPurchaseCreditNoteEntry(PurchaseCreditNote creditNote, Catalog catalog, BigDecimal debe, BigDecimal haber, String description) {
+        PurchaseCreditNoteEntry entry = new PurchaseCreditNoteEntry();
+        entry.setPurchaseCreditNote(creditNote);
+        entry.setCatalog(catalog);
+        entry.setDebe(debe);
+        entry.setHaber(haber);
+        entry.setDescription(description);
+        return entry;
+    }
+
+    private void validatePurchaseCreditNoteEntryTotals(List<PurchaseCreditNoteEntry> entries) {
+        BigDecimal totalDebits = entries.stream().map(PurchaseCreditNoteEntry::getDebe).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredits = entries.stream().map(PurchaseCreditNoteEntry::getHaber).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalDebits.setScale(2).compareTo(totalCredits.setScale(2)) != 0) {
+            throw new BusinessRuleException("Asiento de Nota de Crédito de Compra descuadrado. Debe: " + totalDebits + ", Haber: " + totalCredits);
+        }
+    }
+
 
     /**
      * Método privado de ayuda para formatear el nombre del proveedor de forma segura.

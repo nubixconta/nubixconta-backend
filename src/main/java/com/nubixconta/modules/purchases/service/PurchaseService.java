@@ -2,6 +2,7 @@ package com.nubixconta.modules.purchases.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
+import com.nubixconta.modules.AccountsPayable.service.AccountsPayableService;
 import com.nubixconta.modules.accounting.entity.Catalog;
 import com.nubixconta.modules.accounting.service.CatalogService; // <-- ¡NUEVA DEPENDENCIA!
 import com.nubixconta.modules.accounting.service.PurchasesAccountingService;
@@ -18,7 +19,7 @@ import com.nubixconta.modules.purchases.entity.Supplier;
 import com.nubixconta.modules.purchases.repository.PurchaseRepository;
 import com.nubixconta.modules.purchases.repository.SupplierRepository;
 import com.nubixconta.security.TenantContext;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,7 @@ public class PurchaseService {
     private final CompanyRepository companyRepository;
     private final SupplierRepository supplierRepository;
     private final PurchasesAccountingService purchasesAccountingService;
+    private final AccountsPayableService accountsPayableService;
 
     // Helper para obtener el companyId de forma segura
     private Integer getCompanyIdFromContext() {
@@ -343,8 +345,9 @@ public class PurchaseService {
         // 2. Generar Asiento Contable
         purchasesAccountingService.createEntriesForPurchaseApplication(purchase);
 
-        // TODO: 3. Crear Cuenta por Pagar
-        // accountsPayableService.createPayableForPurchase(purchase);
+        // 3. Crear la Cuenta por Pagar correspondiente a esta compra.
+        // La transacción se asegurará de que si esto falla, todo lo anterior se revierta.
+        accountsPayableService.findOrCreateAccountsPayable(purchase);
 
         // --- ACTUALIZACIÓN DE ESTADOS ---
         supplier.setCurrentBalance(newBalance);
@@ -371,12 +374,16 @@ public class PurchaseService {
             throw new BusinessRuleException("La compra solo puede ser anulada si su estado es APLICADA.");
         }
 
-        // --- VALIDACIÓN DE INTEGRIDAD (PLACEHOLDER) ---
-        // TODO: 1. Validar que la compra no tenga pagos registrados
-        // boolean hasPayments = accountsPayableService.validatePurchaseHasNoPayments(purchaseId);
-        // if (hasPayments) {
-        //     throw new BusinessRuleException("No se puede anular la compra porque tiene pagos asociados.");
-        // }
+        // --- ¡VALIDACIÓN DE INTEGRIDAD ACTIVADA! ---
+        // Se comprueba si la compra tiene pagos activos antes de permitir su anulación.
+        boolean hasPayments = accountsPayableService.validatePurchaseWithoutCollections(purchaseId);
+        if (hasPayments) {
+            throw new BusinessRuleException(
+                    "No se puede anular la compra porque tiene pagos asociados. " +
+                            "Por favor, anule primero los pagos en el módulo de Cuentas por Pagar."
+            );
+        }
+        // --- FIN DE LA VALIDACIÓN ---
 
         // --- REVERSIÓN EN OTROS MÓDULOS (PLACEHOLDERS) ---
         // 2. Revertir Inventario: Disminuir stock para productos.

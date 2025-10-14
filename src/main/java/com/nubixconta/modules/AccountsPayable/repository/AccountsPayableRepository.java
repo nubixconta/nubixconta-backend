@@ -30,3 +30,10 @@ public interface AccountsPayableRepository extends JpaRepository<AccountsPayable
     @Query("SELECT ar FROM AccountsPayable ar JOIN FETCH ar.paymentDetails cd WHERE ar.purchase.idPurchase = :idPurchase AND ar.company.id = :companyId")
     Optional<AccountsPayable> findByPurchase_idPurchaseAndCompany_IdWithPayableDetails(@Param("idPurchase") Integer idPurchase, @Param("companyId") Integer companyId);
 }
+
+
+
+
+
+
+
