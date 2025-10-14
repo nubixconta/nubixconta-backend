@@ -8,6 +8,7 @@ import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
+import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.purchases.dto.purchases.PurchaseForAccountsPayableDTO;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.security.TenantContext;
@@ -498,5 +499,34 @@ public class AccountsPayableService {
                 })
                 .collect(Collectors.toList());
 
+    }
+
+    /**
+     * Valida si una compra tiene pagos asociados en estado "APLICADO" o "PENDIENTE".
+     * Devuelve `true` si la compra tiene al menos un pago asociado con dichos estados,
+     * `false` en caso contrario.
+     * @param purchaseId El ID de la compra a validar.
+     * @return `true` si la venta tiene pagos en estado "APLICADO" o "PENDIENTE", `false` si no los tiene.
+     */
+    @Transactional(readOnly = true) // Añadir Transactional para asegurar que la colección se carga
+    public boolean validatePurchaseWithoutCollections(Integer purchaseId) {
+        Integer companyId = getCompanyIdFromContext();
+
+        Optional<AccountsPayable> accountsPayableOptional = repository.findByPurchase_idPurchaseAndCompany_IdWithPayableDetails(purchaseId, companyId);
+
+        if (accountsPayableOptional.isPresent()) {
+            AccountsPayable ar = accountsPayableOptional.get();
+            // Filtrar los collectionDetails para contar solo los que están en estado "APLICADO" o "PENDIENTE"
+            long activeCollections = ar.getPaymentDetails().stream()
+                    .filter(cd -> "APLICADO".equalsIgnoreCase(cd.getPaymentStatus()) ||
+                            "PENDIENTE".equalsIgnoreCase(cd.getPaymentStatus()))
+                    .count();
+
+            // Si hay al menos un pago en estado "APLICADO" o "PENDIENTE", devuelve true
+            return activeCollections > 0;
+        } else {
+            // Si no hay AccountsReceivable asociada a la venta, significa que no hay cobros.
+            return false;
+        }
     }
 }
