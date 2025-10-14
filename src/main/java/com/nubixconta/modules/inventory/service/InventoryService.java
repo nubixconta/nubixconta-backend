@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import com.nubixconta.security.TenantContext;
-import org.springframework.stereotype.Service;
+import com.nubixconta.modules.purchases.entity.PurchaseCreditNote;
 import com.nubixconta.modules.administration.entity.Company;
 
 import java.time.LocalDate;
@@ -68,7 +68,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, sale, null,null,sale.getCompany());
+                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, sale, null,null,null,sale.getCompany());
             }
         }
     }
@@ -87,7 +87,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, sale, null,null,sale.getCompany());
+                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, sale, null,null,null,sale.getCompany());
             }
         }
     }
@@ -106,7 +106,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, null, creditNote,null,creditNote.getCompany());
+                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, null, creditNote,null,null,creditNote.getCompany());
             }
         }
     }
@@ -129,7 +129,7 @@ public class InventoryService {
                 product.setStockQuantity(newStock);
                 productRepository.save(product);
 
-                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, null, creditNote,null,creditNote.getCompany());
+                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, null, creditNote,null,null,creditNote.getCompany());
             }
         }
     }
@@ -157,7 +157,7 @@ public class InventoryService {
                 productRepository.save(product);
 
                 // Creamos el registro de movimiento para auditoría.
-                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, null, null, purchase, purchase.getCompany());
+                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, null, null, purchase,null, purchase.getCompany());
             }
         }
     }
@@ -191,10 +191,70 @@ public class InventoryService {
                 productRepository.save(product);
 
                 // Creamos el registro de movimiento para auditoría.
-                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, null, null, purchase, purchase.getCompany());
+                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, null, null, purchase,null, purchase.getCompany());
             }
         }
     }
+
+    // =================================================================================
+    // MÉTODOS PARA NOTAS DE CRÉDITO SOBRE COMPRAS (NUEVOS)
+    // =================================================================================
+
+    /**
+     * Procesa la afectación de inventario cuando una NOTA DE CRÉDITO DE COMPRA es APLICADA.
+     * Este método DISMINUYE el stock (es una devolución al proveedor).
+     * Debe ser llamado desde PurchaseCreditNoteService.applyCreditNote().
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void processPurchaseCreditNoteApplication(PurchaseCreditNote creditNote) {
+        for (var detail : creditNote.getDetails()) {
+            if (detail.getProduct() != null) {
+                Product product = productRepository.findById(detail.getProduct().getIdProduct())
+                        .orElseThrow(() -> new BusinessRuleException("Producto con ID " + detail.getProduct().getIdProduct() + " no encontrado durante la aplicación de la N.C. de Compra."));
+
+                int quantityToDecrease = detail.getQuantity();
+
+                // Validación CRÍTICA: Asegurarse de que hay stock suficiente para devolver.
+                if (product.getStockQuantity() < quantityToDecrease) {
+                    throw new BusinessRuleException(
+                            "Stock insuficiente para devolver el producto '" + product.getProductName() + "'. " +
+                                    "Stock actual: " + product.getStockQuantity() + ", se intenta devolver: " + quantityToDecrease + ". "
+                    );
+                }
+
+                int newStock = product.getStockQuantity() - quantityToDecrease;
+                product.setStockQuantity(newStock);
+                productRepository.save(product);
+
+                // Creamos el registro de movimiento para auditoría.
+                createMovementRecord(product, quantityToDecrease, MovementType.SALIDA, newStock, null, null, null, creditNote, creditNote.getCompany());
+            }
+        }
+    }
+
+    /**
+     * Procesa la reversión de inventario cuando una NOTA DE CRÉDITO DE COMPRA es ANULADA.
+     * Este método AUMENTA el stock para revertir la salida.
+     * Debe ser llamado desde PurchaseCreditNoteService.cancelCreditNote().
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void processPurchaseCreditNoteCancellation(PurchaseCreditNote creditNote) {
+        for (var detail : creditNote.getDetails()) {
+            if (detail.getProduct() != null) {
+                Product product = productRepository.findById(detail.getProduct().getIdProduct())
+                        .orElseThrow(() -> new BusinessRuleException("Producto con ID " + detail.getProduct().getIdProduct() + " no encontrado durante la anulación de la N.C. de Compra."));
+
+                // La lógica de anulación es AUMENTAR el stock.
+                int newStock = product.getStockQuantity() + detail.getQuantity();
+                product.setStockQuantity(newStock);
+                productRepository.save(product);
+
+                // Creamos el registro de movimiento para auditoría.
+                createMovementRecord(product, detail.getQuantity(), MovementType.ENTRADA, newStock, null, null, null, creditNote, creditNote.getCompany());
+            }
+        }
+    }
+
     /**
      * Crea un nuevo registro de movimiento manual en estado PENDIENTE.
      */
@@ -424,14 +484,18 @@ public class InventoryService {
      * Método helper privado para crear y guardar el registro de movimiento.
      * Ahora soporta Sale, CreditNote y Purchase.
      */
-    private void createMovementRecord(Product product, Integer quantity, MovementType type, Integer stockAfter, Sale sale, CreditNote creditNote, Purchase purchase, Company company) {
+    /**
+     * Método helper privado para crear y guardar el registro de movimiento.
+     * AHORA MODIFICADO para soportar PurchaseCreditNote.
+     */
+    private void createMovementRecord(Product product, Integer quantity, MovementType type, Integer stockAfter, Sale sale, CreditNote creditNote, Purchase purchase, PurchaseCreditNote purchaseCreditNote, Company company) {
         InventoryMovement movement = new InventoryMovement();
         movement.setCompany(company);
         movement.setProduct(product);
         movement.setQuantity(quantity);
         movement.setMovementType(type);
         movement.setStockAfterMovement(stockAfter);
-        movement.setStatus(MovementStatus.APLICADA); // Los movimientos automáticos siempre nacen aplicados.
+        movement.setStatus(MovementStatus.APLICADA);
 
         if (sale != null) {
             movement.setSale(sale);
@@ -439,16 +503,17 @@ public class InventoryService {
             movement.setDescription(action + ": " + sale.getDocumentNumber());
         } else if (creditNote != null) {
             movement.setCreditNote(creditNote);
-            String action = type == MovementType.ENTRADA ? "Entrada por Nota de Crédito" : "Reversión por Anulación de N.C.";
+            String action = type == MovementType.ENTRADA ? "Entrada por N.C. de Venta" : "Reversión por Anulación de N.C. Venta";
             movement.setDescription(action + ": " + creditNote.getDocumentNumber());
-
-            // --- LÓGICA AÑADIDA ---
         } else if (purchase != null) {
             movement.setPurchase(purchase);
             String action = type == MovementType.ENTRADA ? "Entrada por Compra" : "Reversión por Anulación de Compra";
             movement.setDescription(action + ": " + purchase.getDocumentNumber());
+        } else if (purchaseCreditNote != null) { // <-- ¡BLOQUE AÑADIDO!
+            movement.setPurchaseCreditNote(purchaseCreditNote);
+            String action = type == MovementType.SALIDA ? "Salida por N.C. de Compra" : "Reversión por Anulación de N.C. Compra";
+            movement.setDescription(action + " (NC: " + purchaseCreditNote.getDocumentNumber() + ")");
         }
-        // --- FIN ---
 
         movementRepository.save(movement);
     }

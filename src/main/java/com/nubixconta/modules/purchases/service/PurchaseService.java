@@ -2,6 +2,7 @@ package com.nubixconta.modules.purchases.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
+import com.nubixconta.modules.AccountsPayable.service.AccountsPayableService;
 import com.nubixconta.modules.accounting.entity.Catalog;
 import com.nubixconta.modules.accounting.service.CatalogService; // <-- ¡NUEVA DEPENDENCIA!
 import com.nubixconta.modules.accounting.service.PurchasesAccountingService;
@@ -48,6 +49,7 @@ public class PurchaseService {
     private final CompanyRepository companyRepository;
     private final SupplierRepository supplierRepository;
     private final PurchasesAccountingService purchasesAccountingService;
+    private final AccountsPayableService accountsPayableService;
 
     // Helper para obtener el companyId de forma segura
     private Integer getCompanyIdFromContext() {
@@ -343,8 +345,9 @@ public class PurchaseService {
         // 2. Generar Asiento Contable
         purchasesAccountingService.createEntriesForPurchaseApplication(purchase);
 
-        // TODO: 3. Crear Cuenta por Pagar
-        // accountsPayableService.createPayableForPurchase(purchase);
+        // 3. Crear la Cuenta por Pagar correspondiente a esta compra.
+        // La transacción se asegurará de que si esto falla, todo lo anterior se revierta.
+        accountsPayableService.findOrCreateAccountsPayable(purchase);
 
         // --- ACTUALIZACIÓN DE ESTADOS ---
         supplier.setCurrentBalance(newBalance);
