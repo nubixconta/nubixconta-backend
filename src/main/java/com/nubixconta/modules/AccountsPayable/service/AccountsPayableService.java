@@ -8,6 +8,7 @@ import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
+import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.purchases.dto.purchases.PurchaseForAccountsPayableDTO;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.security.TenantContext;
@@ -136,12 +137,12 @@ public class AccountsPayableService {
         AccountsPayablePurchaseResponseDTO dto = new AccountsPayablePurchaseResponseDTO();
         dto.setBalance(ar.getBalance());
 
-        if (ar.getPurcharse() != null) {
-            PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDto = modelMapper.map(ar.getPurcharse(), PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO.class);
-            if (ar.getPurcharse().getSupplier() != null) {
-                purchaseDto.setSupplierName(ar.getPurcharse().getSupplier().getSupplierName());
-                purchaseDto.setSupplierLastName(ar.getPurcharse().getSupplier().getSupplierLastName());
-                purchaseDto.setCreditDay(ar.getPurcharse().getSupplier().getCreditDay());
+        if (ar.getPurchase() != null) {
+            PurchaseForAccountsPayableDTO purchaseDto = modelMapper.map(ar.getPurchase(), PurchaseForAccountsPayableDTO.class);
+            if (ar.getPurchase().getSupplier() != null) {
+                purchaseDto.setSupplierName(ar.getPurchase().getSupplier().getSupplierName());
+                purchaseDto.setSupplierLastName(ar.getPurchase().getSupplier().getSupplierLastName());
+                purchaseDto.setCreditDay(ar.getPurchase().getSupplier().getCreditDay());
             }
             dto.setPurchase(purchaseDto);
         } else {
@@ -156,21 +157,6 @@ public class AccountsPayableService {
      */
     public List<AccountsPayableReponseDTO> findAll() {
         Integer companyId = getCompanyIdFromContext();
-        return repository.findByCompanyId(companyId).stream()
-                .map(account -> {
-                    AccountsPayableReponseDTO dto = modelMapper.map(account, AccountsPayableReponseDTO.class);
-
-                    if (account.getPurcharse() != null) {
-                        PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchaseDTO = new PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO();
-                        purchaseDTO.setDocumentNumber(account.getPurcharse().getDocumentNumber());
-                        purchaseDTO.setIssueDate(account.getPurcharse().getIssueDate());
-                        purchaseDTO.setTotalAmount(account.getPurcharse().getTotalAmount());
-
-                        if (account.getPurcharse().getSupplier() != null) {
-                            purchaseDTO.setSupplierName(account.getPurcharse().getSupplier().getSupplierName());
-                            purchaseDTO.setSupplierLastName(account.getPurcharse().getSupplier().getSupplierLastName());
-                            purchaseDTO.setCreditDay(account.getPurcharse().getSupplier().getCreditDay());
-                        }
 
         // *** 1. USAMOS EL NUEVO MÉTODO DEL REPOSITORIO ***
         // Esto asegura que la lista 'paymentDetails' se cargue (resuelve el Lazy Loading).
@@ -513,5 +499,34 @@ public class AccountsPayableService {
                 })
                 .collect(Collectors.toList());
 
+    }
+
+    /**
+     * Valida si una compra tiene pagos asociados en estado "APLICADO" o "PENDIENTE".
+     * Devuelve `true` si la compra tiene al menos un pago asociado con dichos estados,
+     * `false` en caso contrario.
+     * @param purchaseId El ID de la compra a validar.
+     * @return `true` si la venta tiene pagos en estado "APLICADO" o "PENDIENTE", `false` si no los tiene.
+     */
+    @Transactional(readOnly = true) // Añadir Transactional para asegurar que la colección se carga
+    public boolean validatePurchaseWithoutCollections(Integer purchaseId) {
+        Integer companyId = getCompanyIdFromContext();
+
+        Optional<AccountsPayable> accountsPayableOptional = repository.findByPurchase_idPurchaseAndCompany_IdWithPayableDetails(purchaseId, companyId);
+
+        if (accountsPayableOptional.isPresent()) {
+            AccountsPayable ar = accountsPayableOptional.get();
+            // Filtrar los collectionDetails para contar solo los que están en estado "APLICADO" o "PENDIENTE"
+            long activeCollections = ar.getPaymentDetails().stream()
+                    .filter(cd -> "APLICADO".equalsIgnoreCase(cd.getPaymentStatus()) ||
+                            "PENDIENTE".equalsIgnoreCase(cd.getPaymentStatus()))
+                    .count();
+
+            // Si hay al menos un pago en estado "APLICADO" o "PENDIENTE", devuelve true
+            return activeCollections > 0;
+        } else {
+            // Si no hay AccountsReceivable asociada a la venta, significa que no hay cobros.
+            return false;
+        }
     }
 }
