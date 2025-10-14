@@ -81,11 +81,17 @@ public class PurchaseCreditNoteService {
             throw new BusinessRuleException("Solo se pueden crear notas de crédito sobre compras en estado APLICADA.");
         }
 
-        // --- TAREA SIGUIENTE: VALIDACIÓN DE PAGOS ---
-        // Descomentar cuando el método esté disponible en AccountsPayableService
-        // if (accountsPayableService.validatePurchaseHasPayments(purchase.getIdPurchase())) {
-        //     throw new BusinessRuleException("No se puede crear la nota de crédito porque la compra ya tiene pagos registrados. Anule primero los pagos.");
-        // }
+        // --- ¡VALIDACIÓN DE PAGOS ACTIVADA! ---
+        // Se comprueba si la compra tiene pagos activos (PENDIENTES o APLICADOS).
+        // Si es así, se bloquea la creación de la nota de crédito.
+        boolean hasActivePayments = accountsPayableService.validatePurchaseWithoutCollections(purchase.getIdPurchase());
+        if (hasActivePayments) {
+            throw new BusinessRuleException(
+                    "No se puede crear la nota de crédito porque la compra asociada ya tiene pagos registrados. " +
+                            "Por favor, anule primero los pagos en el módulo de Cuentas por Pagar."
+            );
+        }
+        // --- FIN DE LA VALIDACIÓN ---
 
         List<String> activeStatuses = List.of("PENDIENTE", "APLICADA");
         if (creditNoteRepository.existsByCompany_IdAndPurchase_IdPurchaseAndCreditNoteStatusIn(companyId, purchase.getIdPurchase(), activeStatuses)) {

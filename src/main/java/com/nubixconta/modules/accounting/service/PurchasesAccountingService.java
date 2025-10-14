@@ -138,6 +138,7 @@ public class PurchasesAccountingService {
                 totalCredits
         );
     }
+
     /**
      * Crea la partida contable para una Nota de Crédito sobre Compra que se está aplicando.
      * Lógica: Invierte el asiento de la compra original.
@@ -194,6 +195,54 @@ public class PurchasesAccountingService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void deleteEntriesForCreditNoteCancellation(PurchaseCreditNote creditNote) {
         purchaseCreditNoteEntryRepository.deleteByPurchaseCreditNote_Id(creditNote.getId());
+    }
+
+    /**
+     * Obtiene el asiento contable formateado para una nota de crédito de compra específica.
+     * @param creditNoteId El ID de la nota de crédito de compra.
+     * @return Un AccountingEntryResponseDTO con toda la información para el frontend.
+     */
+    @Transactional(readOnly = true)
+    public AccountingEntryResponseDTO getEntryForPurchaseCreditNote(Integer creditNoteId) {
+        // 1. Usar el método optimizado del repositorio que ya confirmamos.
+        List<PurchaseCreditNoteEntry> entries = purchaseCreditNoteEntryRepository.findByPurchaseCreditNoteIdWithDetails(creditNoteId);
+        if (entries.isEmpty()) {
+            throw new NotFoundException("No se encontró asiento contable para la nota de crédito de compra con ID: " + creditNoteId);
+        }
+
+        // 2. Extraer información común de la primera línea.
+        PurchaseCreditNoteEntry firstEntry = entries.get(0);
+        PurchaseCreditNote creditNote = firstEntry.getPurchaseCreditNote();
+        Supplier supplier = creditNote.getPurchase().getSupplier();
+
+        // 3. Mapear cada línea a su DTO universal (AccountingEntryLineDTO).
+        List<AccountingEntryLineDTO> lines = entries.stream()
+                .map(entry -> new AccountingEntryLineDTO(
+                        entry.getCatalog().getAccount().getGeneratedCode(),
+                        entry.getCatalog().getAccount().getAccountName(),
+                        entry.getDebe(),
+                        entry.getHaber()
+                ))
+                .collect(Collectors.toList());
+
+        // 4. Calcular totales.
+        BigDecimal totalDebits = lines.stream().map(AccountingEntryLineDTO::debit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredits = lines.stream().map(AccountingEntryLineDTO::credit).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 5. Construir y devolver el DTO de respuesta final (AccountingEntryResponseDTO).
+        return new AccountingEntryResponseDTO(
+                firstEntry.getId(),
+                creditNote.getDocumentNumber(),
+                "Nota de Crédito Compra", // Tipo de documento
+                creditNote.getCreditNoteStatus(),
+                "Proveedor", // Etiqueta del socio de negocio
+                supplier.getFullName(),
+                firstEntry.getDate(),
+                creditNote.getDescription(),
+                lines,
+                totalDebits,
+                totalCredits
+        );
     }
 
 

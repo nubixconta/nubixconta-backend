@@ -19,7 +19,7 @@ import com.nubixconta.modules.purchases.entity.Supplier;
 import com.nubixconta.modules.purchases.repository.PurchaseRepository;
 import com.nubixconta.modules.purchases.repository.SupplierRepository;
 import com.nubixconta.security.TenantContext;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
@@ -374,12 +374,16 @@ public class PurchaseService {
             throw new BusinessRuleException("La compra solo puede ser anulada si su estado es APLICADA.");
         }
 
-        // --- VALIDACIÓN DE INTEGRIDAD (PLACEHOLDER) ---
-        // TODO: 1. Validar que la compra no tenga pagos registrados
-        // boolean hasPayments = accountsPayableService.validatePurchaseHasNoPayments(purchaseId);
-        // if (hasPayments) {
-        //     throw new BusinessRuleException("No se puede anular la compra porque tiene pagos asociados.");
-        // }
+        // --- ¡VALIDACIÓN DE INTEGRIDAD ACTIVADA! ---
+        // Se comprueba si la compra tiene pagos activos antes de permitir su anulación.
+        boolean hasPayments = accountsPayableService.validatePurchaseWithoutCollections(purchaseId);
+        if (hasPayments) {
+            throw new BusinessRuleException(
+                    "No se puede anular la compra porque tiene pagos asociados. " +
+                            "Por favor, anule primero los pagos en el módulo de Cuentas por Pagar."
+            );
+        }
+        // --- FIN DE LA VALIDACIÓN ---
 
         // --- REVERSIÓN EN OTROS MÓDULOS (PLACEHOLDERS) ---
         // 2. Revertir Inventario: Disminuir stock para productos.
