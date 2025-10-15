@@ -13,7 +13,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 public class PurchaseCreditNoteResponseDTO {
-    private Integer id;
+    private Integer idPurchaseCreditNote;
     private String documentNumber;
     private String description;
     private String creditNoteStatus;

@@ -67,7 +67,7 @@ public class CollectionDetailService {
 
     public CollectionDetail save(CollectionDetail detail) {
         if (detail.getAccountReceivable() == null || detail.getAccountReceivable().getId() == null) {
-            throw new IllegalArgumentException("Debe incluir el objeto accountReceivable con su id");
+            throw new IllegalArgumentException("Debe incluir el objeto accountReceivable con su idPurchaseCreditNote");
         }
 
         // Buscar la entidad completa y setearla
