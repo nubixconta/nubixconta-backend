@@ -3,6 +3,7 @@ package com.nubixconta.modules.purchases.service;
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
 import com.nubixconta.modules.AccountsPayable.service.AccountsPayableService;
+import com.nubixconta.modules.AccountsPayable.service.PaymentDetailsService;
 import com.nubixconta.modules.accounting.entity.Catalog;
 import com.nubixconta.modules.accounting.service.CatalogService;
 import com.nubixconta.modules.accounting.service.PurchasesAccountingService;
@@ -24,7 +25,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +54,7 @@ public class PurchaseCreditNoteService {
     private final PurchasesAccountingService purchasesAccountingService;
     private final AccountsPayableService accountsPayableService;
     private final ChangeHistoryService changeHistoryService;
+    private final PaymentDetailsService paymentDetailsService;
 
 
     private Integer getCompanyIdFromContext() {
@@ -214,8 +219,8 @@ public class PurchaseCreditNoteService {
         // 2. CONTABILIDAD: Generar el asiento contable de la devolución.
         purchasesAccountingService.createEntriesForCreditNoteApplication(creditNote);
 
-        // TAREA SIGUIENTE: 3. CUENTAS POR PAGAR: Disminuir la deuda con el proveedor.
-        // accountsPayableService.decreasePayableForCreditNote(creditNote);
+        // 3. CUENTAS POR PAGAR: Crear un abono que representa la NC.
+        paymentDetailsService.createPaymentFromCreditNote(creditNote);
 
         // 4. SALDO DEL PROVEEDOR: Actualizar el saldo directamente.
         Supplier supplier = creditNote.getPurchase().getSupplier();
@@ -224,7 +229,6 @@ public class PurchaseCreditNoteService {
 
         // 5. Actualizar estado y persistir
         creditNote.setCreditNoteStatus("APLICADA");
-        creditNote.setIssueDate(LocalDateTime.now()); // Sellar fecha de aplicación
         PurchaseCreditNote appliedCreditNote = creditNoteRepository.save(creditNote);
 
         changeHistoryService.logChange("Notas de Crédito - Compras",
@@ -250,8 +254,8 @@ public class PurchaseCreditNoteService {
         // 2. CONTABILIDAD: Eliminar/Revertir el asiento contable de la devolución.
         purchasesAccountingService.deleteEntriesForCreditNoteCancellation(creditNote);
 
-        // TAREA SIGUIENTE: 3. CUENTAS POR PAGAR: Revertir la disminución de la deuda.
-        // accountsPayableService.increasePayableForCreditNoteCancellation(creditNote);
+        // 3. CUENTAS POR PAGAR: Anular el abono que representa la NC.
+        paymentDetailsService.cancelPaymentFromCreditNote(creditNote);
 
         // 4. SALDO DEL PROVEEDOR: Revertir la actualización del saldo.
         Supplier supplier = creditNote.getPurchase().getSupplier();
@@ -276,11 +280,14 @@ public class PurchaseCreditNoteService {
     public List<PurchaseCreditNoteResponseDTO> findAll(String sortBy) {
         Integer companyId = getCompanyIdFromContext();
         List<PurchaseCreditNote> creditNotes;
+
+        // ¡Ahora llamamos a los métodos con JOIN FETCH!
         if ("status".equalsIgnoreCase(sortBy)) {
-            creditNotes = creditNoteRepository.findAllByCompanyIdOrderByStatusAndIssueDate(companyId);
+            creditNotes = creditNoteRepository.findAllWithDetailsByCompanyIdOrderByStatus(companyId);
         } else {
-            creditNotes = creditNoteRepository.findByCompany_IdOrderByIssueDateDesc(companyId);
+            creditNotes = creditNoteRepository.findAllWithDetailsByCompanyIdOrderByDate(companyId);
         }
+
         return creditNotes.stream()
                 .map(cn -> modelMapper.map(cn, PurchaseCreditNoteResponseDTO.class))
                 .collect(Collectors.toList());
@@ -288,27 +295,96 @@ public class PurchaseCreditNoteService {
 
     @Transactional(readOnly = true)
     public PurchaseCreditNoteResponseDTO findById(Integer id) {
-        PurchaseCreditNote creditNote = creditNoteRepository.findById(id)
+        // ¡Ahora llamamos al método con JOIN FETCH!
+        PurchaseCreditNote creditNote = creditNoteRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new NotFoundException("Nota de crédito de compra con ID " + id + " no encontrada."));
+
+        // ModelMapper ahora recibirá un objeto completamente inicializado
         return modelMapper.map(creditNote, PurchaseCreditNoteResponseDTO.class);
     }
 
+    /**
+     * Busca notas de crédito por el ID de la compra asociada, DENTRO DE LA EMPRESA ACTUAL.
+     */
+    @Transactional(readOnly = true)
+    public List<PurchaseCreditNoteResponseDTO> findByPurchaseId(Integer purchaseId) {
+        Integer companyId = getCompanyIdFromContext();
+
+        // Seguridad: Verificar que la compra pertenezca a la empresa actual.
+        purchaseRepository.findById(purchaseId)
+                .orElseThrow(() -> new NotFoundException("Compra con ID " + purchaseId + " no encontrada."));
+
+        return creditNoteRepository.findByCompany_IdAndPurchase_IdPurchase(companyId, purchaseId).stream()
+                .map(cn -> modelMapper.map(cn, PurchaseCreditNoteResponseDTO.class))
+                .collect(Collectors.toList());
+    }
+
+
+    /**
+     * Busca notas de crédito por su estado, DENTRO DE LA EMPRESA ACTUAL.
+     */
+    @Transactional(readOnly = true)
+    public List<PurchaseCreditNoteResponseDTO> findByStatus(String status) {
+        Integer companyId = getCompanyIdFromContext();
+        return creditNoteRepository.findByCompany_IdAndCreditNoteStatus(companyId, status).stream()
+                .map(cn -> modelMapper.map(cn, PurchaseCreditNoteResponseDTO.class))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Busca notas de crédito por rango de fechas y opcionalmente por estado, DENTRO DE LA EMPRESA ACTUAL.
+     */
+    @Transactional(readOnly = true)
+    public List<PurchaseCreditNoteResponseDTO> findByDateRangeAndStatus(LocalDate start, LocalDate end, String status) {
+        Integer companyId = getCompanyIdFromContext();
+
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
+        String finalStatus = (status != null && !status.isBlank()) ? status : null;
+
+        return creditNoteRepository.findByCompanyIdAndDateRangeAndStatus(companyId, startDateTime, endDateTime, finalStatus).stream()
+                .map(cn -> modelMapper.map(cn, PurchaseCreditNoteResponseDTO.class))
+                .collect(Collectors.toList());
+    }
     // =========================================================================================
     // == MÉTODOS PRIVADOS DE AYUDA Y VALIDACIÓN
     // =========================================================================================
 
+    // Reemplaza tu método de validación existente con esta versión mejorada.
     private void validateFinancialConsistency(List<PurchaseCreditNoteDetailCreateDTO> details, BigDecimal subtotal, BigDecimal vat, BigDecimal total) {
-        BigDecimal calculatedSubtotal = BigDecimal.ZERO;
+
+        // Asumimos una tasa de IVA del 13%. ¡Es mejor definir esto como una constante o configuración!
+        final BigDecimal VAT_RATE = new BigDecimal("0.13");
+
+        BigDecimal calculatedSubtotalFromDetails = BigDecimal.ZERO;
+        BigDecimal calculatedVatFromDetails = BigDecimal.ZERO;
+
         for (var detail : details) {
+            // Validación de subtotal de línea (sin cambios)
             BigDecimal lineSubtotal = detail.getUnitPrice().multiply(BigDecimal.valueOf(detail.getQuantity()));
             if (lineSubtotal.compareTo(detail.getSubtotal()) != 0) {
                 throw new BusinessRuleException("Inconsistencia en el subtotal del item: cálculo (precio*cantidad) no coincide con el subtotal enviado.");
             }
-            calculatedSubtotal = calculatedSubtotal.add(detail.getSubtotal());
+            calculatedSubtotalFromDetails = calculatedSubtotalFromDetails.add(detail.getSubtotal());
+
+            // --- ¡NUEVA LÓGICA DE CÁLCULO DE IVA! ---
+            // Si la línea está marcada con impuesto, calculamos su IVA y lo sumamos.
+            if (Boolean.TRUE.equals(detail.getTax())) {
+                BigDecimal lineVat = detail.getSubtotal().multiply(VAT_RATE);
+                calculatedVatFromDetails = calculatedVatFromDetails.add(lineVat);
+            }
         }
-        if (calculatedSubtotal.compareTo(subtotal) != 0) {
-            throw new BusinessRuleException("El subtotal de la cabecera no coincide con la suma de los subtotales de los detalles.");
+
+        // Ahora comparamos nuestros cálculos con los totales enviados en la cabecera.
+        // Usamos setScale para manejar posibles diferencias de redondeo.
+        if (calculatedSubtotalFromDetails.compareTo(subtotal) != 0) {
+            throw new BusinessRuleException("El subtotal de la cabecera (" + subtotal + ") no coincide con la suma de los detalles (" + calculatedSubtotalFromDetails + ").");
         }
+
+        if (calculatedVatFromDetails.setScale(2, RoundingMode.HALF_UP).compareTo(vat.setScale(2, RoundingMode.HALF_UP)) != 0) {
+            throw new BusinessRuleException("El IVA de la cabecera (" + vat + ") no coincide con el IVA calculado de los detalles (" + calculatedVatFromDetails.setScale(2, RoundingMode.HALF_UP) + ").");
+        }
+
         if (subtotal.add(vat).compareTo(total) != 0) {
             throw new BusinessRuleException("Inconsistencia en los totales: Subtotal + IVA no es igual al Total.");
         }
@@ -353,6 +429,8 @@ public class PurchaseCreditNoteService {
         detail.setQuantity(dto.getQuantity());
         detail.setUnitPrice(dto.getUnitPrice());
         detail.setSubtotal(dto.getSubtotal());
+        detail.setTax(dto.getTax());
+        detail.setLineDescription(dto.getLineDescription());
 
         if (dto.getProductId() != null) {
             Product product = productService.findEntityById(dto.getProductId());
@@ -386,6 +464,8 @@ public class PurchaseCreditNoteService {
             existingDetail.setQuantity(dto.getQuantity());
             existingDetail.setUnitPrice(dto.getUnitPrice());
             existingDetail.setSubtotal(dto.getSubtotal());
+            existingDetail.setTax(dto.getTax());
+            existingDetail.setLineDescription(dto.getLineDescription());
             finalDetails.add(existingDetail);
         }
 

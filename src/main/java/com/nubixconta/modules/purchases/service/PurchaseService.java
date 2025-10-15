@@ -16,6 +16,7 @@ import com.nubixconta.modules.purchases.dto.purchases.*;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.modules.purchases.entity.PurchaseDetail;
 import com.nubixconta.modules.purchases.entity.Supplier;
+import com.nubixconta.modules.purchases.repository.PurchaseCreditNoteRepository;
 import com.nubixconta.modules.purchases.repository.PurchaseRepository;
 import com.nubixconta.modules.purchases.repository.SupplierRepository;
 import com.nubixconta.security.TenantContext;
@@ -49,6 +50,7 @@ public class PurchaseService {
     private final CompanyRepository companyRepository;
     private final SupplierRepository supplierRepository;
     private final PurchasesAccountingService purchasesAccountingService;
+    private final PurchaseCreditNoteRepository purchaseCreditNoteRepository;
     private final AccountsPayableService accountsPayableService;
 
     // Helper para obtener el companyId de forma segura
@@ -107,6 +109,26 @@ public class PurchaseService {
 
         return purchases.stream()
                 .map(purchase -> modelMapper.map(purchase, PurchaseResponseDTO.class))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Busca las compras de un proveedor que son válidas para la creación de una nota de crédito.
+     * Una compra es válida si está 'APLICADA' y no tiene una nota de crédito activa.
+     * @param supplierId El ID del proveedor.
+     * @return Una lista de DTOs simplificados con las compras elegibles.
+     */
+    @Transactional(readOnly = true)
+    public List<PurchaseForCreditNoteDTO> findPurchasesAvailableForCreditNote(Integer supplierId) {
+        Integer companyId = getCompanyIdFromContext();
+        // Validamos que el proveedor exista (buena práctica)
+        supplierService.findById(supplierId);
+
+        List<Purchase> availablePurchases = purchaseRepository.findPurchasesAvailableForCreditNote(companyId, supplierId);
+
+        // Mapeamos a un DTO simple para el frontend.
+        return availablePurchases.stream()
+                .map(purchase -> modelMapper.map(purchase, PurchaseForCreditNoteDTO.class))
                 .collect(Collectors.toList());
     }
 
@@ -373,6 +395,22 @@ public class PurchaseService {
         if (!"APLICADA".equals(purchase.getPurchaseStatus())) {
             throw new BusinessRuleException("La compra solo puede ser anulada si su estado es APLICADA.");
         }
+
+        // --- ¡NUEVA VALIDACIÓN DE NOTAS DE CRÉDITO ACTIVAS! ---
+        List<String> activeCreditNoteStatuses = List.of("PENDIENTE", "APLICADA");
+        boolean hasActiveCreditNote = purchaseCreditNoteRepository.existsByCompany_IdAndPurchase_IdPurchaseAndCreditNoteStatusIn(
+                getCompanyIdFromContext(),
+                purchaseId,
+                activeCreditNoteStatuses
+        );
+
+        if (hasActiveCreditNote) {
+            throw new BusinessRuleException(
+                    "No se puede anular la compra porque tiene una Nota de Crédito activa (en estado PENDIENTE o APLICADA). " +
+                            "Por favor, anule primero la nota de crédito asociada."
+            );
+        }
+        // --- FIN DE LA NUEVA VALIDACIÓN ---
 
         // --- ¡VALIDACIÓN DE INTEGRIDAD ACTIVADA! ---
         // Se comprueba si la compra tiene pagos activos antes de permitir su anulación.

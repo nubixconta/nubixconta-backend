@@ -99,7 +99,7 @@ public class PaymentDetailsService {
 
     public PaymentDetails save(PaymentDetails detail) {
         if (detail.getAccountsPayable() == null || detail.getAccountsPayable().getId() == null) {
-            throw new IllegalArgumentException("Debe incluir el objeto accountsPayable con su id");
+            throw new IllegalArgumentException("Debe incluir el objeto accountsPayable con su idPurchaseCreditNote");
         }
 
         // Buscar la entidad completa y setearla
@@ -217,7 +217,10 @@ public class PaymentDetailsService {
         creditNotePayment.setPaymentStatus("APLICADO"); // Nace aplicado.
         creditNotePayment.setPaymentDetailsDate(creditNote.getIssueDate()); // Usa la fecha de la NC.
         creditNotePayment.setPaymentDetailDescription("Abono por Nota de Crédito N°: " + creditNote.getDocumentNumber());
-        creditNotePayment.setReference(creditNote.getId().toString()); // Guardamos el ID de la NC como referencia.
+        creditNotePayment.setReference(creditNote.getIdPurchaseCreditNote().toString()); // Guardamos el ID de la NC como referencia.
+
+        // Asignamos el valor requerido por la validación de la entidad.
+        creditNotePayment.setModuleType("Cuentas por pagar");
 
         repository.save(creditNotePayment);
 
@@ -232,8 +235,8 @@ public class PaymentDetailsService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void cancelPaymentFromCreditNote(PurchaseCreditNote creditNote) {
         // Buscamos el pago específico que se generó a partir de esta nota de crédito usando la referencia.
-        PaymentDetails paymentToCancel = repository.findByReferenceAndPaymentMethod(creditNote.getId().toString(), "NOTA_DE_CREDITO")
-                .orElseThrow(() -> new NotFoundException("No se encontró el abono generado por la Nota de Crédito ID: " + creditNote.getId()));
+        PaymentDetails paymentToCancel = repository.findByReferenceAndPaymentMethod(creditNote.getIdPurchaseCreditNote().toString(), "NOTA_DE_CREDITO")
+                .orElseThrow(() -> new NotFoundException("No se encontró el abono generado por la Nota de Crédito ID: " + creditNote.getIdPurchaseCreditNote()));
 
         if (!"APLICADO".equals(paymentToCancel.getPaymentStatus())) {
             throw new BusinessRuleException("El abono de la nota de crédito que intenta anular no está en estado APLICADO.");

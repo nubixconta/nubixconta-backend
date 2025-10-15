@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @Data
 public class ChangeHistoryCreateDTO {
 
-    @NotNull(message = "El id de userId es obligatorio")
+    @NotNull(message = "El idPurchaseCreditNote de userId es obligatorio")
     private Integer userId;
 
 

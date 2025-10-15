@@ -29,4 +29,9 @@ public class PurchaseCreditNoteDetailCreateDTO {
     @NotNull(message = "El subtotal es obligatorio")
     @Digits(integer = 10, fraction = 2)
     private BigDecimal subtotal;
+
+    @NotNull(message = "Debe especificar si el detalle lleva impuesto.")
+    private Boolean tax;
+
+    private String lineDescription;
 }

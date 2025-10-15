@@ -14,7 +14,7 @@ public interface PurchaseCreditNoteEntryRepository extends JpaRepository<Purchas
      * Elimina todas las líneas de asiento asociadas a un ID de nota de crédito de compra específico.
      * Esencial para la operación de anulación, sigue el patrón de los otros repositorios contables.
      */
-    void deleteByPurchaseCreditNote_Id(Integer creditNoteId);
+    void deleteByPurchaseCreditNote_IdPurchaseCreditNote(Integer creditNoteId);
 
     /**
      * Busca todas las líneas del asiento para una nota de crédito de compra específica, cargando
@@ -25,6 +25,6 @@ public interface PurchaseCreditNoteEntryRepository extends JpaRepository<Purchas
     @Query("SELECT pcne FROM PurchaseCreditNoteEntry pcne " +
             "JOIN FETCH pcne.catalog c " +
             "JOIN FETCH c.account " +
-            "WHERE pcne.purchaseCreditNote.id = :creditNoteId")
+            "WHERE pcne.purchaseCreditNote.idPurchaseCreditNote = :creditNoteId")
     List<PurchaseCreditNoteEntry> findByPurchaseCreditNoteIdWithDetails(Integer creditNoteId);
 }

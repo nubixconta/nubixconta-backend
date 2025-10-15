@@ -10,6 +10,7 @@ import com.nubixconta.modules.sales.dto.customer.CustomerResponseDTO;
 import com.nubixconta.modules.sales.dto.sales.SaleForAccountsReceivableDTO;
 import com.nubixconta.modules.sales.entity.Customer;
 import com.nubixconta.modules.sales.entity.Sale;
+import com.nubixconta.modules.sales.repository.CreditNoteRepository;
 import com.nubixconta.modules.sales.repository.CustomerRepository;
 import com.nubixconta.modules.sales.repository.SaleRepository;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +53,7 @@ public class SaleService {
     private final CollectionDetailService collectionDetailService;
     private final ChangeHistoryService changeHistoryService;
     private final AccountsReceivableService accountsReceivableService;
+    private final CreditNoteRepository creditNoteRepository;
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
@@ -540,6 +542,22 @@ public class SaleService {
         if (!"APLICADA".equals(sale.getSaleStatus())) {
             throw new BusinessRuleException("La venta solo puede ser anulada si su estado es APLICADA. Estado actual: " + sale.getSaleStatus());
         }
+
+        // --- ¡NUEVA VALIDACIÓN DE NOTAS DE CRÉDITO ACTIVAS! ---
+        List<String> activeCreditNoteStatuses = List.of("PENDIENTE", "APLICADA");
+        boolean hasActiveCreditNote = creditNoteRepository.existsByCompany_IdAndSale_SaleIdAndCreditNoteStatusIn(
+                getCompanyIdFromContext(),
+                saleId,
+                activeCreditNoteStatuses
+        );
+
+        if (hasActiveCreditNote) {
+            throw new BusinessRuleException(
+                    "No se puede anular la venta porque tiene una Nota de Crédito activa (en estado PENDIENTE o APLICADA). " +
+                            "Por favor, anule primero la nota de crédito asociada."
+            );
+        }
+        // --- FIN DE LA NUEVA VALIDACIÓN ---
 
         // 3. REGLA DE NEGOCIO DE INTEGRIDAD: ¿Tiene cobros asociados?
         // Esta validación ahora se hace sabiendo que la venta existe y está en el estado correcto.
