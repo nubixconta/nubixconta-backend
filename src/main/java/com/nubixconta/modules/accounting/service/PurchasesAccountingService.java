@@ -194,7 +194,7 @@ public class PurchasesAccountingService {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void deleteEntriesForCreditNoteCancellation(PurchaseCreditNote creditNote) {
-        purchaseCreditNoteEntryRepository.deleteByPurchaseCreditNote_Id(creditNote.getId());
+        purchaseCreditNoteEntryRepository.deleteByPurchaseCreditNote_IdPurchaseCreditNote(creditNote.getIdPurchaseCreditNote());
     }
 
     /**
@@ -236,7 +236,7 @@ public class PurchasesAccountingService {
                 "Nota de Crédito Compra", // Tipo de documento
                 creditNote.getCreditNoteStatus(),
                 "Proveedor", // Etiqueta del socio de negocio
-                supplier.getFullName(),
+                formatPartnerName(supplier),
                 firstEntry.getDate(),
                 creditNote.getDescription(),
                 lines,
@@ -267,12 +267,19 @@ public class PurchasesAccountingService {
 
 
     /**
+     * **MÉTODO MODIFICADO**
      * Método privado de ayuda para formatear el nombre del proveedor de forma segura.
+     * Ahora construye el nombre completo directamente.
      */
     private String formatPartnerName(Supplier supplier) {
-        if (supplier == null) return "";
-        // Reutilizamos el método que ya creamos en la entidad Supplier
-        return supplier.getFullName();
+        if (supplier == null) {
+            return "";
+        }
+        // Recreamos la lógica de getFullName aquí.
+        if (supplier.getSupplierLastName() != null && !supplier.getSupplierLastName().isBlank()) {
+            return supplier.getSupplierName() + " " + supplier.getSupplierLastName();
+        }
+        return supplier.getSupplierName();
     }
 
     // --- MÉTODOS PRIVADOS DE AYUDA ---

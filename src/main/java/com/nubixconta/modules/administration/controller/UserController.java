@@ -86,7 +86,7 @@ public class UserController {
         List<User> users = userService.getAllUsers();
         return ResponseEntity.ok(users);
     }
-//Metodo que lista a asistentes contables activos
+    //Metodo que lista a asistentes contables activos
     @GetMapping("/assistant")
     public ResponseEntity<List<UserResponseDTO>> getUserByAssistant() {
         List<UserResponseDTO> users = userService.getUserByAssistant(false,true);

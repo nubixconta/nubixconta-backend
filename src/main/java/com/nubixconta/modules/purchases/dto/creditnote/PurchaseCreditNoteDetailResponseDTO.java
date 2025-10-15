@@ -18,4 +18,6 @@ public class PurchaseCreditNoteDetailResponseDTO {
     private Integer quantity;
     private BigDecimal unitPrice;
     private BigDecimal subtotal;
+    private Boolean tax;
+    private String lineDescription;
 }

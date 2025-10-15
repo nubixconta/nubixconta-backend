@@ -58,4 +58,16 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Integer> {
     );
     // Busca una venta por su ID y el ID de la empresa.
     Optional<Purchase> findByIdPurchaseAndCompanyId(Integer purchaseId, Integer companyId);
+
+    /**
+     * Busca compras de un proveedor que son elegibles para una nota de crédito.
+     * Criterios:
+     * 1. Pertenecen a la empresa y proveedor especificados.
+     * 2. Están en estado 'APLICADA'.
+     * 3. NO tienen una nota de crédito asociada que esté en estado 'PENDIENTE' o 'APLICADA'.
+     */
+    @Query("SELECT p FROM Purchase p WHERE p.company.id = :companyId AND p.supplier.idSupplier = :supplierId AND p.purchaseStatus = 'APLICADA' AND NOT EXISTS (" +
+            "SELECT 1 FROM PurchaseCreditNote pcn WHERE pcn.purchase = p AND pcn.creditNoteStatus IN ('PENDIENTE', 'APLICADA')" +
+            ")")
+    List<Purchase> findPurchasesAvailableForCreditNote(@Param("companyId") Integer companyId, @Param("supplierId") Integer supplierId);
 }

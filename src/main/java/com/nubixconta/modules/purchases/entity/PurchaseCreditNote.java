@@ -32,7 +32,7 @@ public class PurchaseCreditNote {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_credit_note") // Corresponde a id_credit_note en el ERD
-    private Integer id;
+    private Integer idPurchaseCreditNote;
 
     @NotBlank(message = "El número de documento es obligatorio")
     @Size(max = 20, message = "El número de documento puede tener máximo 20 caracteres")
@@ -115,7 +115,7 @@ public class PurchaseCreditNote {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof PurchaseCreditNote that)) return false;
-        return id != null && id.equals(that.id);
+        return idPurchaseCreditNote != null && idPurchaseCreditNote.equals(that.idPurchaseCreditNote);
     }
 
     @Override

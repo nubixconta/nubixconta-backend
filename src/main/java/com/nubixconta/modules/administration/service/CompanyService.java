@@ -154,7 +154,7 @@ public class CompanyService {
 
     public Company patchCompany(Integer id, CompanyUpdateDTO dto) {
         Company company = companyRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Empresa no encontrada con id: " + id));
+                .orElseThrow(() -> new RuntimeException("Empresa no encontrada con idPurchaseCreditNote: " + id));
 
         StringBuilder cambios = new StringBuilder();
 

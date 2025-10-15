@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -53,6 +54,14 @@ public class PurchaseCreditNoteDetail {
     @Digits(integer = 10, fraction = 2)
     @Column(name = "subtotal", precision = 10, scale = 2, nullable = false)
     private BigDecimal subtotal;
+
+    @NotNull(message = "Debe especificarse si la línea lleva impuesto.")
+    @Column(name = "tax", nullable = false)
+    private Boolean tax;
+
+    @Size(max = 255)
+    @Column(name = "line_description", length = 255)
+    private String lineDescription;
 
     @Override
     public boolean equals(Object o) {

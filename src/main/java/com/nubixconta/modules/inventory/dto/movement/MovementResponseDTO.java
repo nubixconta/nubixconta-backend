@@ -66,16 +66,13 @@ public class MovementResponseDTO {
         } else if (movement.getCreditNote() != null) {
             dto.setOriginModule("Ventas (Nota de Crédito)");
             dto.setOriginDocument(movement.getCreditNote().getDocumentNumber());
-            Customer customer = movement.getCreditNote().getSale().getCustomer();
             // Asigna el nombre al campo correcto
             dto.setCustomerName(buildFullNameFrom(movement.getCreditNote().getSale().getCustomer()));
 
         } else if (movement.getPurchase() != null) {
             dto.setOriginModule("Compras");
             dto.setOriginDocument(movement.getPurchase().getDocumentNumber());
-            Supplier supplier = movement.getPurchase().getSupplier();
-            // Asigna el nombre al campo de proveedor
-            dto.setSupplierName(supplier != null ? supplier.getFullName() : null);
+            dto.setSupplierName(buildFullNameFrom(movement.getPurchase().getSupplier()));
 
         } else {
             dto.setOriginModule("Ajuste Manual de Inventario");
@@ -99,5 +96,20 @@ public class MovementResponseDTO {
             return customer.getCustomerName() + " " + customer.getCustomerLastName();
         }
         return customer.getCustomerName();
+    }
+
+    /**
+     * NUEVO MÉTODO DE AYUDA PRIVADO.
+     * Recrea la lógica de getFullName para un Proveedor.
+     */
+    private static String buildFullNameFrom(Supplier supplier) {
+        if (supplier == null) {
+            return null;
+        }
+        // Accedemos a los getters públicos de la entidad Supplier
+        if (supplier.getSupplierLastName() != null && !supplier.getSupplierLastName().isBlank()) {
+            return supplier.getSupplierName() + " " + supplier.getSupplierLastName();
+        }
+        return supplier.getSupplierName();
     }
 }

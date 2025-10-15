@@ -4,6 +4,7 @@ import com.nubixconta.common.exception.BadRequestException;
 import com.nubixconta.modules.accounting.dto.AccountingEntryResponseDTO;
 import com.nubixconta.modules.accounting.service.PurchasesAccountingService;
 import com.nubixconta.modules.purchases.dto.purchases.PurchaseCreateDTO;
+import com.nubixconta.modules.purchases.dto.purchases.PurchaseForCreditNoteDTO;
 import com.nubixconta.modules.purchases.dto.purchases.PurchaseResponseDTO;
 import com.nubixconta.modules.purchases.dto.purchases.PurchaseUpdateDTO;
 import com.nubixconta.modules.purchases.service.PurchaseService;
@@ -49,6 +50,17 @@ public class PurchaseController {
     public ResponseEntity<PurchaseResponseDTO> getPurchaseById(@PathVariable Integer id) {
         PurchaseResponseDTO purchase = purchaseService.findById(id);
         return ResponseEntity.ok(purchase);
+    }
+
+    /**
+     * Obtiene una lista de compras de un proveedor que son elegibles para crear una nota de crédito.
+     * @param supplierId El ID del proveedor.
+     * @return Una lista de DTOs simplificados de las compras elegibles.
+     */
+    @GetMapping("/available-for-credit-note")
+    public ResponseEntity<List<PurchaseForCreditNoteDTO>> getPurchasesAvailableForCreditNote(@RequestParam Integer supplierId) {
+        List<PurchaseForCreditNoteDTO> purchases = purchaseService.findPurchasesAvailableForCreditNote(supplierId);
+        return ResponseEntity.ok(purchases);
     }
 
     /**
