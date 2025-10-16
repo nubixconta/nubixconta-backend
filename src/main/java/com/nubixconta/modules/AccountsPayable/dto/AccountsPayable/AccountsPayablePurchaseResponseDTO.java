@@ -8,5 +8,5 @@ import java.math.BigDecimal;
 public class AccountsPayablePurchaseResponseDTO {
     private BigDecimal balance;
     private BigDecimal payableAmount;
-    private PurchaseDetailResponseDTO.PurchaseForAccountsPayableDTO purchase;
+    private PurchaseForAccountsPayableDTO purchase;
 }
