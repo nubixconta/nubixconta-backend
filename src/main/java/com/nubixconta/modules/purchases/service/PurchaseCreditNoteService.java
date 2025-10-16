@@ -220,7 +220,7 @@ public class PurchaseCreditNoteService {
         purchasesAccountingService.createEntriesForCreditNoteApplication(creditNote);
 
         // 3. CUENTAS POR PAGAR: Crear un abono que representa la NC.
-        paymentDetailsService.createPaymentFromCreditNote(creditNote);
+        //paymentDetailsService.createPaymentFromCreditNote(creditNote);
 
         // 4. SALDO DEL PROVEEDOR: Actualizar el saldo directamente.
         Supplier supplier = creditNote.getPurchase().getSupplier();
@@ -255,7 +255,7 @@ public class PurchaseCreditNoteService {
         purchasesAccountingService.deleteEntriesForCreditNoteCancellation(creditNote);
 
         // 3. CUENTAS POR PAGAR: Anular el abono que representa la NC.
-        paymentDetailsService.cancelPaymentFromCreditNote(creditNote);
+        //paymentDetailsService.cancelPaymentFromCreditNote(creditNote);
 
         // 4. SALDO DEL PROVEEDOR: Revertir la actualización del saldo.
         Supplier supplier = creditNote.getPurchase().getSupplier();

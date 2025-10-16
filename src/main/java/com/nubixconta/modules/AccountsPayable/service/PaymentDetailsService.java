@@ -203,6 +203,7 @@ public class PaymentDetailsService {
      * Este método es llamado por el orquestador de notas de crédito.
      * @param creditNote La nota de crédito que se está aplicando.
      */
+    /*
     @Transactional(propagation = Propagation.MANDATORY)
     public void createPaymentFromCreditNote(PurchaseCreditNote creditNote) {
         AccountsPayable payableAccount = accountsPayableRepository.findByPurchase(creditNote.getPurchase())
@@ -232,6 +233,7 @@ public class PaymentDetailsService {
      * Anula el abono (PaymentDetail) que fue generado por una nota de crédito.
      * @param creditNote La nota de crédito que se está anulando.
      */
+    /*
     @Transactional(propagation = Propagation.MANDATORY)
     public void cancelPaymentFromCreditNote(PurchaseCreditNote creditNote) {
         // Buscamos el pago específico que se generó a partir de esta nota de crédito usando la referencia.
@@ -249,6 +251,8 @@ public class PaymentDetailsService {
         // Ahora, ignorará este abono anulado y el saldo aumentará correctamente.
         recalcularBalancePorPayableId(paymentToCancel.getAccountsPayable().getId());
     }
+
+     */
 
 }
 
