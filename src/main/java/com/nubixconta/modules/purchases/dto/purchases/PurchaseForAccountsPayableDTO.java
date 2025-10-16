@@ -23,4 +23,5 @@ public class PurchaseForAccountsPayableDTO {
     private String supplierName;
     private String supplierLastName;
     private Integer creditDay;
+    private String purchaseStatus;
 }
