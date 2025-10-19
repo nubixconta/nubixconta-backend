@@ -68,29 +68,39 @@ public class AccountsPayableService {
 
                     if (ar.getPurchase() != null) {
                         Purchase purchase = ar.getPurchase();
-                        PurchaseForAccountsPayableDTO purchaseDto = new PurchaseForAccountsPayableDTO();
 
-                        // Mapeo manual de campos de la compra
-                        purchaseDto.setDocumentNumber(purchase.getDocumentNumber());
-                        purchaseDto.setIdPurchase(purchase.getIdPurchase());
-                        purchaseDto.setTotalAmount(purchase.getTotalAmount());
-                        purchaseDto.setIssueDate(purchase.getIssueDate());
-                        purchaseDto.setPurchaseDescription(purchase.getPurchaseDescription());
+                        // **Añadir esta validación para filtrar por purchaseStatus**
+                        if ("APLICADA".equals(purchase.getPurchaseStatus())) {
+                            PurchaseForAccountsPayableDTO purchaseDto = new PurchaseForAccountsPayableDTO();
 
-                        // Mapeo manual de campos del proveedor
-                        if (purchase.getSupplier() != null) {
-                            purchaseDto.setSupplierName(purchase.getSupplier().getSupplierName());
-                            purchaseDto.setSupplierLastName(purchase.getSupplier().getSupplierLastName());
-                            purchaseDto.setCreditDay(purchase.getSupplier().getCreditDay());
+                            // Mapeo manual de campos de la compra
+                            purchaseDto.setDocumentNumber(purchase.getDocumentNumber());
+                            purchaseDto.setIdPurchase(purchase.getIdPurchase());
+                            purchaseDto.setTotalAmount(purchase.getTotalAmount());
+                            purchaseDto.setIssueDate(purchase.getIssueDate());
+                            purchaseDto.setPurchaseDescription(purchase.getPurchaseDescription());
+                            purchaseDto.setPurchaseStatus(purchase.getPurchaseStatus()); // Asegúrate de mapear el purchaseStatus
+
+                            // Mapeo manual de campos del proveedor
+                            if (purchase.getSupplier() != null) {
+                                purchaseDto.setSupplierName(purchase.getSupplier().getSupplierName());
+                                purchaseDto.setSupplierLastName(purchase.getSupplier().getSupplierLastName());
+                                purchaseDto.setCreditDay(purchase.getSupplier().getCreditDay());
+                            }
+
+                            dto.setPurchase(purchaseDto);
+                        } else {
+                            // Si el purchaseStatus no es "APLICADA", podemos establecer el purchase en null o simplemente omitir esta entrada
+                            dto.setPurchase(null);
                         }
-
-                        dto.setPurchase(purchaseDto);
                     } else {
                         dto.setPurchase(null);
                     }
 
                     return dto;
                 })
+                // Añadir un filtro final para remover DTOs que no tienen una compra "APLICADA"
+                .filter(dto -> dto.getPurchase() != null)
                 .collect(Collectors.toList());
     }
 
@@ -220,6 +230,54 @@ public class AccountsPayableService {
         return dto;
     }
 
+    /**
+     * Actualiza el payableAmount de una cuenta por pagar basándose en un tipo de operación.
+     * Si el tipo de operación es "ANULADA", se suma la cantidad al payableAmount.
+     * Si el tipo de operación es "APLICADA", se resta la cantidad al payableAmount.
+     *
+     * @param purchaseId El ID de la compra asociada a la cuenta por pagar.
+     * @param amount La cantidad a sumar o restar.
+     * @param operationType El tipo de operación ("ANULADA" para sumar, "APLICADA" para restar).
+     * @return La entidad AccountsPayable actualizada.
+     * @throws EntityNotFoundException Si no se encuentra la cuenta por pagar.
+     * @throws BusinessRuleException Si el monto es inválido o el tipo de operación no es reconocido.
+     */
+    @Transactional
+    public AccountsPayable updatePayableAmount(Integer purchaseId, BigDecimal amount, String operationType) {
+        Integer companyId = getCompanyIdFromContext();
+
+        AccountsPayable accountsPayable = repository.findByPurchaseIdAndCompanyId(purchaseId, companyId)
+                .orElseThrow(() -> new EntityNotFoundException("No se encontró la cuenta por pagar para el ID de compra y compañía proporcionados."));
+
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessRuleException("La cantidad debe ser un valor positivo.");
+        }
+
+        BigDecimal currentPayableAmount = accountsPayable.getPayableAmount();
+        BigDecimal newPayableAmount;
+
+        switch (operationType.toUpperCase()) {
+            case "ANULADA":
+                // Si es "ANULADA", se suma la cantidad al payableAmount
+                newPayableAmount = currentPayableAmount.add(amount);
+                break;
+            case "APLICADA":
+                // Si es "APLICADA", se resta la cantidad del payableAmount
+                // Validar que el PayableAmount no se vuelva negativo
+                if (currentPayableAmount.compareTo(amount) < 0) {
+                    throw new BusinessRuleException("La cantidad a restar excede el monto a pagar actual.");
+                }
+                newPayableAmount = currentPayableAmount.subtract(amount);
+                break;
+            default:
+                throw new BusinessRuleException("Tipo de operación no reconocido. Use 'ANULADA' o 'APLICADA'.");
+        }
+
+        accountsPayable.setPayableAmount(newPayableAmount);
+
+        return repository.save(accountsPayable);
+    }
+
     public AccountsPayable findOrCreateAccountsPayable(Purchase purchase) {
         // Se busca por el ID de la venta y el ID de la compañía para asegurar la pertenencia de los datos.
         return repository.findByPurchaseIdAndCompanyId(purchase.getIdPurchase(), purchase.getCompany().getId())
@@ -235,7 +293,7 @@ public class AccountsPayableService {
                     return repository.save(newAR);
                 });
     }
-
+/*
     @Transactional
     public AccountsPayable UpdatePayableAmountAndBalance(Integer purchaseId, BigDecimal amountToDecrease) {
         // 1. Obtener el ID de la compañía para asegurar la integridad de los datos.
@@ -265,6 +323,9 @@ public class AccountsPayableService {
         // 6. Guardar los cambios en la base de datos.
         return repository.save(accountsPayable);
     }
+
+ */
+
     public List<AccountsPayableReponseDTO> findAllSortedByStatus() {
         Integer companyId = getCompanyIdFromContext();
         List<AccountsPayable> accounts = repository.findByCompanyId(companyId);

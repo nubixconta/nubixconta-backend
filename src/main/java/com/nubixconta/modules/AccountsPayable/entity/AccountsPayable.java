@@ -40,7 +40,6 @@ public class AccountsPayable {
         @DecimalMin(value="0.00",inclusive=true,message = "El Saldo no puede ser negativo")
         private BigDecimal balance;
 
-
         @NotNull(message = "El monto es obligatorio")
         @Column(name = "payable_amount", precision = 10, scale = 2)
         @Digits(integer = 8, fraction = 2, message = "El monto puede tener hasta 8 dígitos enteros y 2 decimales")
