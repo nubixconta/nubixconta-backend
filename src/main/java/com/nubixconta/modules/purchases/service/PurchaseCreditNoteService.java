@@ -219,8 +219,13 @@ public class PurchaseCreditNoteService {
         // 2. CONTABILIDAD: Generar el asiento contable de la devolución.
         purchasesAccountingService.createEntriesForCreditNoteApplication(creditNote);
 
-        // 3. CUENTAS POR PAGAR: Crear un abono que representa la NC.
-        //paymentDetailsService.createPaymentFromCreditNote(creditNote);
+        // 3. CUENTAS POR PAGAR: --- ¡IMPLEMENTACIÓN FINAL! ---
+        // Se actualiza el monto a pagar, disminuyéndolo.
+        accountsPayableService.updatePayableAmount(
+                creditNote.getPurchase().getIdPurchase(), // El ID de la compra original
+                creditNote.getTotalAmount(),              // El monto de la NC a restar
+                "APLICADA"                                // La operación que indica una resta
+        );
 
         // 4. SALDO DEL PROVEEDOR: Actualizar el saldo directamente.
         Supplier supplier = creditNote.getPurchase().getSupplier();
@@ -254,8 +259,13 @@ public class PurchaseCreditNoteService {
         // 2. CONTABILIDAD: Eliminar/Revertir el asiento contable de la devolución.
         purchasesAccountingService.deleteEntriesForCreditNoteCancellation(creditNote);
 
-        // 3. CUENTAS POR PAGAR: Anular el abono que representa la NC.
-        //paymentDetailsService.cancelPaymentFromCreditNote(creditNote);
+        // 3. CUENTAS POR PAGAR: --- ¡IMPLEMENTACIÓN FINAL! ---
+        // Se actualiza el monto a pagar, restaurándolo (sumándolo de nuevo).
+        accountsPayableService.updatePayableAmount(
+                creditNote.getPurchase().getIdPurchase(), // El ID de la compra original
+                creditNote.getTotalAmount(),              // El monto de la NC a sumar
+                "ANULADA"                                 // La operación que indica una suma
+        );
 
         // 4. SALDO DEL PROVEEDOR: Revertir la actualización del saldo.
         Supplier supplier = creditNote.getPurchase().getSupplier();

@@ -194,65 +194,7 @@ public class PaymentDetailsService {
         return saved;
     }
 
-    // =================================================================================
-    // MÉTODOS PARA INTEGRACIÓN CON NOTAS DE CRÉDITO SOBRE COMPRAS (NUEVOS)
-    // =================================================================================
 
-    /**
-     * Crea un abono (PaymentDetail) a partir de una nota de crédito de compra aplicada.
-     * Este método es llamado por el orquestador de notas de crédito.
-     * @param creditNote La nota de crédito que se está aplicando.
-     */
-    /*
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void createPaymentFromCreditNote(PurchaseCreditNote creditNote) {
-        AccountsPayable payableAccount = accountsPayableRepository.findByPurchase(creditNote.getPurchase())
-                .orElseThrow(() -> new NotFoundException("No se encontró la cuenta por pagar asociada a la compra original de la NC."));
-
-        // Creamos un nuevo detalle de pago que representa la nota de crédito.
-        PaymentDetails creditNotePayment = new PaymentDetails();
-        creditNotePayment.setAccountsPayable(payableAccount);
-        creditNotePayment.setCompany(creditNote.getCompany());
-        creditNotePayment.setPaymentAmount(creditNote.getTotalAmount());
-        creditNotePayment.setPaymentMethod("NOTA_DE_CREDITO"); // Método de pago especial para trazabilidad.
-        creditNotePayment.setPaymentStatus("APLICADO"); // Nace aplicado.
-        creditNotePayment.setPaymentDetailsDate(creditNote.getIssueDate()); // Usa la fecha de la NC.
-        creditNotePayment.setPaymentDetailDescription("Abono por Nota de Crédito N°: " + creditNote.getDocumentNumber());
-        creditNotePayment.setReference(creditNote.getIdPurchaseCreditNote().toString()); // Guardamos el ID de la NC como referencia.
-
-        // Asignamos el valor requerido por la validación de la entidad.
-        creditNotePayment.setModuleType("Cuentas por pagar");
-
-        repository.save(creditNotePayment);
-
-        // ¡IMPORTANTE! Llamamos a la lógica central para que recalcule el balance.
-        recalcularBalancePorPayableId(payableAccount.getId());
-    }
-
-    /**
-     * Anula el abono (PaymentDetail) que fue generado por una nota de crédito.
-     * @param creditNote La nota de crédito que se está anulando.
-     */
-    /*
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void cancelPaymentFromCreditNote(PurchaseCreditNote creditNote) {
-        // Buscamos el pago específico que se generó a partir de esta nota de crédito usando la referencia.
-        PaymentDetails paymentToCancel = repository.findByReferenceAndPaymentMethod(creditNote.getIdPurchaseCreditNote().toString(), "NOTA_DE_CREDITO")
-                .orElseThrow(() -> new NotFoundException("No se encontró el abono generado por la Nota de Crédito ID: " + creditNote.getIdPurchaseCreditNote()));
-
-        if (!"APLICADO".equals(paymentToCancel.getPaymentStatus())) {
-            throw new BusinessRuleException("El abono de la nota de crédito que intenta anular no está en estado APLICADO.");
-        }
-
-        paymentToCancel.setPaymentStatus("ANULADO");
-        repository.save(paymentToCancel);
-
-        // ¡IMPORTANTE! Volvemos a llamar a la lógica central para que recalcule el balance.
-        // Ahora, ignorará este abono anulado y el saldo aumentará correctamente.
-        recalcularBalancePorPayableId(paymentToCancel.getAccountsPayable().getId());
-    }
-
-     */
 
 }
 
