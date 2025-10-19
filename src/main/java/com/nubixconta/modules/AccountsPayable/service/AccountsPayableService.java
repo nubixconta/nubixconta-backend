@@ -8,7 +8,6 @@ import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
-import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.purchases.dto.purchases.PurchaseForAccountsPayableDTO;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.security.TenantContext;
@@ -49,7 +48,6 @@ public class AccountsPayableService {
 
     }
 
-
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
         return TenantContext.getCurrentTenant()
@@ -65,6 +63,7 @@ public class AccountsPayableService {
                 .map(ar -> {
                     AccountsPayablePurchaseResponseDTO dto = new AccountsPayablePurchaseResponseDTO();
                     dto.setBalance(ar.getBalance());
+                    dto.setPayableAmount(ar.getPayableAmount());
 
                     if (ar.getPurchase() != null) {
                         Purchase purchase = ar.getPurchase();
