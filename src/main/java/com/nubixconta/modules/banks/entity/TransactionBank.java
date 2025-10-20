@@ -11,6 +11,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.Filter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -32,6 +33,10 @@ public class TransactionBank {
     @Column(name = "transaction_date", nullable = false)
     private LocalDateTime transactionDate;
 
+    @NotNull
+    @Column(name = "total_amount", precision = 10, scale = 2, nullable = false)
+    private BigDecimal totalAmount;
+    
     @NotBlank(message = "El tipo de transacción es obligatorio")
     @Size(max = 30, message = "El tipo de transacción puede tener máximo 30 caracteres")
     @Column(name = "transaction_type", length = 30, nullable = false)
