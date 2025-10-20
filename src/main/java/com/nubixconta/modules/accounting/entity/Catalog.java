@@ -62,7 +62,7 @@ public class Catalog {
     @Override
     public String toString() {
         return "Catalog{" +
-                "id=" + id +
+                "idPurchaseCreditNote=" + id +
                 ", accountId=" + (account != null ? account.getId() : "null") +
                 ", companyId=" + (company != null ? company.getId() : "null") +
                 ", activo=" + activo +

@@ -37,7 +37,7 @@ public class PaymentDetailsController {
         return service.findAll();
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{idPurchaseCreditNote}")
     public ResponseEntity<PaymentDetailsResponseDTO> getById(@PathVariable Integer id) {
         return service.findById(id)
                 .map(paymentDetails -> modelMapper.map(paymentDetails, PaymentDetailsResponseDTO.class))
@@ -46,13 +46,13 @@ public class PaymentDetailsController {
     }
 
     //Enpoint para eliminar un pago
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{idPurchaseCreditNote}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
         service.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{id}")
+    @PatchMapping("/{idPurchaseCreditNote}")
     public ResponseEntity<PaymentDetailsResponseDTO> partialUpdate(
             @PathVariable Integer id,
             @RequestBody @Valid PaymentDetailsUpdateDTO dto) {

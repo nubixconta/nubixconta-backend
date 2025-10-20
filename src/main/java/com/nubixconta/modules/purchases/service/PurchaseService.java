@@ -2,6 +2,7 @@ package com.nubixconta.modules.purchases.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
+import com.nubixconta.modules.AccountsPayable.service.AccountsPayableService;
 import com.nubixconta.modules.accounting.entity.Catalog;
 import com.nubixconta.modules.accounting.service.CatalogService; // <-- ¡NUEVA DEPENDENCIA!
 import com.nubixconta.modules.accounting.service.PurchasesAccountingService;
@@ -15,10 +16,11 @@ import com.nubixconta.modules.purchases.dto.purchases.*;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.modules.purchases.entity.PurchaseDetail;
 import com.nubixconta.modules.purchases.entity.Supplier;
+import com.nubixconta.modules.purchases.repository.PurchaseCreditNoteRepository;
 import com.nubixconta.modules.purchases.repository.PurchaseRepository;
 import com.nubixconta.modules.purchases.repository.SupplierRepository;
 import com.nubixconta.security.TenantContext;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
@@ -48,6 +50,8 @@ public class PurchaseService {
     private final CompanyRepository companyRepository;
     private final SupplierRepository supplierRepository;
     private final PurchasesAccountingService purchasesAccountingService;
+    private final PurchaseCreditNoteRepository purchaseCreditNoteRepository;
+    private final AccountsPayableService accountsPayableService;
 
     // Helper para obtener el companyId de forma segura
     private Integer getCompanyIdFromContext() {
@@ -105,6 +109,26 @@ public class PurchaseService {
 
         return purchases.stream()
                 .map(purchase -> modelMapper.map(purchase, PurchaseResponseDTO.class))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Busca las compras de un proveedor que son válidas para la creación de una nota de crédito.
+     * Una compra es válida si está 'APLICADA' y no tiene una nota de crédito activa.
+     * @param supplierId El ID del proveedor.
+     * @return Una lista de DTOs simplificados con las compras elegibles.
+     */
+    @Transactional(readOnly = true)
+    public List<PurchaseForCreditNoteDTO> findPurchasesAvailableForCreditNote(Integer supplierId) {
+        Integer companyId = getCompanyIdFromContext();
+        // Validamos que el proveedor exista (buena práctica)
+        supplierService.findById(supplierId);
+
+        List<Purchase> availablePurchases = purchaseRepository.findPurchasesAvailableForCreditNote(companyId, supplierId);
+
+        // Mapeamos a un DTO simple para el frontend.
+        return availablePurchases.stream()
+                .map(purchase -> modelMapper.map(purchase, PurchaseForCreditNoteDTO.class))
                 .collect(Collectors.toList());
     }
 
@@ -343,8 +367,9 @@ public class PurchaseService {
         // 2. Generar Asiento Contable
         purchasesAccountingService.createEntriesForPurchaseApplication(purchase);
 
-        // TODO: 3. Crear Cuenta por Pagar
-        // accountsPayableService.createPayableForPurchase(purchase);
+        // 3. Crear la Cuenta por Pagar correspondiente a esta compra.
+        // La transacción se asegurará de que si esto falla, todo lo anterior se revierta.
+        accountsPayableService.findOrCreateAccountsPayable(purchase);
 
         // --- ACTUALIZACIÓN DE ESTADOS ---
         supplier.setCurrentBalance(newBalance);
@@ -371,12 +396,32 @@ public class PurchaseService {
             throw new BusinessRuleException("La compra solo puede ser anulada si su estado es APLICADA.");
         }
 
-        // --- VALIDACIÓN DE INTEGRIDAD (PLACEHOLDER) ---
-        // TODO: 1. Validar que la compra no tenga pagos registrados
-        // boolean hasPayments = accountsPayableService.validatePurchaseHasNoPayments(purchaseId);
-        // if (hasPayments) {
-        //     throw new BusinessRuleException("No se puede anular la compra porque tiene pagos asociados.");
-        // }
+        // --- ¡NUEVA VALIDACIÓN DE NOTAS DE CRÉDITO ACTIVAS! ---
+        List<String> activeCreditNoteStatuses = List.of("PENDIENTE", "APLICADA");
+        boolean hasActiveCreditNote = purchaseCreditNoteRepository.existsByCompany_IdAndPurchase_IdPurchaseAndCreditNoteStatusIn(
+                getCompanyIdFromContext(),
+                purchaseId,
+                activeCreditNoteStatuses
+        );
+
+        if (hasActiveCreditNote) {
+            throw new BusinessRuleException(
+                    "No se puede anular la compra porque tiene una Nota de Crédito activa (en estado PENDIENTE o APLICADA). " +
+                            "Por favor, anule primero la nota de crédito asociada."
+            );
+        }
+        // --- FIN DE LA NUEVA VALIDACIÓN ---
+
+        // --- ¡VALIDACIÓN DE INTEGRIDAD ACTIVADA! ---
+        // Se comprueba si la compra tiene pagos activos antes de permitir su anulación.
+        boolean hasPayments = accountsPayableService.validatePurchaseWithoutCollections(purchaseId);
+        if (hasPayments) {
+            throw new BusinessRuleException(
+                    "No se puede anular la compra porque tiene pagos asociados. " +
+                            "Por favor, anule primero los pagos en el módulo de Cuentas por Pagar."
+            );
+        }
+        // --- FIN DE LA VALIDACIÓN ---
 
         // --- REVERSIÓN EN OTROS MÓDULOS (PLACEHOLDERS) ---
         // 2. Revertir Inventario: Disminuir stock para productos.

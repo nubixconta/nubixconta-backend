@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PaymentDetailsRepository extends JpaRepository<PaymentDetails, Integer> {
@@ -21,5 +22,5 @@ public interface PaymentDetailsRepository extends JpaRepository<PaymentDetails, 
     // Método para encontrar detalles de cobro por empresa y dentro de un rango de fechas
     List<PaymentDetails> findByCompanyIdAndPaymentDetailsDateBetween(Integer companyId, LocalDateTime start, LocalDateTime end);
 
-
+    Optional<PaymentDetails> findByReferenceAndPaymentMethod(String reference, String paymentMethod);
 }

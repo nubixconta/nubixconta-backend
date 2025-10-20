@@ -1,6 +1,7 @@
 package com.nubixconta.modules.inventory.entity;
 
 import com.nubixconta.modules.purchases.entity.Purchase;
+import com.nubixconta.modules.purchases.entity.PurchaseCreditNote;
 import com.nubixconta.modules.sales.entity.CreditNote;
 import com.nubixconta.modules.sales.entity.Sale;
 import com.nubixconta.modules.administration.entity.Company;
@@ -81,4 +82,10 @@ public class InventoryMovement {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "purchase_id", nullable = true)
     private Purchase purchase;
+
+    // Si el movimiento es por una nota de crédito sobre compra, este tendrá valor.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "purchase_credit_note_id", nullable = true) // <-- ¡AÑADIR ESTE CAMPO!
+    private PurchaseCreditNote purchaseCreditNote;
+
 }

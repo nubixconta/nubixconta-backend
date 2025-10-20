@@ -1,23 +1,23 @@
-package com.nubixconta.modules.purchases.dto.purchases;
+package com.nubixconta.modules.purchases.dto.creditnote;
 
 import com.nubixconta.modules.accounting.dto.catalog.CatalogSummaryDTO;
 import com.nubixconta.modules.inventory.dto.product.ProductSummaryDTO;
-import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
-@Data
-public class PurchaseDetailResponseDTO {
-    private Integer purchaseDetailId;
-    private ProductSummaryDTO product; // Será null si es un gasto
-    private CatalogSummaryDTO catalog; // Será null si es un producto
-    private String lineDescription;
+@Getter
+@Setter
+@NoArgsConstructor
+public class PurchaseCreditNoteDetailResponseDTO {
+    private Integer id;
+    private ProductSummaryDTO product; // Null si es gasto
+    private CatalogSummaryDTO catalog; // Null si es producto
     private Integer quantity;
     private BigDecimal unitPrice;
     private BigDecimal subtotal;
     private Boolean tax;
+    private String lineDescription;
 }

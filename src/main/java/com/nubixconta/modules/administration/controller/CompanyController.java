@@ -104,4 +104,3 @@ public class CompanyController {
         return ResponseEntity.ok(companies);
     }
 }
-

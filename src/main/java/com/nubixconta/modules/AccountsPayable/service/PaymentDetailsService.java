@@ -1,6 +1,7 @@
 package com.nubixconta.modules.AccountsPayable.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
+import com.nubixconta.common.exception.NotFoundException;
 import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsCreateDTO;
 import com.nubixconta.modules.AccountsPayable.dto.PaymentDetails.PaymentDetailsResponseDTO;
 import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
@@ -11,14 +12,15 @@ import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.administration.service.ChangeHistoryService;
 import com.nubixconta.modules.purchases.entity.Purchase;
+import com.nubixconta.modules.purchases.entity.PurchaseCreditNote;
 import com.nubixconta.modules.purchases.repository.PurchaseRepository;
 import com.nubixconta.security.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import org.springframework.transaction.annotation.Propagation;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -42,7 +44,7 @@ public class PaymentDetailsService {
                                  ChangeHistoryService changeHistoryService,
                                  CompanyRepository companyRepository,
                                  ModelMapper modelMapper
-                                 ) {
+    ) {
         this.repository = repository;
         this.purchaseRepository = purchaseRepository;
         this.changeHistoryService = changeHistoryService;
@@ -97,7 +99,7 @@ public class PaymentDetailsService {
 
     public PaymentDetails save(PaymentDetails detail) {
         if (detail.getAccountsPayable() == null || detail.getAccountsPayable().getId() == null) {
-            throw new IllegalArgumentException("Debe incluir el objeto accountsPayable con su id");
+            throw new IllegalArgumentException("Debe incluir el objeto accountsPayable con su idPurchaseCreditNote");
         }
 
         // Buscar la entidad completa y setearla
@@ -191,6 +193,8 @@ public class PaymentDetailsService {
         );
         return saved;
     }
+
+
 
 }
 
