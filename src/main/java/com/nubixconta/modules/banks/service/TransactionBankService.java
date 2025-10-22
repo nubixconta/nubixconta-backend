@@ -4,15 +4,22 @@ import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.banks.dto.TransactionBankDTO;
 import com.nubixconta.modules.banks.entity.TransactionBank;
 import com.nubixconta.modules.banks.repository.TransactionBankRepository;
+import com.nubixconta.modules.accounting.entity.BankEntry;
 import com.nubixconta.modules.accounting.repository.BankEntryRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Join;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -126,10 +133,40 @@ public class TransactionBankService {
         return mapper.map(updated, TransactionBankDTO.class);
     }
 
-    // Obtener todas las transacciones
-    public List<TransactionBankDTO> listAll() {
-        return repository.findAll()
-                .stream()
+    /**
+     * Obtener todas las transacciones (con filtros dinámicos)
+     */
+    public List<TransactionBankDTO> listAll(Integer idCatalog, LocalDate dateFrom, LocalDate dateTo) {
+        
+        // Inicia una consulta vacía (trae todo)
+        Specification<TransactionBank> spec = Specification.where(null);
+
+        // Añade el filtro de CÓDIGO DE CUENTA (si se proporcionó)
+        if (idCatalog != null) {
+            spec = spec.and(hasAccountCode(idCatalog));
+        }
+
+        // Añade los filtros de FECHA
+        if (dateFrom != null && dateTo != null) {
+            // Caso 1: Rango de fechas (ambas presentes)
+            spec = spec.and(transactionDateAfter(dateFrom.atStartOfDay()));
+            spec = spec.and(transactionDateBefore(dateTo.atTime(LocalTime.MAX)));
+
+        } else if (dateFrom != null) {
+            // Caso 2: Solo una fecha (buscar solo ESE día)
+            spec = spec.and(transactionDateAfter(dateFrom.atStartOfDay()));
+            spec = spec.and(transactionDateBefore(dateFrom.atTime(LocalTime.MAX)));
+        
+        } else if (dateTo != null) {
+            // Caso 3: Solo fecha de fin (buscar todo HASTA el final de ese día)
+            spec = spec.and(transactionDateBefore(dateTo.atTime(LocalTime.MAX)));
+        }
+
+        // Ejecuta la consulta en el repositorio usando las especificaciones
+        List<TransactionBank> results = repository.findAll(spec);
+
+        // Mapea a DTO y devuelve
+        return results.stream()
                 .map(entity -> mapper.map(entity, TransactionBankDTO.class))
                 .collect(Collectors.toList());
     }
@@ -139,5 +176,36 @@ public class TransactionBankService {
         TransactionBank entity = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Transacción no encontrada"));
         return mapper.map(entity, TransactionBankDTO.class);
+    }
+
+    /**
+     * Crea una especificación para encontrar transacciones que tengan un BankEntry con el idCatalog dado.
+     */
+    private Specification<TransactionBank> hasAccountCode(Integer idCatalog) {
+        return (root, query, cb) -> {
+            if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
+                query.distinct(true); // Evita duplicados
+            }
+            // Une TransactionBank con su lista de BankEntry
+            Join<TransactionBank, BankEntry> entryJoin = root.join("bankEntries"); 
+            // Compara el campo "idCatalog" dentro de la entidad unida (BankEntry)
+            return cb.equal(entryJoin.get("idCatalog"), idCatalog);
+        };
+    }
+
+    /**
+     * Crea una especificación para encontrar transacciones DESPUÉS de una fecha/hora.
+     */
+    private Specification<TransactionBank> transactionDateAfter(LocalDateTime startDate) {
+        return (root, query, cb) -> 
+            cb.greaterThanOrEqualTo(root.get("transactionDate"), startDate);
+    }
+
+    /**
+     * Crea una especificación para encontrar transacciones ANTES de una fecha/hora.
+     */
+    private Specification<TransactionBank> transactionDateBefore(LocalDateTime endDate) {
+        return (root, query, cb) -> 
+            cb.lessThanOrEqualTo(root.get("transactionDate"), endDate);
     }
 }

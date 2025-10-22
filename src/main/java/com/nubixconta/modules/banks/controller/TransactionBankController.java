@@ -8,6 +8,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -45,8 +46,20 @@ public class TransactionBankController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TransactionBankDTO>> listAll() {
-        return ResponseEntity.ok(service.listAll());
+    public ResponseEntity<List<TransactionBankDTO>> listAll(
+        
+        // Filtro para código de cuenta (opcional)
+        @RequestParam(required = false) Integer idCatalog,
+        
+        // Filtro de fecha "Desde" (opcional, formato YYYY-MM-DD)
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+        
+        // Filtro de fecha "Hasta" (opcional, formato YYYY-MM-DD)
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo
+    ) {
+        // El controlador solo pasa los filtros al servicio
+        List<TransactionBankDTO> results = service.listAll(idCatalog, dateFrom, dateTo);
+        return ResponseEntity.ok(results);
     }
 
     @GetMapping("/{id}")
