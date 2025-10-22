@@ -2,7 +2,7 @@ package com.nubixconta.modules.banks.dto;
 
 import com.nubixconta.modules.accounting.dto.BankEntryDTO;
 import lombok.*;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.math.BigDecimal; 
 
@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 @Builder
 public class TransactionBankDTO {
     private Integer idBankTransaction;
-    private LocalDateTime transactionDate;
+    private LocalDate transactionDate;
     private BigDecimal totalAmount;
     private String transactionType;
     private String receiptNumber;

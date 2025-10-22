@@ -13,7 +13,10 @@ import org.hibernate.annotations.Filter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -31,7 +34,7 @@ public class TransactionBank {
 
     @NotNull(message = "La fecha de la transacción es obligatoria")
     @Column(name = "transaction_date", nullable = false)
-    private LocalDateTime transactionDate;
+    private LocalDate transactionDate;
 
     @NotNull
     @Column(name = "total_amount", precision = 10, scale = 2, nullable = false)
@@ -69,8 +72,8 @@ public class TransactionBank {
 
     // Relación con movimientos contables (desde el módulo de contabilidad)
     // mappedBy debe coincidir con el nombre del atributo en BankEntry
-    @OneToMany(mappedBy = "transactionBank", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<BankEntry> bankEntries = new HashSet<>();
+    @OneToMany(mappedBy = "transactionBank", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<BankEntry> bankEntries = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "creation_date", nullable = false, updatable = false)
@@ -81,7 +84,7 @@ public class TransactionBank {
     private LocalDateTime updateDate;
 
     public void addBankEntry(BankEntry entry) {
-        if (bankEntries == null) bankEntries = new HashSet<>();
+        if (bankEntries == null) bankEntries = new ArrayList<>();
         bankEntries.add(entry);
         entry.setTransactionBank(this);
     }

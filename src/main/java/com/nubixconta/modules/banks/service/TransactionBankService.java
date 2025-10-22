@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -39,6 +40,21 @@ public class TransactionBankService {
 
         entity.setAccountingTransactionStatus("PENDIENTE");
         entity.setModuleType("BANCOS"); // siempre es el módulo actual
+
+        if (entity.getBankEntries() != null) {
+            for (BankEntry entry : entity.getBankEntries()) {
+                entry.setTransactionBank(entity); // Set the parent reference on each child
+                
+                // Optional but good practice: Set default date if not provided
+                if (entry.getDate() == null) {
+                    entry.setDate(LocalDateTime.now()); 
+                }
+            }
+        }
+
+        BigDecimal total = calculateTotalAmount(entity.getTransactionType(), entity.getBankEntries());
+        entity.setTotalAmount(total);
+
         entity.setTotalAmount(BigDecimal.ZERO); // inicia en 0 hasta que se creen los asientos
 
         // Asignar empresa manualmente 
@@ -176,6 +192,44 @@ public class TransactionBankService {
         TransactionBank entity = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Transacción no encontrada"));
         return mapper.map(entity, TransactionBankDTO.class);
+    }
+
+    /**
+     * Calcula el monto total BASADO EN LOS ASIENTOS EN MEMORIA y el tipo de transacción.
+     * Adaptado de la lógica de recalculateTransactionTotal.
+     *
+     * @param transactionType El tipo de transacción ("ENTRADA" o "SALIDA").
+     * @param entries La colección de BankEntry (aún no guardados).
+     * @return El monto total calculado.
+     */
+    private BigDecimal calculateTotalAmount(String transactionType, List<BankEntry> entries) { 
+        if (entries == null || entries.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal totalDebits = BigDecimal.ZERO;
+        BigDecimal totalCredits = BigDecimal.ZERO;
+
+        // Sumamos débitos y créditos DE LA LISTA EN MEMORIA
+        for (BankEntry entry : entries) {
+            if (entry.getDebit() != null) {
+                totalDebits = totalDebits.add(entry.getDebit());
+            }
+            if (entry.getCredit() != null) {
+                totalCredits = totalCredits.add(entry.getCredit());
+            }
+        }
+
+        // Aplicamos la lógica ENTRADA/SALIDA
+        if ("ENTRADA".equalsIgnoreCase(transactionType)) {
+            return totalDebits;
+        } else if ("SALIDA".equalsIgnoreCase(transactionType)) {
+            return totalCredits;
+        } else {
+            // Comportamiento por defecto si el tipo no es ENTRADA/SALIDA (ej. diferencia)
+            // O podrías lanzar un error si el tipo es inválido.
+            return totalDebits.subtract(totalCredits); // O simplemente BigDecimal.ZERO
+        }
     }
 
     /**
