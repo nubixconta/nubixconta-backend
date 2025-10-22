@@ -11,6 +11,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,10 +29,19 @@ public class BankEntryService {
         TransactionBank transaction = transactionRepository.findById(dto.getTransactionBankId())
                 .orElseThrow(() -> new EntityNotFoundException("Transacción bancaria no encontrada"));
 
+        // Validar estado: solo transacciones pendientes pueden modificarse
+        if (!"PENDIENTE".equalsIgnoreCase(transaction.getAccountingTransactionStatus())) {
+            throw new IllegalStateException("No se pueden agregar movimientos a una transacción APLICADA o ANULADA.");
+        }
+
         BankEntry entry = mapper.map(dto, BankEntry.class);
         entry.setTransactionBank(transaction);
 
         BankEntry saved = repository.save(entry);
+
+        // Recalcular el totalAmount
+        recalculateTransactionTotal(transaction.getIdBankTransaction());
+
         return mapper.map(saved, BankEntryDTO.class);
     }
 
@@ -40,13 +50,34 @@ public class BankEntryService {
         BankEntry entry = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Entrada contable no encontrada"));
 
-        entry.setIdCatalog(dto.getIdCatalog());
-        entry.setDebit(dto.getDebit());
-        entry.setCredit(dto.getCredit());
-        entry.setDescription(dto.getDescription());
-        entry.setDate(dto.getDate());
+        TransactionBank transaction = entry.getTransactionBank();
+
+        // Validar estado: solo transacciones pendientes pueden modificarse
+        if (!"PENDIENTE".equalsIgnoreCase(transaction.getAccountingTransactionStatus())) {
+            throw new IllegalStateException("No se pueden modificar movimientos de una transacción APLICADA o ANULADA.");
+        }
+
+        if (dto.getIdCatalog() != null) {
+            entry.setIdCatalog(dto.getIdCatalog());
+        }
+        if (dto.getDebit() != null) {
+            entry.setDebit(dto.getDebit());
+        }
+        if (dto.getCredit() != null) {
+            entry.setCredit(dto.getCredit());
+        }
+        if (dto.getDescription() != null) {
+            entry.setDescription(dto.getDescription());
+        }
+        if (dto.getDate() != null) {
+            entry.setDate(dto.getDate());
+        }
 
         BankEntry updated = repository.save(entry);
+
+        // Recalcular totalAmount
+        recalculateTransactionTotal(entry.getTransactionBank().getIdBankTransaction());
+
         return mapper.map(updated, BankEntryDTO.class);
     }
 
@@ -54,7 +85,18 @@ public class BankEntryService {
     public void deleteEntry(Integer id) {
         BankEntry entry = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Entrada contable no encontrada"));
+
+        TransactionBank transaction = entry.getTransactionBank();
+
+        // Validar estado
+        if (!"PENDIENTE".equalsIgnoreCase(transaction.getAccountingTransactionStatus())) {
+            throw new IllegalStateException("No se pueden eliminar movimientos de una transacción APLICADA o ANULADA.");
+        }
+
         repository.delete(entry);
+
+        // Recalcular total
+        recalculateTransactionTotal(transaction.getIdBankTransaction());
     }
 
     // Listar todas las entradas
@@ -78,5 +120,31 @@ public class BankEntryService {
         BankEntry entry = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Entrada contable no encontrada"));
         return mapper.map(entry, BankEntryDTO.class);
+    }
+
+    // Nuevo método para recalcular el totalAmount de la transacción
+    private void recalculateTransactionTotal(Integer transactionId) {
+        TransactionBank transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new EntityNotFoundException("Transacción no encontrada para recalcular total"));
+
+        // Sumamos los débitos y créditos
+        BigDecimal totalDebits = repository.sumDebitsByTransactionId(transactionId);
+        BigDecimal totalCredits = repository.sumCreditsByTransactionId(transactionId);
+
+        // Si ambos son nulos, ponemos 0
+        BigDecimal total = BigDecimal.ZERO;
+        
+        // Si la transacción es de tipo "ENTRADA", usa los débitos
+        if ("ENTRADA".equalsIgnoreCase(transaction.getTransactionType())) {
+            total = totalDebits != null ? totalDebits : BigDecimal.ZERO;
+        }
+        // Si es "SALIDA", usa los créditos
+        else if ("SALIDA".equalsIgnoreCase(transaction.getTransactionType())) {
+            total = totalCredits != null ? totalCredits : BigDecimal.ZERO;
+        }
+
+        // Actualizamos el totalAmount en la transacción
+        transaction.setTotalAmount(total);
+        transactionRepository.save(transaction);
     }
 }

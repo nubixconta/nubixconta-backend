@@ -1,14 +1,18 @@
 package com.nubixconta.modules.banks.service;
 
+import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.banks.dto.TransactionBankDTO;
 import com.nubixconta.modules.banks.entity.TransactionBank;
 import com.nubixconta.modules.banks.repository.TransactionBankRepository;
+import com.nubixconta.modules.accounting.repository.BankEntryRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,12 +22,24 @@ import java.util.stream.Collectors;
 public class TransactionBankService {
 
     private final TransactionBankRepository repository;
+    private final BankEntryRepository bankEntryRepository;
     private final ModelMapper mapper = new ModelMapper();
+    private final CompanyRepository companyRepository;
 
     // Crear una nueva transacción
     public TransactionBankDTO createTransaction(TransactionBankDTO dto) {
         TransactionBank entity = mapper.map(dto, TransactionBank.class);
+
         entity.setAccountingTransactionStatus("PENDIENTE");
+        entity.setModuleType("BANCOS"); // siempre es el módulo actual
+        entity.setTotalAmount(BigDecimal.ZERO); // inicia en 0 hasta que se creen los asientos
+
+        // Asignar empresa manualmente 
+        entity.setCompany(
+            companyRepository.findById(dto.getCompanyId())
+                .orElseThrow(() -> new EntityNotFoundException("Empresa no encontrada"))
+        );
+
         TransactionBank saved = repository.save(entity);
         return mapper.map(saved, TransactionBankDTO.class);
     }
@@ -37,10 +53,19 @@ public class TransactionBankService {
             throw new IllegalStateException("Solo se pueden editar transacciones pendientes");
         }
 
-        entity.setTransactionType(dto.getTransactionType());
-        entity.setReceiptNumber(dto.getReceiptNumber());
-        entity.setDescription(dto.getDescription());
-        entity.setTransactionDate(dto.getTransactionDate());
+        if (dto.getTransactionType() != null) {
+            entity.setTransactionType(dto.getTransactionType());
+        }
+        if (dto.getReceiptNumber() != null) {
+            entity.setReceiptNumber(dto.getReceiptNumber());
+        }
+        if (dto.getDescription() != null) {
+            entity.setDescription(dto.getDescription());
+        }
+        if (dto.getTransactionDate() != null) {
+            entity.setTransactionDate(dto.getTransactionDate());
+        }
+
         TransactionBank updated = repository.save(entity);
         return mapper.map(updated, TransactionBankDTO.class);
     }
@@ -66,6 +91,17 @@ public class TransactionBankService {
             throw new IllegalStateException("Solo se pueden aplicar transacciones pendientes");
         }
 
+        // Verificar que cumpla partida doble
+        BigDecimal totalDebits = bankEntryRepository.sumDebitsByTransactionId(id);
+        BigDecimal totalCredits = bankEntryRepository.sumCreditsByTransactionId(id);
+
+        if (totalDebits == null) totalDebits = BigDecimal.ZERO;
+        if (totalCredits == null) totalCredits = BigDecimal.ZERO;
+
+        if (totalDebits.compareTo(totalCredits) != 0) {
+            throw new IllegalStateException("La transacción no cumple con la partida doble: débitos y créditos no son iguales.");
+        }
+
         entity.setAccountingTransactionStatus("APLICADA");
         TransactionBank updated = repository.save(entity);
         return mapper.map(updated, TransactionBankDTO.class);
@@ -78,6 +114,11 @@ public class TransactionBankService {
 
         if (!"APLICADA".equalsIgnoreCase(entity.getAccountingTransactionStatus())) {
             throw new IllegalStateException("Solo se pueden anular transacciones aplicadas");
+        }
+
+        // Eliminar todos los movimientos contables asociados a la transacción
+        if (entity.getBankEntries() != null && !entity.getBankEntries().isEmpty()) {
+            entity.getBankEntries().clear(); // cascade = ALL + orphanRemoval = true eliminará del DB
         }
 
         entity.setAccountingTransactionStatus("ANULADA");

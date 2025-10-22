@@ -3,9 +3,12 @@ package com.nubixconta.modules.banks.controller;
 import com.nubixconta.modules.banks.dto.TransactionBankDTO;
 import com.nubixconta.modules.banks.service.TransactionBankService;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
