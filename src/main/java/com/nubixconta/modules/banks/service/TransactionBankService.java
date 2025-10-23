@@ -4,10 +4,13 @@ import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.banks.dto.TransactionBankDTO;
 import com.nubixconta.modules.banks.entity.TransactionBank;
 import com.nubixconta.modules.banks.repository.TransactionBankRepository;
+import com.nubixconta.modules.accounting.dto.BankEntryDTO;
 import com.nubixconta.modules.accounting.entity.BankEntry;
 import com.nubixconta.modules.accounting.repository.BankEntryRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+
+import java.util.Optional;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -36,6 +40,9 @@ public class TransactionBankService {
 
     // Crear una nueva transacción
     public TransactionBankDTO createTransaction(TransactionBankDTO dto) {
+        if (dto.getReceiptNumber() != null && repository.existsByReceiptNumber(dto.getReceiptNumber())) {
+            throw new IllegalArgumentException("El número de referencia '" + dto.getReceiptNumber() + "' ya existe.");
+        }
         TransactionBank entity = mapper.map(dto, TransactionBank.class);
 
         entity.setAccountingTransactionStatus("PENDIENTE");
@@ -43,9 +50,9 @@ public class TransactionBankService {
 
         if (entity.getBankEntries() != null) {
             for (BankEntry entry : entity.getBankEntries()) {
-                entry.setTransactionBank(entity); // Set the parent reference on each child
+                entry.setTransactionBank(entity); // Agregar la referencia a la transacción
                 
-                // Optional but good practice: Set default date if not provided
+                // Agregar la fecha si no existe
                 if (entry.getDate() == null) {
                     entry.setDate(LocalDateTime.now()); 
                 }
@@ -54,8 +61,6 @@ public class TransactionBankService {
 
         BigDecimal total = calculateTotalAmount(entity.getTransactionType(), entity.getBankEntries());
         entity.setTotalAmount(total);
-
-        entity.setTotalAmount(BigDecimal.ZERO); // inicia en 0 hasta que se creen los asientos
 
         // Asignar empresa manualmente 
         entity.setCompany(
@@ -76,11 +81,24 @@ public class TransactionBankService {
             throw new IllegalStateException("Solo se pueden editar transacciones pendientes");
         }
 
-        if (dto.getTransactionType() != null) {
-            entity.setTransactionType(dto.getTransactionType());
-        }
-        if (dto.getReceiptNumber() != null) {
+        // --- VALIDACIÓN DE UNICIDAD AL ACTUALIZAR ---
+        if (dto.getReceiptNumber() != null && !dto.getReceiptNumber().equals(entity.getReceiptNumber())) {
+            // El número de recibo cambió, verifica si el NUEVO número ya existe en OTRA transacción
+            Optional<TransactionBank> existingWithNewNumber = repository.findByReceiptNumber(dto.getReceiptNumber());
+            
+            // Si existe una transacción con el nuevo número Y NO es la que estamos editando
+            if (existingWithNewNumber.isPresent() && !existingWithNewNumber.get().getIdBankTransaction().equals(id)) {
+                throw new IllegalArgumentException("El número de referencia '" + dto.getReceiptNumber() + "' ya está en uso por otra transacción.");
+            }
+            // Si no existe o es la misma entidad, actualiza el número
             entity.setReceiptNumber(dto.getReceiptNumber());
+        } else if (dto.getReceiptNumber() != null) {
+            // El número no cambió, no hacemos nada o lo reasignamos 
+            entity.setReceiptNumber(dto.getReceiptNumber()); // Ya lo tiene
+        }
+
+        if (dto.getTransactionType() != null && !dto.getTransactionType().equals(entity.getTransactionType())) {
+            entity.setTransactionType(dto.getTransactionType());
         }
         if (dto.getDescription() != null) {
             entity.setDescription(dto.getDescription());
@@ -88,6 +106,29 @@ public class TransactionBankService {
         if (dto.getTransactionDate() != null) {
             entity.setTransactionDate(dto.getTransactionDate());
         }
+
+        if (entity.getBankEntries() != null) {
+        entity.getBankEntries().clear();
+        } else {
+            // Inicializar la lista si es nula
+            entity.setBankEntries(new ArrayList<>()); 
+        }
+
+        // Agregar los nuevos movimientos contables desde el DTO
+        if (dto.getBankEntries() != null && !dto.getBankEntries().isEmpty()) {
+            for (BankEntryDTO entryDto : dto.getBankEntries()) {
+                BankEntry newEntry = mapper.map(entryDto, BankEntry.class);
+                newEntry.setTransactionBank(entity); // Enlace con la transacción
+                if (newEntry.getDate() == null) { // Agregar la fecha si no existe
+                    newEntry.setDate(LocalDateTime.now()); 
+                }
+                entity.getBankEntries().add(newEntry); // Agregar a la lista
+            }
+        }
+
+        // Recalcular el monto total basado en los nuevos asientos
+        BigDecimal newTotal = calculateTotalAmount(entity.getTransactionType(), entity.getBankEntries());
+        entity.setTotalAmount(newTotal);
 
         TransactionBank updated = repository.save(entity);
         return mapper.map(updated, TransactionBankDTO.class);
@@ -150,38 +191,39 @@ public class TransactionBankService {
     }
 
     /**
-     * Obtener todas las transacciones (con filtros dinámicos)
+     * Obtener todas las transacciones (con filtros dinámicos) - CORREGIDO PARA LocalDate
      */
     public List<TransactionBankDTO> listAll(Integer idCatalog, LocalDate dateFrom, LocalDate dateTo) {
-        
-        // Inicia una consulta vacía (trae todo)
+
         Specification<TransactionBank> spec = Specification.where(null);
 
-        // Añade el filtro de CÓDIGO DE CUENTA (si se proporcionó)
+        // Filtro de Código de Cuenta (sin cambios)
         if (idCatalog != null) {
             spec = spec.and(hasAccountCode(idCatalog));
         }
 
-        // Añade los filtros de FECHA
+        // --- CORRECCIÓN EN FILTROS DE FECHA (LocalDate) ---
         if (dateFrom != null && dateTo != null) {
-            // Caso 1: Rango de fechas (ambas presentes)
-            spec = spec.and(transactionDateAfter(dateFrom.atStartOfDay()));
-            spec = spec.and(transactionDateBefore(dateTo.atTime(LocalTime.MAX)));
+            // Caso 1: Rango (ambas fechas)
+            // Simplemente usa las LocalDate directamente
+            spec = spec.and(transactionDateAfter(dateFrom));     // >= dateFrom
+            spec = spec.and(transactionDateBefore(dateTo));    // <= dateTo
 
         } else if (dateFrom != null) {
             // Caso 2: Solo una fecha (buscar solo ESE día)
-            spec = spec.and(transactionDateAfter(dateFrom.atStartOfDay()));
-            spec = spec.and(transactionDateBefore(dateFrom.atTime(LocalTime.MAX)));
-        
-        } else if (dateTo != null) {
-            // Caso 3: Solo fecha de fin (buscar todo HASTA el final de ese día)
-            spec = spec.and(transactionDateBefore(dateTo.atTime(LocalTime.MAX)));
-        }
+            // Si la columna es LocalDate, solo necesitamos comparar igualdad.
+            // O podemos usar >= dateFrom AND <= dateFrom
+            spec = spec.and(transactionDateAfter(dateFrom));   // >= dateFrom
+            spec = spec.and(transactionDateBefore(dateFrom));  // <= dateFrom (Efectivamente busca solo ESE día)
 
-        // Ejecuta la consulta en el repositorio usando las especificaciones
+        } else if (dateTo != null) {
+            // Caso 3: Solo fecha de fin
+            spec = spec.and(transactionDateBefore(dateTo));   // <= dateTo
+        }
+        // ------------------------------------
+
         List<TransactionBank> results = repository.findAll(spec);
 
-        // Mapea a DTO y devuelve
         return results.stream()
                 .map(entity -> mapper.map(entity, TransactionBankDTO.class))
                 .collect(Collectors.toList());
@@ -248,18 +290,22 @@ public class TransactionBankService {
     }
 
     /**
-     * Crea una especificación para encontrar transacciones DESPUÉS de una fecha/hora.
+     * Crea una especificación para encontrar transacciones DESPUÉS O IGUAL a una fecha.
+     * Acepta LocalDate.
      */
-    private Specification<TransactionBank> transactionDateAfter(LocalDateTime startDate) {
-        return (root, query, cb) -> 
+    private Specification<TransactionBank> transactionDateAfter(LocalDate startDate) {
+        return (root, query, cb) ->
+            // Comparación >=
             cb.greaterThanOrEqualTo(root.get("transactionDate"), startDate);
     }
 
     /**
-     * Crea una especificación para encontrar transacciones ANTES de una fecha/hora.
+     * Crea una especificación para encontrar transacciones ANTES O IGUAL a una fecha.
+     * Acepta LocalDate.
      */
-    private Specification<TransactionBank> transactionDateBefore(LocalDateTime endDate) {
-        return (root, query, cb) -> 
+    private Specification<TransactionBank> transactionDateBefore(LocalDate endDate) {
+        return (root, query, cb) ->
+            // Comparación <=
             cb.lessThanOrEqualTo(root.get("transactionDate"), endDate);
     }
 }

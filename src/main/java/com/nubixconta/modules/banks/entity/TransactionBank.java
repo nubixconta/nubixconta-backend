@@ -47,7 +47,7 @@ public class TransactionBank {
 
     @NotBlank(message = "El número de comprobante es obligatorio")
     @Size(max = 15, message = "El número de comprobante puede tener máximo 15 caracteres")
-    @Column(name = "receipt_number", length = 15, nullable = false)
+    @Column(name = "receipt_number", length = 15, unique = true, nullable = false)
     private String receiptNumber;
 
     @NotBlank(message = "La descripción es obligatoria")

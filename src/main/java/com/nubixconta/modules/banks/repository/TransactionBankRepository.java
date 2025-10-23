@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TransactionBankRepository extends JpaRepository<TransactionBank, Integer>, 
@@ -22,5 +23,9 @@ public interface TransactionBankRepository extends JpaRepository<TransactionBank
 
     @Query("SELECT t FROM TransactionBank t WHERE t.transactionDate BETWEEN :startDate AND :endDate ORDER BY t.transactionDate DESC")
     List<TransactionBank> findByDateRange(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    boolean existsByReceiptNumber(String receiptNumber);
+
+    Optional<TransactionBank> findByReceiptNumber(String receiptNumber);
 
 }
