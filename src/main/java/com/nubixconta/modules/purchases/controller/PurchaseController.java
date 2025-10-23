@@ -64,6 +64,17 @@ public class PurchaseController {
     }
 
     /**
+     * Obtiene una lista de compras de un proveedor que son elegibles para crear una retención de ISR.
+     * @param supplierId El ID del proveedor.
+     * @return Una lista de DTOs simplificados de las compras elegibles.
+     */
+    @GetMapping("/available-for-isr")
+    public ResponseEntity<List<PurchaseForCreditNoteDTO>> getPurchasesAvailableForISR(@RequestParam Integer supplierId) {
+        List<PurchaseForCreditNoteDTO> purchases = purchaseService.findPurchasesAvailableForISR(supplierId);
+        return ResponseEntity.ok(purchases);
+    }
+
+    /**
      * Busca compras por su estado (ej. PENDIENTE, APLICADA, ANULADA).
      */
     @GetMapping("/status/{status}")
