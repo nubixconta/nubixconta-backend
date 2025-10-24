@@ -5,15 +5,14 @@ import com.nubixconta.common.exception.NotFoundException;
 import com.nubixconta.modules.accounting.dto.AccountingEntryLineDTO;
 import com.nubixconta.modules.accounting.dto.AccountingEntryResponseDTO;
 import com.nubixconta.modules.accounting.entity.Catalog;
+import com.nubixconta.modules.accounting.entity.IncomeTaxEntry;
 import com.nubixconta.modules.accounting.entity.PurchaseCreditNoteEntry;
 import com.nubixconta.modules.accounting.entity.PurchaseEntry;
+import com.nubixconta.modules.accounting.repository.IncomeTaxEntryRepository;
 import com.nubixconta.modules.accounting.repository.PurchaseCreditNoteEntryRepository;
 import com.nubixconta.modules.accounting.repository.PurchaseEntryRepository;
 import com.nubixconta.modules.administration.entity.Company;
-import com.nubixconta.modules.purchases.entity.Purchase;
-import com.nubixconta.modules.purchases.entity.PurchaseCreditNote;
-import com.nubixconta.modules.purchases.entity.PurchaseDetail;
-import com.nubixconta.modules.purchases.entity.Supplier;
+import com.nubixconta.modules.purchases.entity.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -31,6 +30,7 @@ public class PurchasesAccountingService {
     private final PurchaseEntryRepository purchaseEntryRepository;
     private final AccountingConfigurationService configService;
     private final PurchaseCreditNoteEntryRepository purchaseCreditNoteEntryRepository;
+    private final IncomeTaxEntryRepository incomeTaxEntryRepository;
 
     /**
      * Crea la partida contable completa para una compra que se está aplicando.
@@ -245,6 +245,96 @@ public class PurchasesAccountingService {
         );
     }
 
+    // =========================================================================================
+    // == SECCIÓN NUEVA: LÓGICA CONTABLE PARA IMPUESTO SOBRE LA RENTA (ISR)
+    // =========================================================================================
+
+    /**
+     * Crea la partida contable para una retención de ISR que se está aplicando.
+     * Lógica: Disminuye la cuenta por pagar al proveedor (DEBE) y crea la obligación
+     * fiscal con el estado (HABER).
+     * @param incomeTax La entidad completa de la retención de ISR.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void createEntryForIncomeTaxApplication(IncomeTax incomeTax) {
+        Integer companyId = incomeTax.getCompany().getId();
+        String description = incomeTax.getDescription(); // Usamos la descripción del documento de ISR
+
+        // 1. Obtener las cuentas contables clave desde la configuración.
+        Catalog supplierCatalog = configService.findCatalogBySettingKey("DEFAULT_SUPPLIER_ACCOUNT", companyId);
+        Catalog isrWithholdingCatalog = configService.findCatalogBySettingKey("INCOME_TAX_WITHHOLDING_ACCOUNT", companyId);
+
+        List<IncomeTaxEntry> entries = new ArrayList<>();
+
+        // 2. Crear la línea de CARGO (DEBE) a la cuenta del proveedor.
+        entries.add(createIncomeTaxEntry(incomeTax, supplierCatalog, incomeTax.getAmountIncomeTax(), BigDecimal.ZERO, description));
+
+        // 3. Crear la línea de ABONO (HABER) a la cuenta de ISR Retenido por Pagar.
+        entries.add(createIncomeTaxEntry(incomeTax, isrWithholdingCatalog, BigDecimal.ZERO, incomeTax.getAmountIncomeTax(), description));
+
+        // 4. Validar que la partida esté cuadrada y guardarla.
+        validateIncomeTaxEntryTotals(entries);
+        incomeTaxEntryRepository.saveAll(entries);
+    }
+
+    /**
+     * Elimina la partida contable asociada a una retención de ISR que se está anulando.
+     * @param incomeTax La entidad de la retención de ISR.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void deleteEntryForIncomeTaxCancellation(IncomeTax incomeTax) {
+        incomeTaxEntryRepository.deleteByIncomeTax_IdIncomeTax(incomeTax.getIdIncomeTax());
+    }
+
+    /**
+     * Obtiene el asiento contable formateado para una retención de ISR específica.
+     * @param incomeTaxId El ID de la retención de ISR.
+     * @return Un AccountingEntryResponseDTO con toda la información para el frontend.
+     */
+    @Transactional(readOnly = true)
+    public AccountingEntryResponseDTO getEntryForIncomeTax(Integer incomeTaxId) {
+        // 1. Usar el método optimizado del repositorio.
+        List<IncomeTaxEntry> entries = incomeTaxEntryRepository.findByIncomeTaxIdWithDetails(incomeTaxId);
+        if (entries.isEmpty()) {
+            throw new NotFoundException("No se encontró asiento contable para la retención de ISR con ID: " + incomeTaxId);
+        }
+
+        // 2. Extraer información común de la primera línea.
+        IncomeTaxEntry firstEntry = entries.get(0);
+        IncomeTax incomeTax = firstEntry.getIncomeTax();
+        Supplier supplier = incomeTax.getPurchase().getSupplier();
+
+        // 3. Mapear cada línea a su DTO universal.
+        List<AccountingEntryLineDTO> lines = entries.stream()
+                .map(entry -> new AccountingEntryLineDTO(
+                        entry.getCatalog().getAccount().getGeneratedCode(),
+                        entry.getCatalog().getAccount().getAccountName(),
+                        entry.getDebe(),
+                        entry.getHaber()
+                ))
+                .collect(Collectors.toList());
+
+        // 4. Calcular totales.
+        BigDecimal totalDebits = lines.stream().map(AccountingEntryLineDTO::debit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredits = lines.stream().map(AccountingEntryLineDTO::credit).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 5. Construir y devolver el DTO de respuesta final.
+        return new AccountingEntryResponseDTO(
+                firstEntry.getId(),
+                incomeTax.getDocumentNumber(),
+                "Retención ISR", // Tipo de documento
+                incomeTax.getIncomeTaxStatus(),
+                "Proveedor", // Etiqueta del socio de negocio
+                formatPartnerName(supplier),
+                firstEntry.getDate(),
+                incomeTax.getDescription(),
+                lines,
+                totalDebits,
+                totalCredits
+        );
+    }
+
+
 
     private PurchaseCreditNoteEntry createPurchaseCreditNoteEntry(PurchaseCreditNote creditNote, Catalog catalog, BigDecimal debe, BigDecimal haber, String description) {
         PurchaseCreditNoteEntry entry = new PurchaseCreditNoteEntry();
@@ -301,6 +391,25 @@ public class PurchasesAccountingService {
         // Usamos scale de 2 para la comparación para evitar problemas de precisión
         if (totalDebits.setScale(2).compareTo(totalCredits.setScale(2)) != 0) {
             throw new BusinessRuleException("Asiento de Compra descuadrado. Debe: " + totalDebits + ", Haber: " + totalCredits);
+        }
+    }
+    // --- NUEVOS MÉTODOS PRIVADOS DE AYUDA PARA ISR ---
+    private IncomeTaxEntry createIncomeTaxEntry(IncomeTax incomeTax, Catalog catalog, BigDecimal debe, BigDecimal haber, String description) {
+        IncomeTaxEntry entry = new IncomeTaxEntry();
+        entry.setIncomeTax(incomeTax);
+        entry.setCatalog(catalog);
+        entry.setDebe(debe);
+        entry.setHaber(haber);
+        entry.setDescription(description);
+        return entry;
+    }
+
+    private void validateIncomeTaxEntryTotals(List<IncomeTaxEntry> entries) {
+        BigDecimal totalDebits = entries.stream().map(IncomeTaxEntry::getDebe).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredits = entries.stream().map(IncomeTaxEntry::getHaber).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalDebits.setScale(2).compareTo(totalCredits.setScale(2)) != 0) {
+            throw new BusinessRuleException("Asiento de Retención ISR descuadrado. Debe: " + totalDebits + ", Haber: " + totalCredits);
         }
     }
 }

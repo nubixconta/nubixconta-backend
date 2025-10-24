@@ -70,4 +70,16 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Integer> {
             "SELECT 1 FROM PurchaseCreditNote pcn WHERE pcn.purchase = p AND pcn.creditNoteStatus IN ('PENDIENTE', 'APLICADA')" +
             ")")
     List<Purchase> findPurchasesAvailableForCreditNote(@Param("companyId") Integer companyId, @Param("supplierId") Integer supplierId);
+
+    /**
+     * Busca compras de un proveedor que son elegibles para una retención de ISR.
+     * Criterios:
+     * 1. Pertenecen a la empresa y proveedor especificados.
+     * 2. Están en estado 'APLICADA'.
+     * 3. NO tienen una retención de ISR asociada que esté en estado 'PENDIENTE' o 'APLICADA'.
+     */
+    @Query("SELECT p FROM Purchase p WHERE p.company.id = :companyId AND p.supplier.idSupplier = :supplierId AND p.purchaseStatus = 'APLICADA' AND NOT EXISTS (" +
+            "SELECT 1 FROM IncomeTax it WHERE it.purchase = p AND it.incomeTaxStatus IN ('PENDIENTE', 'APLICADA')" +
+            ")")
+    List<Purchase> findPurchasesAvailableForISR(@Param("companyId") Integer companyId, @Param("supplierId") Integer supplierId);
 }
