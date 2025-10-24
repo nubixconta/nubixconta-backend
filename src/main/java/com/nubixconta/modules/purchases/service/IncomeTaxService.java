@@ -71,6 +71,16 @@ public class IncomeTaxService {
             throw new BusinessRuleException("Solo se pueden aplicar retenciones a compras en estado APLICADA.");
         }
 
+        // Se comprueba si la compra tiene pagos activos (PENDIENTES o APLICADOS).
+        // Si es así, se bloquea la creación de la retención.
+        boolean hasActivePayments = accountsPayableService.validatePurchaseWithoutCollections(purchase.getIdPurchase());
+        if (hasActivePayments) {
+            throw new BusinessRuleException(
+                    "No se puede crear la retención porque la compra asociada ya tiene pagos registrados. " +
+                            "Por favor, anule primero los pagos en el módulo de Cuentas por Pagar."
+            );
+        }
+
         List<String> activeStatuses = List.of("PENDIENTE", "APLICADA");
         if (incomeTaxRepository.existsByCompany_IdAndPurchase_IdPurchaseAndIncomeTaxStatusIn(companyId, purchase.getIdPurchase(), activeStatuses)) {
             throw new BusinessRuleException("Ya existe una retención de ISR activa (PENDIENTE o APLICADA) para esta compra.");
@@ -169,8 +179,12 @@ public class IncomeTaxService {
         //    (Debe: Cuentas por Pagar Proveedor, Haber: ISR Retenido por Pagar)
         purchasesAccountingService.createEntryForIncomeTaxApplication(incomeTax);
 
-        // 2. CUENTAS POR PAGAR: Aplicar la retención para disminuir el saldo de la factura.
-        // accountsPayableService.applyIncomeTaxWithholding(incomeTax.getPurchase().getIdPurchase(), incomeTax.getAmountIncomeTax());
+        // 2. CUENTAS POR PAGAR: Se actualiza el monto a pagar, disminuyéndolo.
+        accountsPayableService.updatePayableAmount(
+                incomeTax.getPurchase().getIdPurchase(), // El ID de la compra original
+                incomeTax.getAmountIncomeTax(),          // El monto del ISR a restar
+                "APLICADA"                               // La operación que indica una resta
+        );
 
         // 3. Actualizar estado y persistir
         incomeTax.setIncomeTaxStatus("APLICADA");
@@ -191,13 +205,26 @@ public class IncomeTaxService {
             throw new BusinessRuleException("Solo se pueden anular retenciones en estado APLICADA.");
         }
 
+        // Similar a la anulación de una compra, si la compra original ya tiene pagos,
+        // no se debería poder anular una retención que afectó su saldo.
+        boolean hasActivePayments = accountsPayableService.validatePurchaseWithoutCollections(incomeTax.getPurchase().getIdPurchase());
+        if (hasActivePayments) {
+            throw new BusinessRuleException(
+                    "No se puede anular la retención porque la compra asociada ya tiene pagos registrados posteriores a la aplicación de este ISR."
+            );
+        }
+
         // --- ORQUESTACIÓN DE REVERSIONES ---
 
         // 1. CONTABILIDAD: Eliminar/Revertir el asiento contable de la retención.
         purchasesAccountingService.deleteEntryForIncomeTaxCancellation(incomeTax);
 
-        // 2. CUENTAS POR PAGAR: Revertir la retención para restaurar el saldo de la factura.
-        // accountsPayableService.revertIncomeTaxWithholding(incomeTax.getPurchase().getIdPurchase(), incomeTax.getAmountIncomeTax());
+        // 2. CUENTAS POR PAGAR: Se actualiza el monto a pagar, restaurándolo (sumándolo de nuevo).
+        accountsPayableService.updatePayableAmount(
+                incomeTax.getPurchase().getIdPurchase(), // El ID de la compra original
+                incomeTax.getAmountIncomeTax(),          // El monto del ISR a sumar
+                "ANULADA"                                // La operación que indica una suma
+        );
 
         // 3. Actualizar estado y persistir
         incomeTax.setIncomeTaxStatus("ANULADA");
