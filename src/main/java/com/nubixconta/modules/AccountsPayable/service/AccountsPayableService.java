@@ -8,7 +8,6 @@ import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
-import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
 import com.nubixconta.modules.purchases.dto.purchases.PurchaseForAccountsPayableDTO;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.security.TenantContext;
@@ -49,7 +48,6 @@ public class AccountsPayableService {
 
     }
 
-
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
         return TenantContext.getCurrentTenant()
@@ -65,6 +63,7 @@ public class AccountsPayableService {
                 .map(ar -> {
                     AccountsPayablePurchaseResponseDTO dto = new AccountsPayablePurchaseResponseDTO();
                     dto.setBalance(ar.getBalance());
+                    dto.setPayableAmount(ar.getPayableAmount());
 
                     if (ar.getPurchase() != null) {
                         Purchase purchase = ar.getPurchase();
@@ -229,11 +228,10 @@ public class AccountsPayableService {
 
         return dto;
     }
-
     /**
-     * Actualiza el payableAmount de una cuenta por pagar basándose en un tipo de operación.
-     * Si el tipo de operación es "ANULADA", se suma la cantidad al payableAmount.
-     * Si el tipo de operación es "APLICADA", se resta la cantidad al payableAmount.
+     * Actualiza el payableAmount y el balance de una cuenta por pagar basándose en un tipo de operación.
+     * Si el tipo de operación es "ANULADA", se suma la cantidad al payableAmount y al balance.
+     * Si el tipo de operación es "APLICADA", se resta la cantidad al payableAmount y al balance.
      *
      * @param purchaseId El ID de la compra asociada a la cuenta por pagar.
      * @param amount La cantidad a sumar o restar.
@@ -254,29 +252,36 @@ public class AccountsPayableService {
         }
 
         BigDecimal currentPayableAmount = accountsPayable.getPayableAmount();
+        BigDecimal currentBalance = accountsPayable.getBalance();
         BigDecimal newPayableAmount;
+        BigDecimal newBalance;
 
         switch (operationType.toUpperCase()) {
             case "ANULADA":
-                // Si es "ANULADA", se suma la cantidad al payableAmount
+                // Si es "ANULADA", se suma la cantidad
                 newPayableAmount = currentPayableAmount.add(amount);
+                newBalance = currentBalance.add(amount);
                 break;
             case "APLICADA":
-                // Si es "APLICADA", se resta la cantidad del payableAmount
-                // Validar que el PayableAmount no se vuelva negativo
-                if (currentPayableAmount.compareTo(amount) < 0) {
-                    throw new BusinessRuleException("La cantidad a restar excede el monto a pagar actual.");
+                // Si es "APLICADA", se resta la cantidad
+                // Validar que el PayableAmount y el Balance no se vuelvan negativos
+                if (currentPayableAmount.compareTo(amount) < 0 || currentBalance.compareTo(amount) < 0) {
+                    throw new BusinessRuleException("La cantidad a restar excede el monto a pagar o el saldo actual.");
                 }
                 newPayableAmount = currentPayableAmount.subtract(amount);
+                newBalance = currentBalance.subtract(amount);
                 break;
             default:
                 throw new BusinessRuleException("Tipo de operación no reconocido. Use 'ANULADA' o 'APLICADA'.");
         }
 
         accountsPayable.setPayableAmount(newPayableAmount);
+        accountsPayable.setBalance(newBalance);
 
         return repository.save(accountsPayable);
     }
+
+
 
     public AccountsPayable findOrCreateAccountsPayable(Purchase purchase) {
         // Se busca por el ID de la venta y el ID de la compañía para asegurar la pertenencia de los datos.

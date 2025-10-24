@@ -16,6 +16,7 @@ import com.nubixconta.modules.purchases.dto.purchases.*;
 import com.nubixconta.modules.purchases.entity.Purchase;
 import com.nubixconta.modules.purchases.entity.PurchaseDetail;
 import com.nubixconta.modules.purchases.entity.Supplier;
+import com.nubixconta.modules.purchases.repository.IncomeTaxRepository;
 import com.nubixconta.modules.purchases.repository.PurchaseCreditNoteRepository;
 import com.nubixconta.modules.purchases.repository.PurchaseRepository;
 import com.nubixconta.modules.purchases.repository.SupplierRepository;
@@ -132,6 +133,28 @@ public class PurchaseService {
                 .collect(Collectors.toList());
     }
 
+    // --- CAMBIO CLAVE: El método ahora es más simple y eficiente ---
+    /**
+     * Busca las compras de un proveedor que son válidas para la creación de una Retención de ISR.
+     * Utiliza una query dedicada en el repositorio para un rendimiento óptimo.
+     * @param supplierId El ID del proveedor.
+     * @return Una lista de DTOs simplificados con las compras elegibles.
+     */
+    @Transactional(readOnly = true)
+    public List<PurchaseForCreditNoteDTO> findPurchasesAvailableForISR(Integer supplierId) {
+        Integer companyId = getCompanyIdFromContext();
+        // Validamos que el proveedor exista
+        supplierService.findById(supplierId);
+
+        // Ahora simplemente llamamos al nuevo método del repositorio.
+        // La base de datos hace todo el trabajo de filtrado.
+        List<Purchase> availablePurchases = purchaseRepository.findPurchasesAvailableForISR(companyId, supplierId);
+
+        // Mapeamos al DTO para el frontend.
+        return availablePurchases.stream()
+                .map(purchase -> modelMapper.map(purchase, PurchaseForCreditNoteDTO.class))
+                .collect(Collectors.toList());
+    }
     /**
      * Crea una nueva compra. La compra nace en estado 'PENDIENTE'.
      */
