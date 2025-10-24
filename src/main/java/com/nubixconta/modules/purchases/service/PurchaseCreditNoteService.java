@@ -251,6 +251,15 @@ public class PurchaseCreditNoteService {
             throw new BusinessRuleException("Solo se pueden anular notas de crédito en estado APLICADA.");
         }
 
+        // Se comprueba si la compra original tiene pagos activos. Si es así, se bloquea la anulación.
+        boolean hasActivePayments = accountsPayableService.validatePurchaseWithoutCollections(creditNote.getPurchase().getIdPurchase());
+        if (hasActivePayments) {
+            throw new BusinessRuleException(
+                    "No se puede anular la nota de crédito porque la compra asociada ya tiene pagos registrados. " +
+                            "Por favor, anule primero los pagos en el módulo de Cuentas por Pagar."
+            );
+        }
+        
         // --- ORQUESTACIÓN DE REVERSIONES ---
 
         // 1. INVENTARIO: Revertir la disminución de stock (es decir, AUMENTAR stock).
