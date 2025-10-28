@@ -22,5 +22,5 @@ public interface AccountRepository extends JpaRepository<Account, Integer> {
     @Query("SELECT a FROM Account a WHERE LOWER(a.accountName) IN ('proveedores', 'proveedores')")
     Optional<Account> findSupplierAccount();
 
-
+    Optional<Account> findByGeneratedCode(String generatedCode);
 }

@@ -217,8 +217,8 @@ public class SalesAccountingService {
         // 3. Mapear cada entidad de asiento a su DTO de línea.
         List<AccountingEntryLineDTO> lines = entries.stream()
                 .map(entry -> new AccountingEntryLineDTO(
-                        entry.getCatalog().getAccount().getGeneratedCode(), // Asumiendo que el campo es 'accountNumber'
-                        entry.getCatalog().getAccount().getAccountName(),
+                        entry.getCatalog().getEffectiveCode(),
+                        entry.getCatalog().getEffectiveName(),
                         entry.getDebe(),
                         entry.getHaber()
                 ))
@@ -262,8 +262,8 @@ public class SalesAccountingService {
 
         List<AccountingEntryLineDTO> lines = entries.stream()
                 .map(entry -> new AccountingEntryLineDTO(
-                        entry.getCatalog().getAccount().getGeneratedCode(),
-                        entry.getCatalog().getAccount().getAccountName(),
+                        entry.getCatalog().getEffectiveCode(),
+                        entry.getCatalog().getEffectiveName(),
                         entry.getDebe(),
                         entry.getHaber()
                 ))

@@ -38,10 +38,33 @@ public class Catalog {
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 
-    // Este campo permite activar o desactivar el uso de una cuenta para una empresa
-    // sin necesidad de borrar el registro, manteniendo la integridad histórica.
-    @Column(name = "activo", nullable = false)
-    private boolean activo = true;
+    // --- ¡NUEVA JERARQUÍA! ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_catalog_id")
+    private Catalog parent;
+
+    // --- ¡NUEVOS CAMPOS DE PERSONALIZACIÓN! ---
+    @Column(name = "custom_name")
+    private String customName;
+
+    @Column(name = "custom_code")
+    private String customCode;
+
+    // Columna renombrada
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive = true;
+
+    // --- LÓGICA DE NEGOCIO EN LA ENTIDAD (O EN UN DTO/SERVICE) ---
+    // Estos métodos de conveniencia nos darán el valor "efectivo"
+    @Transient
+    public String getEffectiveName() {
+        return this.customName != null ? this.customName : this.account.getAccountName();
+    }
+
+    @Transient
+    public String getEffectiveCode() {
+        return this.customCode != null ? this.customCode : this.account.getGeneratedCode();
+    }
 
     // Buenas prácticas de JPA para equals() y hashCode()
     @Override
@@ -61,11 +84,15 @@ public class Catalog {
 
     @Override
     public String toString() {
+        // ESTA ES LA VERSIÓN SEGURA Y RECOMENDADA
+        // Solo incluye el ID y los campos propios de esta entidad para evitar
+        // errores de carga perezosa (LazyInitializationException).
         return "Catalog{" +
-                "idPurchaseCreditNote=" + id +
-                ", accountId=" + (account != null ? account.getId() : "null") +
-                ", companyId=" + (company != null ? company.getId() : "null") +
-                ", activo=" + activo +
+                "id=" + id +
+                ", customName='" + customName + '\'' +
+                ", customCode='" + customCode + '\'' +
+                ", isActive=" + isActive +
+                // No se deben incluir relaciones LAZY como account o company aquí.
                 '}';
     }
 }
