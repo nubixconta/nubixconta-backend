@@ -1,13 +1,12 @@
 package com.nubixconta.modules.accounting.controller;
 
-import com.nubixconta.modules.accounting.dto.catalog.CatalogSummaryDTO;
+import com.nubixconta.modules.accounting.dto.catalog.*;
 import com.nubixconta.modules.accounting.service.CatalogService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -29,5 +28,56 @@ public class CatalogController {
     public ResponseEntity<List<CatalogSummaryDTO>> searchCatalogs(@RequestParam(name = "term", required = false) String term) {
         List<CatalogSummaryDTO> results = catalogService.searchActiveByTerm(term);
         return ResponseEntity.ok(results);
+    }
+
+    // --- ¡INICIO DE NUEVOS ENDPOINTS DE GESTIÓN! ---
+
+    /**
+     * Devuelve el árbol del catálogo personalizado para la empresa del usuario autenticado.
+     */
+    @GetMapping("/my-company/tree")
+    public ResponseEntity<List<CompanyCatalogNodeDTO>> getMyCompanyCatalogTree() {
+        return ResponseEntity.ok(catalogService.getCompanyTree());
+    }
+
+    /**
+     * Activa una o más cuentas del catálogo maestro para la empresa actual.
+     */
+    @PostMapping("/activate")
+    public ResponseEntity<Void> activateAccounts(@Valid @RequestBody ActivateAccountsDTO dto) {
+        catalogService.activateAccounts(dto.getMasterAccountIds());
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Desactiva una o más cuentas del catálogo de la empresa actual, incluyendo sus descendientes.
+     */
+    @PostMapping("/deactivate")
+    public ResponseEntity<Void> deactivateAccounts(@Valid @RequestBody DeactivateAccountsDTO dto) {
+        catalogService.deactivateAccounts(dto.getCatalogIds());
+        return ResponseEntity.ok().build();
+    }
+    /**
+     * Actualiza el nombre y/o código personalizado de una cuenta del catálogo de la empresa.
+     */
+    @PutMapping("/{catalogId}")
+    public ResponseEntity<CompanyCatalogNodeDTO> updateCatalog(
+            @PathVariable Integer catalogId,
+            @RequestBody UpdateCatalogDTO dto) {
+        CompanyCatalogNodeDTO updatedNode = catalogService.updateCustomFields(catalogId, dto);
+        return ResponseEntity.ok(updatedNode);
+    }
+    /**
+     * Activa y personaliza masivamente el catálogo de la empresa actual
+     * a partir de un archivo Excel.
+     */
+    @PostMapping("/upload")
+    public ResponseEntity<String> uploadCompanyCatalog(@RequestParam("file") MultipartFile file) {
+        try {
+            catalogService.processCompanyCatalogUpload(file);
+            return ResponseEntity.ok("Catálogo de la empresa cargado y personalizado exitosamente.");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error al procesar el archivo: " + e.getMessage());
+        }
     }
 }
