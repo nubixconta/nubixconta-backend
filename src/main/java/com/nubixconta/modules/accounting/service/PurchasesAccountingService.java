@@ -112,8 +112,8 @@ public class PurchasesAccountingService {
         // 3. Mapear cada entidad de asiento a su DTO de línea universal.
         List<AccountingEntryLineDTO> lines = entries.stream()
                 .map(entry -> new AccountingEntryLineDTO(
-                        entry.getCatalog().getAccount().getGeneratedCode(),
-                        entry.getCatalog().getAccount().getAccountName(),
+                        entry.getCatalog().getEffectiveCode(), // <-- CAMBIO
+                        entry.getCatalog().getEffectiveName(), // <-- CAMBIO
                         entry.getDebe(),
                         entry.getHaber()
                 ))
@@ -218,8 +218,8 @@ public class PurchasesAccountingService {
         // 3. Mapear cada línea a su DTO universal (AccountingEntryLineDTO).
         List<AccountingEntryLineDTO> lines = entries.stream()
                 .map(entry -> new AccountingEntryLineDTO(
-                        entry.getCatalog().getAccount().getGeneratedCode(),
-                        entry.getCatalog().getAccount().getAccountName(),
+                        entry.getCatalog().getEffectiveCode(), // <-- CAMBIO
+                        entry.getCatalog().getEffectiveName(), // <-- CAMBIO
                         entry.getDebe(),
                         entry.getHaber()
                 ))
@@ -307,8 +307,8 @@ public class PurchasesAccountingService {
         // 3. Mapear cada línea a su DTO universal.
         List<AccountingEntryLineDTO> lines = entries.stream()
                 .map(entry -> new AccountingEntryLineDTO(
-                        entry.getCatalog().getAccount().getGeneratedCode(),
-                        entry.getCatalog().getAccount().getAccountName(),
+                        entry.getCatalog().getEffectiveCode(),
+                        entry.getCatalog().getEffectiveName(),
                         entry.getDebe(),
                         entry.getHaber()
                 ))

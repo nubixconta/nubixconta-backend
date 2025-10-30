@@ -32,7 +32,7 @@ public class AccountingConfigurationService {
         Catalog catalog = setting.getCatalog();
         Account account = catalog.getAccount();
 
-        if (!catalog.isActivo()) {
+        if (!catalog.isActive()) {
             throw new BusinessRuleException("La configuración para '" + key + "' apunta a una cuenta ('" + account.getAccountName() + "') que está actualmente desactivada para esta empresa.");
         }
 
