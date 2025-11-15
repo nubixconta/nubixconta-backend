@@ -1,0 +1,19 @@
+package com.nubixconta.modules.accounting.dto;
+
+import lombok.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class BankEntryDTO {
+    private Integer idBankEntry;
+    private Integer idCatalog; // cuenta contable
+    private BigDecimal debit;
+    private BigDecimal credit;
+    private String description;
+    private LocalDateTime date;
+    private Integer transactionBankId;
+}

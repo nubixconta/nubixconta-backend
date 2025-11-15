@@ -1,11 +1,16 @@
 package com.nubixconta.modules.accounting.service;
+import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
 import com.nubixconta.modules.accounting.dto.Account.AccountBankResponseDTO;
+import com.nubixconta.modules.accounting.dto.CollectionEntry.CollectionEntryFronBankResponseDTO;
 import com.nubixconta.modules.accounting.dto.CollectionEntry.CollectionEntryResponseDTO;
 import com.nubixconta.modules.accounting.entity.Account;
 import com.nubixconta.modules.accounting.entity.Catalog;
 import com.nubixconta.modules.accounting.entity.CollectionEntry;
+import com.nubixconta.modules.accounting.entity.PaymentEntry;
 import com.nubixconta.modules.accounting.repository.AccountRepository;
 import com.nubixconta.modules.accounting.repository.CatalogRepository;
+import com.nubixconta.modules.accounting.repository.PaymentEntryRepository;
+import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailFromEntryResponseDTO;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import com.nubixconta.modules.accountsreceivable.repository.CollectionDetailRepository;
 import com.nubixconta.modules.accounting.repository.CollectionEntryRepository;
@@ -13,7 +18,7 @@ import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService
 import com.nubixconta.modules.sales.entity.Sale;
 import com.nubixconta.modules.sales.repository.SaleRepository;
 import com.nubixconta.security.JwtUtil;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -36,7 +41,8 @@ public class CollectionEntryService {
     private final CatalogRepository catalogRepository;
     private final CollectionDetailRepository collectionDetailRepository;
     private final CollectionDetailService collectionDetailService;
-
+    private final PaymentEntryRepository paymentEntryRepository;
+    private final PaymentDetailsRepository paymentDetailsRepository;
     @Autowired
     public CollectionEntryService(CollectionEntryRepository entryRepository,
                                   AccountRepository accountRepository,
@@ -44,7 +50,9 @@ public class CollectionEntryService {
                                   ModelMapper mapper,
                                   CatalogRepository catalogRepository,
                                   CollectionDetailService collectionDetailService,
-                                  SaleRepository saleRepository) {
+                                  SaleRepository saleRepository,
+                                  PaymentEntryRepository paymentEntryRepository,
+                                  PaymentDetailsRepository paymentDetailsRepository) {
         this.entryRepository = entryRepository;
         this.accountRepository = accountRepository;
         this.catalogRepository = catalogRepository;
@@ -52,6 +60,8 @@ public class CollectionEntryService {
         this.saleRepository = saleRepository;
         this.mapper = mapper;
         this.collectionDetailService = collectionDetailService;
+        this.paymentEntryRepository = paymentEntryRepository;
+        this.paymentDetailsRepository = paymentDetailsRepository;
     }
 
     // Este metodo mapea en el dto el numero de documento, el nombre del cliente de Sale
@@ -193,6 +203,110 @@ public class CollectionEntryService {
         collectionDetailRepository.save(detail);
         collectionDetailService.recalcularBalancePorReceivableId(detail.getAccountReceivable().getId());
 
+    }
+    // *** Método existente para CollectionEntry, modificado para ser más genérico si quieres o dejarlo ***
+    @Transactional // Mantener @Transactional aquí
+    public List<CollectionEntryFronBankResponseDTO> getCollectionEntriesForBank(Integer collectionDetailId) {
+        List<CollectionEntry> entries = entryRepository.findByCollectionDetail_Id(collectionDetailId);
+
+        // Si no hay CollectionDetail, o la lista está vacía, no se crea el detailDto
+        if (entries.isEmpty()) {
+            return List.of();
+        }
+
+        CollectionDetail collectionDetail = entries.get(0).getCollectionDetail();
+        CollectionDetailFromEntryResponseDTO detailDto = mapper.map(collectionDetail, CollectionDetailFromEntryResponseDTO.class);
+        detailDto.setModuleType(collectionDetail.getModuleType());
+        detailDto.setReference(String.valueOf(collectionDetail.getId()));
+
+        return entries.stream()
+                .filter(entry ->
+                        entry.getCatalog() != null &&
+                                entry.getCatalog().getAccount() != null &&
+                                "ACTIVO-BANCO".equals(entry.getCatalog().getAccount().getAccountType())
+                )
+                .map(entry -> {
+                    CollectionEntryFronBankResponseDTO dto = new CollectionEntryFronBankResponseDTO();
+                    dto.setId(entry.getId());
+                    dto.setDebit(entry.getDebit());
+                    dto.setCredit(entry.getCredit());
+                    dto.setDescription(entry.getDescription());
+                    dto.setDate(entry.getDate());
+
+                    Catalog catalog = entry.getCatalog();
+                    if (catalog != null && catalog.getAccount() != null) {
+
+                        dto.setAccountName(catalog.getAccount().getAccountName());
+                    }
+
+                    dto.setCollection(detailDto); // En este contexto, 'collection' se refiere al detalle de CollectionEntry
+                    return dto;
+                }).collect(Collectors.toList());
+    }
+    // *** NUEVOS MÉTODOS PARA OBTENER TODAS LAS ENTRADAS DE UN TIPO CON EL FILTRO ***
+
+    @Transactional(readOnly = true) // readOnly = true es una buena práctica para métodos de solo lectura
+    public List<CollectionEntryFronBankResponseDTO> getAllCollectionEntriesForBank() {
+        List<CollectionEntry> entries = entryRepository.findAllWithCatalogAndAccount(); // Usamos el nuevo método del repositorio
+
+        return entries.stream()
+                .filter(entry ->
+                        entry.getCatalog() != null &&
+                                entry.getCatalog().getAccount() != null &&
+                                "ACTIVO-BANCO".equals(entry.getCatalog().getAccount().getAccountType())
+                )
+                .map(entry -> {
+                    CollectionEntryFronBankResponseDTO dto = new CollectionEntryFronBankResponseDTO();
+                    dto.setId(entry.getId());
+                    dto.setDebit(entry.getDebit());
+                    dto.setCredit(entry.getCredit());
+                    dto.setDescription(entry.getDescription());
+                    dto.setDate(entry.getDate());
+
+                    Catalog catalog = entry.getCatalog();
+                    dto.setAccountName(catalog.getAccount().getAccountName());
+
+                    // Mapear el CollectionDetail asociado
+                    CollectionDetailFromEntryResponseDTO detailDto = mapper.map(entry.getCollectionDetail(), CollectionDetailFromEntryResponseDTO.class);
+                    detailDto.setModuleType(entry.getCollectionDetail().getModuleType());
+                    detailDto.setReference(String.valueOf(entry.getCollectionDetail().getReference()));
+                    dto.setCollection(detailDto);
+
+                    return dto;
+                }).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CollectionEntryFronBankResponseDTO> getAllPaymentEntriesForBank() {
+        List<PaymentEntry> entries = paymentEntryRepository.findAllWithCatalogAndAccount(); // Usamos el nuevo método del repositorio
+
+        return entries.stream()
+                .filter(entry ->
+                        entry.getCatalog() != null &&
+                                entry.getCatalog().getAccount() != null &&
+                                "ACTIVO-BANCO".equals(entry.getCatalog().getAccount().getAccountType())
+                )
+                .map(entry -> {
+                    CollectionEntryFronBankResponseDTO dto = new CollectionEntryFronBankResponseDTO();
+                    dto.setId(entry.getId());
+                    dto.setDebit(entry.getDebit());
+                    dto.setCredit(entry.getCredit());
+                    dto.setDescription(entry.getDescription());
+                    dto.setDate(entry.getDate());
+
+                    Catalog catalog = entry.getCatalog();
+                    dto.setAccountName(catalog.getAccount().getAccountName());
+
+                    // Mapear el PaymentDetails asociado
+                    // Reutilizamos CollectionDetailFromEntryResponseDTO para PaymentDetails
+                    CollectionDetailFromEntryResponseDTO detailDto = new CollectionDetailFromEntryResponseDTO();
+                    detailDto.setId(entry.getPaymentDetails().getId());
+                    detailDto.setModuleType(entry.getPaymentDetails().getModuleType());
+                    detailDto.setReference(entry.getPaymentDetails().getReference());
+                    dto.setCollection(detailDto);
+
+                    return dto;
+                }).collect(Collectors.toList());
     }
 
 }

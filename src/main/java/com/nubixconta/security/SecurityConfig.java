@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
                         .requestMatchers("/api/v1/users/**").authenticated()
                         .requestMatchers("/api/v1/companies/**").authenticated()
+                        .requestMatchers("/api/v1/bank-transactions/**").authenticated()
                         .requestMatchers("/api/v1/accounts-receivable/**").authenticated()
                         .requestMatchers("/api/v1/collection-detail/**").authenticated()
                         .requestMatchers("/api/v1/collection-entry/**").authenticated()

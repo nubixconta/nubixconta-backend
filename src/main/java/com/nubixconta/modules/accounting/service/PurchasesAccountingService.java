@@ -41,7 +41,12 @@ public class PurchasesAccountingService {
     public void createEntriesForPurchaseApplication(Purchase purchase) {
         Company company = purchase.getCompany();
         Integer companyId = company.getId();
-        String description = "Registro de compra s/g doc: " + purchase.getDocumentNumber();
+        String description = purchase.getPurchaseDescription();
+
+        // Fallback por si la descripción está vacía
+        if (description == null || description.isBlank()) {
+            description = "Registro de compra s/g doc: " + purchase.getDocumentNumber();
+        }
 
         // 1. Obtener las cuentas FIJAS desde la configuración contable.
         Catalog inventoryCatalog = configService.findCatalogBySettingKey("INVENTORY_ASSET_ACCOUNT", companyId);
@@ -148,7 +153,12 @@ public class PurchasesAccountingService {
     public void createEntriesForCreditNoteApplication(PurchaseCreditNote creditNote) {
         Company company = creditNote.getCompany();
         Integer companyId = company.getId();
-        String description = "Devolución de compra s/g NC: " + creditNote.getDocumentNumber();
+        String description = creditNote.getDescription();
+
+        // (Opcional pero recomendado) Fallback por si la descripción está vacía
+        if (description == null || description.isBlank()) {
+            description = "Devolución de compra s/g NC: " + creditNote.getDocumentNumber();
+        };
 
         // 1. Obtener las cuentas FIJAS desde la configuración contable.
         Catalog supplierCatalog = configService.findCatalogBySettingKey("DEFAULT_SUPPLIER_ACCOUNT", companyId);
