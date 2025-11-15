@@ -92,13 +92,28 @@ public class TransactionBankService {
     }
 
 
-    public List<TransactionBankDTO> findTransactionsByAccountFilter(String accountFilter) {
-        List<TransactionBank> transactions = repository.findByAccountNameOrCodeContainingIgnoreCase(accountFilter);
+    /**
+     * Realiza una búsqueda dinámica de transacciones bancarias.
+     * Delega la lógica de filtrado al método del repositorio con la consulta JPQL.
+     *
+     * @param query     Término de búsqueda para la cuenta (opcional).
+     * @param startDate Fecha de inicio del filtro (opcional).
+     * @param endDate   Fecha de fin del filtro (opcional).
+     * @return Una lista de DTOs de las transacciones encontradas.
+     */
+    @Transactional(readOnly = true)
+    public List<TransactionBankDTO> searchTransactions(String query, LocalDate startDate, LocalDate endDate) {
+        // Llama al nuevo método del repositorio que contiene la consulta dinámica.
+
+
+
+        List<TransactionBank> transactions = repository.searchTransactionsDynamically(query, startDate, endDate);
+
+        // Mapea los resultados a DTOs como ya lo hacías.
         return transactions.stream()
-                .map(this::mapToDTO) // Usa tu método de mapeo de entidad a DTO
+                .map(this::mapToDTO) // Reutiliza tu método de mapeo existente
                 .collect(Collectors.toList());
     }
-
 
     /**
      * Crea una nueva transacción bancaria completa (encabezado y asientos de detalle).
