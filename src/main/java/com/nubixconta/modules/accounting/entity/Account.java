@@ -36,7 +36,7 @@ public class Account {
     @Column(name = "generated_code", nullable = false, unique = true)
     private String generatedCode;
 
-    @Column(name = "account_type", length = 50, nullable = false)
+    @Column(name = "account_type", length = 100, nullable = false)
     private String accountType;
 
     // Flag crucial para saber si la cuenta puede recibir movimientos.
