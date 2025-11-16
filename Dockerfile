@@ -1,14 +1,17 @@
 # Etapa de construcción
-FROM openjdk:17-jdk-slim as build
+FROM eclipse-temurin:17-jdk-jammy as build
 WORKDIR /app
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 COPY src src
+
+# Dar permisos de ejecución al wrapper de Maven (IMPORTANTE para Windows)
+RUN chmod +x mvnw
 RUN ./mvnw clean package -DskipTests
 
 # Etapa de ejecución
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
