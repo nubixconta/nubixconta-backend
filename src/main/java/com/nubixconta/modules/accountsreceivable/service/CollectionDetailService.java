@@ -1,6 +1,7 @@
 package com.nubixconta.modules.accountsreceivable.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
+import com.nubixconta.modules.accounting.service.CierreContableService;
 import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailCreateDTO;
 import com.nubixconta.modules.accountsreceivable.dto.collectiondetail.CollectionDetailUpdateDTO;
 import com.nubixconta.modules.accountsreceivable.entity.AccountsReceivable;
@@ -30,17 +31,19 @@ public class CollectionDetailService {
     private final SaleRepository saleRepository;
     private ChangeHistoryService changeHistoryService;
     private final CompanyRepository companyRepository;
+    private final CierreContableService cierreContableService;
 
     @Autowired
     private AccountsReceivableRepository accountsReceivableRepository;
     public CollectionDetailService(CollectionDetailRepository repository,
                                    SaleRepository saleRepository,
                                    ChangeHistoryService changeHistoryService,
-                                   CompanyRepository companyRepository) {
+                                   CompanyRepository companyRepository,CierreContableService cierreContableService) {
         this.repository = repository;
         this.saleRepository = saleRepository;
         this.changeHistoryService = changeHistoryService;
         this.companyRepository = companyRepository;
+        this.cierreContableService=cierreContableService;
     }
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
@@ -107,6 +110,7 @@ public class CollectionDetailService {
     public CollectionDetail registerPayment(CollectionDetailCreateDTO dto) {
         Integer saleId = dto.getSaleId();
         Integer companyId = getCompanyIdFromContext();
+        cierreContableService.verificarPeriodoAbierto(dto.getCollectionDetailDate().toLocalDate());
 
         Sale sale = saleRepository.findBySaleIdAndCompanyId(saleId, companyId)
                 .orElseThrow(() -> new EntityNotFoundException("Venta no encontrada o no pertenece a la empresa actual."));

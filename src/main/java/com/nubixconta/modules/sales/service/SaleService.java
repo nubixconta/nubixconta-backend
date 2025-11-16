@@ -1,5 +1,6 @@
 package com.nubixconta.modules.sales.service;
 
+import com.nubixconta.modules.accounting.service.CierreContableService;
 import com.nubixconta.modules.accounting.service.SalesAccountingService;
 import com.nubixconta.modules.accountsreceivable.service.AccountsReceivableService;
 import com.nubixconta.modules.accountsreceivable.service.CollectionDetailService;
@@ -54,6 +55,7 @@ public class SaleService {
     private final ChangeHistoryService changeHistoryService;
     private final AccountsReceivableService accountsReceivableService;
     private final CreditNoteRepository creditNoteRepository;
+    private final CierreContableService cierreContableService;
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
@@ -156,6 +158,8 @@ public class SaleService {
     @Transactional
     public SaleResponseDTO createSale(SaleCreateDTO dto) {
         Integer companyId = getCompanyIdFromContext();
+
+        cierreContableService.verificarPeriodoAbierto(dto.getIssueDate().toLocalDate());
         // Validación de unicidad de número de documento
         if (saleRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe una venta con el número de documento: " + dto.getDocumentNumber());
@@ -341,6 +345,11 @@ public class SaleService {
         Sale sale = saleRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Venta con ID " + id + " no encontrada"));
 
+        cierreContableService.verificarPeriodoAbierto(sale.getIssueDate().toLocalDate());
+        if (dto.getIssueDate() != null) {
+            cierreContableService.verificarPeriodoAbierto(dto.getIssueDate().toLocalDate());
+        }
+
         // 3. Validar unicidad del número de documento (esta parte está perfecta)
         if (dto.getDocumentNumber() != null &&
                 !dto.getDocumentNumber().equals(sale.getDocumentNumber()) &&
@@ -461,6 +470,8 @@ public class SaleService {
         // 1. Buscar la venta y sus detalles
         Sale sale = saleRepository.findById(saleId)
                 .orElseThrow(() -> new NotFoundException("Venta con ID " + saleId + " no encontrada"));
+
+        cierreContableService.verificarPeriodoAbierto(sale.getIssueDate().toLocalDate());
 
         // 2. Validar estado actual
         if (!"PENDIENTE".equals(sale.getSaleStatus())) {

@@ -6,6 +6,7 @@ import com.nubixconta.modules.AccountsPayable.service.AccountsPayableService;
 import com.nubixconta.modules.AccountsPayable.service.PaymentDetailsService;
 import com.nubixconta.modules.accounting.entity.Catalog;
 import com.nubixconta.modules.accounting.service.CatalogService;
+import com.nubixconta.modules.accounting.service.CierreContableService;
 import com.nubixconta.modules.accounting.service.PurchasesAccountingService;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
@@ -48,6 +49,7 @@ public class PurchaseCreditNoteService {
     private final ProductService productService;
     private final CatalogService catalogService;
     private final ModelMapper modelMapper;
+    private final CierreContableService cierreContableService;
 
     // --- Servicios para Orquestación Transaccional ---
     private final InventoryService inventoryService;
@@ -69,6 +71,8 @@ public class PurchaseCreditNoteService {
     @Transactional
     public PurchaseCreditNoteResponseDTO createCreditNote(PurchaseCreditNoteCreateDTO dto) {
         Integer companyId = getCompanyIdFromContext();
+
+        cierreContableService.verificarPeriodoAbierto(dto.getIssueDate().toLocalDate());
 
         // 1. Validaciones de negocio iniciales
         if (creditNoteRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
@@ -138,6 +142,11 @@ public class PurchaseCreditNoteService {
     public PurchaseCreditNoteResponseDTO updateCreditNote(Integer id, PurchaseCreditNoteUpdateDTO dto) {
         PurchaseCreditNote creditNote = creditNoteRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Nota de crédito de compra con ID " + id + " no encontrada."));
+
+        cierreContableService.verificarPeriodoAbierto(creditNote.getIssueDate().toLocalDate());
+        if (dto.getIssueDate() != null) {
+            cierreContableService.verificarPeriodoAbierto(dto.getIssueDate().toLocalDate());
+        }
 
         if (!"PENDIENTE".equals(creditNote.getCreditNoteStatus())) {
             throw new BusinessRuleException("Solo se pueden editar notas de crédito en estado PENDIENTE.");

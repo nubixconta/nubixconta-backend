@@ -3,6 +3,7 @@ package com.nubixconta.modules.banks.service;
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.modules.accounting.repository.CollectionEntryRepository;
 import com.nubixconta.modules.accounting.service.BankEntryService;
+import com.nubixconta.modules.accounting.service.CierreContableService;
 import com.nubixconta.modules.accountsreceivable.entity.CollectionDetail;
 import com.nubixconta.modules.accountsreceivable.repository.CollectionDetailRepository;
 import com.nubixconta.modules.administration.entity.Company;
@@ -44,7 +45,7 @@ public class TransactionBankService {
     private final ModelMapper mapper = new ModelMapper();
     private final BankEntryService bankEntryService;
     private final CompanyRepository companyRepository;
-
+    private final CierreContableService cierreContableService;
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     public Integer getCompanyIdFromContext() {
@@ -125,6 +126,7 @@ public class TransactionBankService {
     public TransactionBankDTO createFullTransaction(TransactionBankCreateRequestDTO requestDto) {
         Integer companyId = getCompanyIdFromContext();
 
+        cierreContableService.verificarPeriodoAbierto(requestDto.getTransactionDate());
         // 1. Validación de número de referencia (sin cambios)
         if (repository.existsByReceiptNumber(requestDto.getReceiptNumber())) {
             throw new IllegalArgumentException("El número de referencia '" + requestDto.getReceiptNumber() + "' ya existe para esta empresa.");
@@ -202,6 +204,11 @@ public class TransactionBankService {
         TransactionBank entity = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Transacción no encontrada"));
 
+        LocalDate fechaAValidar = (dto.getTransactionDate() != null)
+                ? dto.getTransactionDate()
+                : entity.getTransactionDate();
+        cierreContableService.verificarPeriodoAbierto(fechaAValidar);
+
         if (!"PENDIENTE".equalsIgnoreCase(entity.getAccountingTransactionStatus())) {
             throw new IllegalStateException("Solo se pueden editar transacciones pendientes");
         }
@@ -275,6 +282,8 @@ public class TransactionBankService {
     public TransactionBankDTO applyTransaction(Integer id) {
         TransactionBank entity = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Transacción no encontrada"));
+
+        cierreContableService.verificarPeriodoAbierto(entity.getTransactionDate());
 
         if (!"PENDIENTE".equalsIgnoreCase(entity.getAccountingTransactionStatus())) {
             throw new IllegalStateException("Solo se pueden aplicar transacciones pendientes");
