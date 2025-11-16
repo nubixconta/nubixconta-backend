@@ -1,9 +1,6 @@
 package com.nubixconta.modules.accounting.controller;
 
-import com.nubixconta.modules.accounting.dto.reports.BalanzaComprobacionLineaDTO;
-import com.nubixconta.modules.accounting.dto.reports.EstadoResultadosResponseDTO;
-import com.nubixconta.modules.accounting.dto.reports.LibroDiarioMovimientoDTO;
-import com.nubixconta.modules.accounting.dto.reports.LibroMayorCuentaDTO;
+import com.nubixconta.modules.accounting.dto.reports.*;
 import com.nubixconta.modules.accounting.entity.GeneralLedgerView;
 import com.nubixconta.modules.accounting.service.FinancialReportService;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +58,13 @@ public class FinancialReportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
         return ResponseEntity.ok(reportService.getEstadoDeResultados(startDate, endDate));
+    }
+
+    @GetMapping("/balance-general")
+    public ResponseEntity<BalanceGeneralResponseDTO> getBalanceGeneral(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        // El Balance General es una foto a una fecha de corte. Solo necesita la fecha final.
+        return ResponseEntity.ok(reportService.getBalanceGeneral(endDate));
     }
 
 }
