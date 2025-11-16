@@ -2,6 +2,7 @@ package com.nubixconta.modules.sales.service;
 
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
+import com.nubixconta.modules.accounting.service.CierreContableService;
 import com.nubixconta.modules.accounting.service.SalesAccountingService;
 import com.nubixconta.modules.accountsreceivable.service.AccountsReceivableService;
 import com.nubixconta.modules.administration.entity.Company;
@@ -46,6 +47,7 @@ public class CreditNoteService {
     private final CompanyRepository companyRepository;
     private final ChangeHistoryService changeHistoryService;
     private final AccountsReceivableService accountsReceivableService;
+    private final CierreContableService cierreContableService;
 
     // Helper privado para obtener el contexto de la empresa de forma segura y consistente.
     private Integer getCompanyIdFromContext() {
@@ -88,6 +90,7 @@ public class CreditNoteService {
     @Transactional
     public CreditNoteResponseDTO createCreditNote(CreditNoteCreateDTO dto) {
         Integer companyId = getCompanyIdFromContext();
+        cierreContableService.verificarPeriodoAbierto(dto.getIssueDate().toLocalDate());
         // 1. Validar unicidad del número de documento
         if (creditNoteRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe una nota de crédito con el número de documento: " + dto.getDocumentNumber());
@@ -229,6 +232,8 @@ public class CreditNoteService {
     public CreditNoteResponseDTO updateCreditNote(Integer id, CreditNoteUpdateDTO dto) {
         CreditNote creditNote = creditNoteRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Nota de crédito con ID " + id + " no encontrada."));
+
+        cierreContableService.verificarPeriodoAbierto(creditNote.getIssueDate().toLocalDate());
 
         // 1. Validar que la nota de crédito esté en estado PENDIENTE
         if (!"PENDIENTE".equals(creditNote.getCreditNoteStatus())) {
