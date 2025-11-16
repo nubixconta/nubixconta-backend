@@ -43,6 +43,8 @@ public class CollectionEntryService {
     private final CollectionDetailService collectionDetailService;
     private final PaymentEntryRepository paymentEntryRepository;
     private final PaymentDetailsRepository paymentDetailsRepository;
+    private final CierreContableService cierreContableService;
+
     @Autowired
     public CollectionEntryService(CollectionEntryRepository entryRepository,
                                   AccountRepository accountRepository,
@@ -52,7 +54,7 @@ public class CollectionEntryService {
                                   CollectionDetailService collectionDetailService,
                                   SaleRepository saleRepository,
                                   PaymentEntryRepository paymentEntryRepository,
-                                  PaymentDetailsRepository paymentDetailsRepository) {
+                                  PaymentDetailsRepository paymentDetailsRepository,CierreContableService cierreContableService) {
         this.entryRepository = entryRepository;
         this.accountRepository = accountRepository;
         this.catalogRepository = catalogRepository;
@@ -62,6 +64,7 @@ public class CollectionEntryService {
         this.collectionDetailService = collectionDetailService;
         this.paymentEntryRepository = paymentEntryRepository;
         this.paymentDetailsRepository = paymentDetailsRepository;
+        this.cierreContableService=cierreContableService;
     }
 
     // Este metodo mapea en el dto el numero de documento, el nombre del cliente de Sale
@@ -154,6 +157,8 @@ public class CollectionEntryService {
         // NOTA: detail.getAccountId() es el ID de la cuenta bancaria maestra asociada al detalle
         Catalog bankCatalog = findCatalog( companyId,detail.getAccountId());
 
+
+        cierreContableService.verificarPeriodoAbierto(detail.getCollectionDetailDate().toLocalDate());
 
         // Cuenta de cliente (ahora usando el servicio)
         Integer clientAccountId = getClientAccount().getId();
