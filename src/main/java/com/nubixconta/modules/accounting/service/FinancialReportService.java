@@ -1,5 +1,6 @@
 package com.nubixconta.modules.accounting.service;
-
+import com.nubixconta.modules.accounting.dto.reports.BalanceGeneralLineaDTO;
+import com.nubixconta.modules.accounting.dto.reports.BalanceGeneralResponseDTO;
 import com.nubixconta.modules.accounting.dto.reports.*;
 import com.nubixconta.modules.accounting.dto.reports.JournalMovementDetailDTO;
 import com.nubixconta.modules.accounting.dto.reports.EstadoResultadosLineaDTO;
@@ -313,6 +314,137 @@ public class FinancialReportService {
         response.setReservaLegal(reservaLegal);
         response.setImpuestoSobreLaRenta(impuestoSobreLaRenta);
         response.setUtilidadDelEjercicio(utilidadDelEjercicio);
+
+        return response;
+    }
+
+    // --- REEMPLAZA EL MÉTODO ANTERIOR CON ESTA NUEVA VERSIÓN ---
+    @Transactional(readOnly = true)
+    public BalanceGeneralResponseDTO getBalanceGeneral(LocalDate endDate) {
+        Integer companyId = getCompanyIdFromContext();
+
+        // 1. OBTENER EL SALDO ACUMULADO FINAL DE TODAS LAS CUENTAS.
+        // Esta es la única consulta de agregación que necesitamos. Es muy eficiente.
+        // Se incluyen los movimientos del 'endDate' usando 'plusNanos(1)' para que la fecha sea inclusiva.
+        List<AccountBalanceDTO> saldosFinales = ledgerRepository.getAccumulatedBalancesBefore(
+                companyId,
+                endDate.atTime(LocalTime.MAX).plusNanos(1)
+        );
+
+        // 2. OBTENER INFO DEL CATÁLOGO PARA TODAS LAS CUENTAS CON SALDO.
+        Set<Integer> allAccountIds = saldosFinales.stream()
+                .map(AccountBalanceDTO::getIdCatalog)
+                .collect(Collectors.toSet());
+        Map<Integer, com.nubixconta.modules.accounting.entity.Catalog> catalogMap = catalogRepository.findAllById(allAccountIds)
+                .stream().collect(Collectors.toMap(com.nubixconta.modules.accounting.entity.Catalog::getId, Function.identity()));
+
+        // 3. INICIALIZAR ESTRUCTURAS DE DATOS
+        List<BalanceGeneralLineaDTO> activosCorrientes = new ArrayList<>();
+        List<BalanceGeneralLineaDTO> activosNoCorrientes = new ArrayList<>();
+        List<BalanceGeneralLineaDTO> pasivosCorrientes = new ArrayList<>();
+        List<BalanceGeneralLineaDTO> pasivosNoCorrientes = new ArrayList<>();
+        List<BalanceGeneralLineaDTO> patrimonioList = new ArrayList<>();
+        BigDecimal resultadoDelEjercicio = BigDecimal.ZERO;
+
+        // 4. CLASIFICAR CADA CUENTA Y ACUMULAR EL RESULTADO DEL EJERCICIO
+        for (AccountBalanceDTO saldoDto : saldosFinales) {
+            com.nubixconta.modules.accounting.entity.Catalog catalog = catalogMap.get(saldoDto.getIdCatalog());
+            if (catalog == null || catalog.getAccount() == null) continue;
+
+            String accountType = catalog.getAccount().getAccountType().toUpperCase().trim();
+            BigDecimal saldoFinal = saldoDto.getSaldo();
+
+            // Solo procesamos cuentas con saldo diferente de cero para mantener el reporte limpio
+            if (saldoFinal.compareTo(BigDecimal.ZERO) == 0) {
+                continue;
+            }
+
+            BalanceGeneralLineaDTO linea = new BalanceGeneralLineaDTO();
+            linea.setIdCatalog(saldoDto.getIdCatalog());
+            linea.setAccountCode(catalog.getEffectiveCode());
+            linea.setAccountName(catalog.getEffectiveName());
+
+            if (accountType.startsWith("ACTIVO")) {
+                linea.setSaldoFinal(saldoFinal);
+                if (accountType.startsWith("ACTIVO.CORRIENTE")) activosCorrientes.add(linea);
+                else activosNoCorrientes.add(linea);
+            } else if (accountType.startsWith("PASIVO")) {
+                linea.setSaldoFinal(saldoFinal.negate()); // Convertir a positivo para mostrar
+                if (accountType.startsWith("PASIVO.CORRIENTE")) pasivosCorrientes.add(linea);
+                else pasivosNoCorrientes.add(linea);
+            } else if (accountType.startsWith("PATRIMONIO")) {
+                linea.setSaldoFinal(saldoFinal.negate()); // Convertir a positivo para mostrar
+                patrimonioList.add(linea);
+            } else if (accountType.startsWith("INGRESO") || accountType.startsWith("COSTO") || accountType.startsWith("GASTO")) {
+                // Acumulamos el saldo de todas las cuentas de resultado
+                resultadoDelEjercicio = resultadoDelEjercicio.add(saldoFinal);
+            }
+        }
+
+        // El resultado acumulado es (Costos + Gastos - Ingresos). Lo negamos para obtener (Ingresos - Costos - Gastos).
+        resultadoDelEjercicio = resultadoDelEjercicio.negate();
+
+        // 5. AÑADIR LA LÍNEA DE "UTILIDAD DEL EJERCICIO" A LA SECCIÓN DE PATRIMONIO
+        BalanceGeneralLineaDTO lineaUtilidad = new BalanceGeneralLineaDTO();
+        lineaUtilidad.setAccountCode("3104-03"); // O el código que corresponda a "Utilidad del Ejercicio"
+        lineaUtilidad.setAccountName("Utilidad del Ejercicio");
+        lineaUtilidad.setSaldoFinal(resultadoDelEjercicio);
+        patrimonioList.add(lineaUtilidad);
+
+        // 6. ORDENAR LAS LISTAS
+        activosCorrientes.sort(Comparator.comparing(BalanceGeneralLineaDTO::getAccountCode));
+        activosNoCorrientes.sort(Comparator.comparing(BalanceGeneralLineaDTO::getAccountCode));
+        pasivosCorrientes.sort(Comparator.comparing(BalanceGeneralLineaDTO::getAccountCode));
+        pasivosNoCorrientes.sort(Comparator.comparing(BalanceGeneralLineaDTO::getAccountCode));
+        patrimonioList.sort(Comparator.comparing(BalanceGeneralLineaDTO::getAccountCode));
+
+        // 7. CONSTRUIR LAS CATEGORÍAS DEL DTO DE RESPUESTA
+        BiFunction<List<BalanceGeneralLineaDTO>, Function<BalanceGeneralLineaDTO, BigDecimal>, BigDecimal> sumList =
+                (list, mapper) -> list.stream().map(mapper).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        CategoriaBalanceDTO catActivoCorriente = new CategoriaBalanceDTO();
+        catActivoCorriente.setCuentas(activosCorrientes);
+        catActivoCorriente.setSubtotal(sumList.apply(activosCorrientes, BalanceGeneralLineaDTO::getSaldoFinal));
+
+        CategoriaBalanceDTO catActivoNoCorriente = new CategoriaBalanceDTO();
+        catActivoNoCorriente.setCuentas(activosNoCorrientes);
+        catActivoNoCorriente.setSubtotal(sumList.apply(activosNoCorrientes, BalanceGeneralLineaDTO::getSaldoFinal));
+
+        // ... (Repetir para las demás categorías)
+        CategoriaBalanceDTO catPasivoCorriente = new CategoriaBalanceDTO();
+        catPasivoCorriente.setCuentas(pasivosCorrientes);
+        catPasivoCorriente.setSubtotal(sumList.apply(pasivosCorrientes, BalanceGeneralLineaDTO::getSaldoFinal));
+
+        CategoriaBalanceDTO catPasivoNoCorriente = new CategoriaBalanceDTO();
+        catPasivoNoCorriente.setCuentas(pasivosNoCorrientes);
+        catPasivoNoCorriente.setSubtotal(sumList.apply(pasivosNoCorrientes, BalanceGeneralLineaDTO::getSaldoFinal));
+
+        CategoriaBalanceDTO catPatrimonio = new CategoriaBalanceDTO();
+        catPatrimonio.setCuentas(patrimonioList);
+        catPatrimonio.setSubtotal(sumList.apply(patrimonioList, BalanceGeneralLineaDTO::getSaldoFinal));
+
+        // 8. CALCULAR TOTALES Y CONSTRUIR LA RESPUESTA FINAL
+        BigDecimal totalActivos = catActivoCorriente.getSubtotal().add(catActivoNoCorriente.getSubtotal());
+        BigDecimal totalPasivos = catPasivoCorriente.getSubtotal().add(catPasivoNoCorriente.getSubtotal());
+        BigDecimal totalPatrimonio = catPatrimonio.getSubtotal();
+        BigDecimal totalPasivoYPatrimonio = totalPasivos.add(totalPatrimonio);
+
+        BalanceGeneralResponseDTO response = new BalanceGeneralResponseDTO();
+        response.setActivoCorriente(catActivoCorriente);
+        response.setActivoNoCorriente(catActivoNoCorriente);
+        response.setPasivoCorriente(catPasivoCorriente);
+        response.setPasivoNoCorriente(catPasivoNoCorriente);
+        response.setPatrimonio(catPatrimonio);
+
+        response.setTotalActivos(totalActivos);
+        response.setTotalPasivos(totalPasivos);
+        response.setTotalPatrimonio(totalPatrimonio);
+        response.setTotalPasivoYPatrimonio(totalPasivoYPatrimonio);
+
+        // Comparamos los totales con una escala de 2 decimales para evitar problemas de precisión.
+        boolean isBalanced = totalActivos.setScale(2, RoundingMode.HALF_UP)
+                .equals(totalPasivoYPatrimonio.setScale(2, RoundingMode.HALF_UP));
+        response.setBalanceCuadrado(isBalanced);
 
         return response;
     }
