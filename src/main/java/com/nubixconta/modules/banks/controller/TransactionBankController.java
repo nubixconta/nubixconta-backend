@@ -55,23 +55,33 @@ public class TransactionBankController {
         List<TransactionBankDTO> results = service.listAll(); // <-- Llama al servicio sin parámetros
         return ResponseEntity.ok(results);
     }
+    /**
+     * Busca y filtra transacciones bancarias de forma dinámica.
+     * - Si no se proporcionan parámetros, lista todas las transacciones.
+     * - Permite filtrar por un término en la cuenta (nombre, código, etc.).
+     * - Permite filtrar por un rango de fechas.
+     *
+     * @param query     Término de búsqueda opcional para la cuenta.
+     * @param startDate Fecha de inicio opcional (formato YYYY-MM-DD).
+     * @param endDate   Fecha de fin opcional (formato YYYY-MM-DD).
+     * @return Lista de transacciones que cumplen con los criterios.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<TransactionBankDTO>> searchTransactions(
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(name = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        List<TransactionBankDTO> results = service.searchTransactions(query, startDate, endDate);
+        return ResponseEntity.ok(results);
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<TransactionBankDTO> findById(@PathVariable Integer id) {
         return ResponseEntity.ok(service.findById(id));
     }
-    /**
-     * Filtra transacciones bancarias por el nombre o código de la cuenta bancaria.
-     *
-     * @param accountFilter El término de búsqueda para el nombre o código de la cuenta.
-     * @return Una lista de TransactionBankDTOs que coinciden con el filtro.
-     */
-    @GetMapping("/filter-by-account")
-    public ResponseEntity<List<TransactionBankDTO>> filterByAccount(
-            @RequestParam("accountFilter") String accountFilter) {
-        List<TransactionBankDTO> results = service.findTransactionsByAccountFilter(accountFilter);
-        return ResponseEntity.ok(results);
-    }
+
+
 
 
 }

@@ -92,13 +92,28 @@ public class TransactionBankService {
     }
 
 
-    public List<TransactionBankDTO> findTransactionsByAccountFilter(String accountFilter) {
-        List<TransactionBank> transactions = repository.findByAccountNameOrCodeContainingIgnoreCase(accountFilter);
+    /**
+     * Realiza una búsqueda dinámica de transacciones bancarias.
+     * Delega la lógica de filtrado al método del repositorio con la consulta JPQL.
+     *
+     * @param query     Término de búsqueda para la cuenta (opcional).
+     * @param startDate Fecha de inicio del filtro (opcional).
+     * @param endDate   Fecha de fin del filtro (opcional).
+     * @return Una lista de DTOs de las transacciones encontradas.
+     */
+    @Transactional(readOnly = true)
+    public List<TransactionBankDTO> searchTransactions(String query, LocalDate startDate, LocalDate endDate) {
+        // Llama al nuevo método del repositorio que contiene la consulta dinámica.
+
+
+
+        List<TransactionBank> transactions = repository.searchTransactionsDynamically(query, startDate, endDate);
+
+        // Mapea los resultados a DTOs como ya lo hacías.
         return transactions.stream()
-                .map(this::mapToDTO) // Usa tu método de mapeo de entidad a DTO
+                .map(this::mapToDTO) // Reutiliza tu método de mapeo existente
                 .collect(Collectors.toList());
     }
-
 
     /**
      * Crea una nueva transacción bancaria completa (encabezado y asientos de detalle).
@@ -110,11 +125,48 @@ public class TransactionBankService {
     public TransactionBankDTO createFullTransaction(TransactionBankCreateRequestDTO requestDto) {
         Integer companyId = getCompanyIdFromContext();
 
-        // Validar que el número de referencia no exista
+        // 1. Validación de número de referencia (sin cambios)
         if (repository.existsByReceiptNumber(requestDto.getReceiptNumber())) {
             throw new IllegalArgumentException("El número de referencia '" + requestDto.getReceiptNumber() + "' ya existe para esta empresa.");
         }
 
+        // 2. Validación de que haya asientos (sin cambios)
+        if (requestDto.getBankEntries() == null || requestDto.getBankEntries().isEmpty()) {
+            throw new IllegalArgumentException("La transacción debe contener al menos un asiento contable.");
+        }
+
+        // --- INICIO DE LA MODIFICACIÓN ---
+
+        // 3. Calcular los totales de débitos y créditos a partir de los asientos del DTO
+        BigDecimal totalDebits = BigDecimal.ZERO;
+        BigDecimal totalCredits = BigDecimal.ZERO;
+
+        for (BankEntryDTO entryDto : requestDto.getBankEntries()) {
+            if (entryDto.getDebit() != null) {
+                totalDebits = totalDebits.add(entryDto.getDebit());
+            }
+            if (entryDto.getCredit() != null) {
+                totalCredits = totalCredits.add(entryDto.getCredit());
+            }
+        }
+
+        // 4. (RECOMENDADO) Validar que la transacción cumpla la partida doble
+        if (totalDebits.compareTo(totalCredits) != 0) {
+            throw new IllegalStateException("La transacción no está balanceada: la suma de débitos (" + totalDebits + ") " +
+                    "no es igual a la suma de créditos (" + totalCredits + ").");
+        }
+
+        // 5. El totalAmount es el total de los débitos (o créditos, ya que son iguales)
+        BigDecimal calculatedTotalAmount = totalDebits;
+
+        // 6. Validar que el monto total calculado sea mayor que cero
+        if (calculatedTotalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto total de la transacción debe ser mayor que cero.");
+        }
+
+        // --- FIN DE LA MODIFICACIÓN ---
+
+        // 7. Crear y configurar la entidad TransactionBank
         TransactionBank transactionBank = new TransactionBank();
         transactionBank.setTransactionDate(requestDto.getTransactionDate());
         transactionBank.setTransactionType(requestDto.getTransactionType());
@@ -122,30 +174,23 @@ public class TransactionBankService {
         transactionBank.setDescription(requestDto.getDescription());
         transactionBank.setAccountingTransactionStatus("PENDIENTE");
         transactionBank.setModuleType("BANCOS");
-        if (requestDto.getTotalAmount() == null) {
-            transactionBank.setTotalAmount(BigDecimal.ZERO);
-        } else {
-            transactionBank.setTotalAmount(requestDto.getTotalAmount());
-        }
+
+        // Asignar el monto calculado, que es independiente del tipo de transacción
+        transactionBank.setTotalAmount(calculatedTotalAmount); // <--- CAMBIO CLAVE
 
         Company companyRef = companyRepository.getReferenceById(companyId);
         transactionBank.setCompany(companyRef);
 
+        // 8. Guardar la transacción principal
         TransactionBank savedTransactionBank = repository.save(transactionBank);
 
-        // Validar que haya asientos
-        if (requestDto.getBankEntries() == null || requestDto.getBankEntries().isEmpty()) {
-            throw new IllegalArgumentException("La transacción debe contener al menos un asiento contable.");
-        }
-
+        // 9. Crear y asociar los asientos contables (sin cambios en esta parte)
         for (BankEntryDTO entryDto : requestDto.getBankEntries()) {
             entryDto.setTransactionBankId(savedTransactionBank.getIdBankTransaction());
-            // Llama a createEntry, que ahora NO recalculará el total de la TransactionBank.
             bankEntryService.createEntry(entryDto);
-            // Ya no sumamos `finalTotalAmount` aquí porque no queremos que el backend lo recalcule ni lo actualice.
         }
 
-
+        // 10. Cargar y retornar el DTO completo
         TransactionBank fullyLoadedTransaction = repository.findById(savedTransactionBank.getIdBankTransaction())
                 .orElseThrow(() -> new EntityNotFoundException("Transacción no encontrada después de la creación."));
 
