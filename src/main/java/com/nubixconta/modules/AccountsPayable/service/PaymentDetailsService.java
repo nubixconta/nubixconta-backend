@@ -8,6 +8,7 @@ import com.nubixconta.modules.AccountsPayable.entity.AccountsPayable;
 import com.nubixconta.modules.AccountsPayable.entity.PaymentDetails;
 import com.nubixconta.modules.AccountsPayable.repository.AccountsPayableRepository;
 import com.nubixconta.modules.AccountsPayable.repository.PaymentDetailsRepository;
+import com.nubixconta.modules.accounting.service.CierreContableService;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
 import com.nubixconta.modules.administration.service.ChangeHistoryService;
@@ -35,6 +36,7 @@ public class PaymentDetailsService {
     private final ModelMapper modelMapper;
     private ChangeHistoryService changeHistoryService;
     private final CompanyRepository companyRepository;
+    private final CierreContableService cierreContableService;
 
     @Autowired
     private AccountsPayableRepository accountsPayableRepository;
@@ -43,13 +45,14 @@ public class PaymentDetailsService {
                                  PurchaseRepository purchaseRepository,
                                  ChangeHistoryService changeHistoryService,
                                  CompanyRepository companyRepository,
-                                 ModelMapper modelMapper
+                                 ModelMapper modelMapper,CierreContableService cierreContableService
     ) {
         this.repository = repository;
         this.purchaseRepository = purchaseRepository;
         this.changeHistoryService = changeHistoryService;
         this.modelMapper = modelMapper;
         this.companyRepository = companyRepository;
+        this.cierreContableService=cierreContableService;
     }
 
 
@@ -144,6 +147,8 @@ public class PaymentDetailsService {
     public PaymentDetails makePayment(PaymentDetailsCreateDTO dto) {
         Integer purchaseId = dto.getIdPurchase();
         Integer companyId = getCompanyIdFromContext();
+
+        cierreContableService.verificarPeriodoAbierto(dto.getPaymentDetailsDate().toLocalDate());
 
         Purchase purchase = purchaseRepository.findByIdPurchaseAndCompanyId(purchaseId, companyId)
                 .orElseThrow(() -> new EntityNotFoundException("Compra no encontrada o no pertenece a la empresa actual."));
