@@ -118,7 +118,7 @@ public class CollectionEntryService {
 
     //Filra solo las cuenta de ACTIVO-BANCO
     public List<AccountBankResponseDTO> findBankAccounts() {
-        List<Account> accounts = accountRepository.findByAccountType("ACTIVO-BANCO");
+        List<Account> accounts = accountRepository.findByAccountType("ACTIVO.CORRIENTE.EFECTIVO.BANCOS");
         return accounts.stream()
                 .map(account -> mapper.map(account,AccountBankResponseDTO.class)) // convertir a DTO
                 .toList();
@@ -253,7 +253,7 @@ public class CollectionEntryService {
                 .filter(entry ->
                         entry.getCatalog() != null &&
                                 entry.getCatalog().getAccount() != null &&
-                                "ACTIVO-BANCO".equals(entry.getCatalog().getAccount().getAccountType())
+                                "ACTIVO.CORRIENTE.EFECTIVO.BANCOS".equals(entry.getCatalog().getAccount().getAccountType())
                 )
                 .map(entry -> {
                     CollectionEntryFronBankResponseDTO dto = new CollectionEntryFronBankResponseDTO();
@@ -284,7 +284,7 @@ public class CollectionEntryService {
                 .filter(entry ->
                         entry.getCatalog() != null &&
                                 entry.getCatalog().getAccount() != null &&
-                                "ACTIVO-BANCO".equals(entry.getCatalog().getAccount().getAccountType())
+                                "ACTIVO.CORRIENTE.EFECTIVO.BANCOS".equals(entry.getCatalog().getAccount().getAccountType())
                 )
                 .map(entry -> {
                     CollectionEntryFronBankResponseDTO dto = new CollectionEntryFronBankResponseDTO();
