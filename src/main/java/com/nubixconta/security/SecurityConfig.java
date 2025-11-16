@@ -20,28 +20,19 @@ import java.util.Arrays;
 @Configuration
 public class SecurityConfig {
 
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ forma moderna
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/login").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
-                .requestMatchers("/api/v1/users/**").authenticated()
-                .requestMatchers("/api/v1/accounts-receivable/**").authenticated()
-                .requestMatchers("/api/v1/collection-detail/**").authenticated()
-                .requestMatchers("/api/v1/collection-entry/**").authenticated()
-                .requestMatchers("/api/v1/sales/**").authenticated()
-                .requestMatchers("/api/v1/customers/**").authenticated()
-                .requestMatchers("/api/v1/credit-notes/**").authenticated()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // permite preflight
+                .authorizeHttpRequests(auth -> auth
+                        // Endpoints Públicos (no requieren autenticación)
                         .requestMatchers("/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Permite solicitudes OPTIONS (preflight) de CORS
+
+                        // Endpoints Protegidos (requieren autenticación)
                         .requestMatchers("/api/v1/users/**").authenticated()
                         .requestMatchers("/api/v1/companies/**").authenticated()
                         .requestMatchers("/api/v1/bank-transactions/**").authenticated()
@@ -51,11 +42,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/sales/**").authenticated()
                         .requestMatchers("/api/v1/customers/**").authenticated()
                         .requestMatchers("/api/v1/credit-notes/**").authenticated()
-                .anyRequest().permitAll()
-            )
-            .addFilterBefore(new JwtFilter(), UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(new JwtFilter(), UsernamePasswordAuthenticationFilter.class);
 
+                        // Cualquier otra solicitud no definida debe estar permitida (según tu código original)
+                        .anyRequest().permitAll()
+                )
+                .addFilterBefore(new JwtFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -63,22 +54,19 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-                config.setAllowedOrigins(Arrays.asList(
-            "http://localhost:5173",              // para desarrollo local
-            "https://nubixconta.netlify.app",
-                        "https://2c07ffe7cc33.ngrok-free.app"
-                        // para producción en Netlify
+        config.setAllowedOrigins(Arrays.asList(
+                "http://localhost:5173",
+                "https://nubixconta.netlify.app",
+                "https://2c07ffe7cc33.ngrok-free.app"
         ));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));
-        config.setExposedHeaders(Arrays.asList("Authorization")); // útil para JWT
-        config.setAllowCredentials(true); // si usas cookies o headers con auth
+        config.setExposedHeaders(Arrays.asList("Authorization"));
+        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }
 }
-
-
 

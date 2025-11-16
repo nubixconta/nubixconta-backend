@@ -5,6 +5,7 @@ import com.nubixconta.common.exception.NotFoundException;
 import com.nubixconta.modules.AccountsPayable.service.AccountsPayableService;
 import com.nubixconta.modules.accounting.entity.Catalog;
 import com.nubixconta.modules.accounting.service.CatalogService; // <-- ¡NUEVA DEPENDENCIA!
+import com.nubixconta.modules.accounting.service.CierreContableService;
 import com.nubixconta.modules.accounting.service.PurchasesAccountingService;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
@@ -53,6 +54,7 @@ public class PurchaseService {
     private final PurchasesAccountingService purchasesAccountingService;
     private final PurchaseCreditNoteRepository purchaseCreditNoteRepository;
     private final AccountsPayableService accountsPayableService;
+    private final CierreContableService cierreContableService;
 
     // Helper para obtener el companyId de forma segura
     private Integer getCompanyIdFromContext() {
@@ -162,6 +164,8 @@ public class PurchaseService {
     public PurchaseResponseDTO createPurchase(PurchaseCreateDTO dto) {
         Integer companyId = getCompanyIdFromContext();
 
+        cierreContableService.verificarPeriodoAbierto(dto.getIssueDate().toLocalDate());
+
         // --- VALIDACIONES DE NEGOCIO (RÉPLICA DE VENTAS) ---
         if (purchaseRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
             throw new BusinessRuleException("Ya existe una compra con el número de documento: " + dto.getDocumentNumber());
@@ -226,6 +230,11 @@ public class PurchaseService {
         // 2. Buscar la compra que vamos a actualizar.
         Purchase purchase = purchaseRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Compra con ID " + id + " no encontrada para actualizar."));
+
+        cierreContableService.verificarPeriodoAbierto(purchase.getIssueDate().toLocalDate());
+        if (dto.getIssueDate() != null) {
+            cierreContableService.verificarPeriodoAbierto(dto.getIssueDate().toLocalDate());
+        }
 
         // 3. REGLA DE NEGOCIO: Solo se pueden editar compras PENDIENTES.
         if (!"PENDIENTE".equals(purchase.getPurchaseStatus())) {
@@ -371,6 +380,8 @@ public class PurchaseService {
     public PurchaseResponseDTO applyPurchase(Integer purchaseId) {
         Purchase purchase = purchaseRepository.findById(purchaseId)
                 .orElseThrow(() -> new NotFoundException("Compra con ID " + purchaseId + " no encontrada."));
+
+        cierreContableService.verificarPeriodoAbierto(purchase.getIssueDate().toLocalDate());
 
         if (!"PENDIENTE".equals(purchase.getPurchaseStatus())) {
             throw new BusinessRuleException("La compra solo puede ser aplicada si su estado es PENDIENTE.");

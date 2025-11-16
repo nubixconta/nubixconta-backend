@@ -3,6 +3,7 @@ package com.nubixconta.modules.purchases.service;
 import com.nubixconta.common.exception.BusinessRuleException;
 import com.nubixconta.common.exception.NotFoundException;
 import com.nubixconta.modules.AccountsPayable.service.AccountsPayableService;
+import com.nubixconta.modules.accounting.service.CierreContableService;
 import com.nubixconta.modules.accounting.service.PurchasesAccountingService;
 import com.nubixconta.modules.administration.entity.Company;
 import com.nubixconta.modules.administration.repository.CompanyRepository;
@@ -36,6 +37,7 @@ public class IncomeTaxService {
     private final CompanyRepository companyRepository;
     private final ModelMapper modelMapper;
     private final ChangeHistoryService changeHistoryService;
+    private final CierreContableService cierreContableService;
 
     // --- PUNTOS DE INTEGRACIÓN (SERVICIOS EXTERNOS) ---
     private final PurchasesAccountingService purchasesAccountingService;
@@ -54,6 +56,8 @@ public class IncomeTaxService {
     @Transactional
     public IncomeTaxResponseDTO createIncomeTax(IncomeTaxCreateDTO dto) {
         Integer companyId = getCompanyIdFromContext();
+
+        cierreContableService.verificarPeriodoAbierto(dto.getIssueDate().toLocalDate());
 
         // 1. Validaciones de Negocio
         if (incomeTaxRepository.existsByCompany_IdAndDocumentNumber(companyId, dto.getDocumentNumber())) {
@@ -116,6 +120,7 @@ public class IncomeTaxService {
         Integer companyId = getCompanyIdFromContext();
         IncomeTax incomeTax = incomeTaxRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Retención de ISR con ID " + id + " no encontrada."));
+        cierreContableService.verificarPeriodoAbierto(incomeTax.getIssueDate().toLocalDate());
 
         if (!"PENDIENTE".equals(incomeTax.getIncomeTaxStatus())) {
             throw new BusinessRuleException("Solo se pueden editar retenciones en estado PENDIENTE.");

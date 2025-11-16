@@ -34,6 +34,7 @@ public class TransactionAccountingService {
     private final CompanyRepository companyRepository;
     private final CatalogService catalogService;
     private final ModelMapper modelMapper;
+    private final CierreContableService cierreContableService;
 
     private Integer getCompanyIdFromContext() {
         return TenantContext.getCurrentTenant()
@@ -97,6 +98,8 @@ public class TransactionAccountingService {
         Company company = companyRepository.getReferenceById(companyId);
 
         // 1. Validaciones de negocio
+        cierreContableService.verificarPeriodoAbierto(dto.getTransactionDate().toLocalDate());
+
         BigDecimal totalDebe = validatePartidaDoble(dto);
 
         // 2. Mapeo de DTO a Entidad
@@ -134,6 +137,11 @@ public class TransactionAccountingService {
         Integer companyId = getCompanyIdFromContext();
         TransactionAccounting transaction = transactionRepository.findByIdAndCompanyId(transactionId, companyId)
                 .orElseThrow(() -> new NotFoundException("Transacción contable con ID " + transactionId + " no encontrada."));
+
+        LocalDate fechaAValidar = (dto.getTransactionDate() != null)
+                ? dto.getTransactionDate().toLocalDate()
+                : transaction.getTransactionDate().toLocalDate();
+        cierreContableService.verificarPeriodoAbierto(fechaAValidar);
 
         // REGLA 1: Solo se pueden editar transacciones PENDIENTES.
         if (transaction.getStatus() != AccountingTransactionStatus.PENDIENTE) {
@@ -206,6 +214,8 @@ public class TransactionAccountingService {
         Integer companyId = getCompanyIdFromContext();
         TransactionAccounting transaction = transactionRepository.findByIdAndCompanyId(transactionId, companyId)
                 .orElseThrow(() -> new NotFoundException("Transacción contable con ID " + transactionId + " no encontrada."));
+
+        cierreContableService.verificarPeriodoAbierto(transaction.getTransactionDate().toLocalDate());
 
         if (transaction.getStatus() != AccountingTransactionStatus.PENDIENTE) {
             throw new BusinessRuleException("Solo se pueden aplicar transacciones en estado PENDIENTE.");
