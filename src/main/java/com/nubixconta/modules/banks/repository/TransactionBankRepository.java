@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -29,18 +30,32 @@ public interface TransactionBankRepository extends JpaRepository<TransactionBank
     Optional<TransactionBank> findByReceiptNumber(String receiptNumber);
 
     /**
-     * Busca transacciones bancarias por un término de búsqueda en el nombre de la cuenta
-     * o en el código generado de la cuenta asociada a la BankEntry.
-     * El término de búsqueda es case-insensitive.
+     * Busca transacciones de forma dinámica.
+     * Los filtros se aplican solo si los parámetros no son nulos.
      *
-     * @param searchTerm El término a buscar en accountName o generatedCode.
-     * @return Una lista de TransactionBank que cumplen con el criterio.
+     * @param query     Término de búsqueda opcional para nombre, código o nombre personalizado de la cuenta.
+     * @param startDate Fecha de inicio opcional para el rango de búsqueda.
+     * @param endDate   Fecha de fin opcional para el rango de búsqueda.
+     * @return Lista de transacciones que coinciden con los filtros aplicados.
      */
     @Query("SELECT DISTINCT tb FROM TransactionBank tb " +
-            "JOIN tb.bankEntries be " +
-            "JOIN be.idCatalog c " +
-            "JOIN c.account a " +
-            "WHERE LOWER(a.accountName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
-            "OR LOWER(a.generatedCode) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
-    List<TransactionBank> findByAccountNameOrCodeContainingIgnoreCase(@Param("searchTerm") String searchTerm);
+            "LEFT JOIN tb.bankEntries be " + // Usamos LEFT JOIN por si una transacción no tiene asientos aún
+            "LEFT JOIN be.idCatalog c " +
+            "LEFT JOIN c.account a " +
+            "WHERE " +
+            // Condición para el término de búsqueda (se ignora si es nulo o vacío)
+            "(:query IS NULL OR :query = '' OR " +
+            "    LOWER(a.accountName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "    LOWER(a.generatedCode) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "    LOWER(c.customName) LIKE LOWER(CONCAT('%', :query, '%'))) " +
+            "AND " +
+            // Condición para la fecha de inicio (se ignora si es nula)
+            "(:startDate IS NULL OR tb.transactionDate >= :startDate) " +
+            "AND " +
+            // Condición para la fecha de fin (se ignora si es nula)
+            "(:endDate IS NULL OR tb.transactionDate <= :endDate)")
+    List<TransactionBank> searchTransactionsDynamically(
+            @Param("query") String query,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }
